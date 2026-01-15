@@ -4,27 +4,43 @@ html {
 }
 
 /* --- THEME DEFINITIONS --- */
+/* --- THEME DEFINITIONS --- */
 :root {
-    --bg-dark: #2e2e2e;
-    --bg-medium: #3c3c3c;
-    --bg-light: #4a4a4a;
+    /* LOGO PALETTE MAPPING */
+    /* Main Background (Logo Dark) */
+    --bg-dark: #1F2329; 
+    /* Card/Panel Background (Calculated mid-tone between Logo Dark and Logo Grey) */
+    --bg-medium: #2e343d; 
+    /* Lighter Elements/Borders (Logo Medium Grey) */
+    --bg-light: #454a52; 
+    
     --text-light: #ffffff;
     --text-medium: #b0b0b0;
-    --primary-blue: #4a90e2;
+    
+    /* BRAND COLOR (Logo Gold) - Replaces primary-blue */
+    --primary-blue: #b38c62; 
+    
     --danger-red: #e74c3c;
     --secondary-gray: #6d6d6d;
-    --border-color: #5a5a5a;
-    --completed-color: #98ff98;
+    --border-color: #454a52; /* Matched to lighter grey for subtle borders */
+    
+    /* Adjusted secondary colors to match the gold tone better */
+    --completed-color: #98ff98; 
     --warning-yellow: #f1c40f;
     --meeting-purple: #8A2BE2;
-    --gradient-start: #3a3a3a;
-    --gradient-end: #2a2a2a;
+    
+    /* Gradient based on Logo Dark */
+    --gradient-start: #1F2329;
+    --gradient-end: #181b20;
+    
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.5);
     --shadow-strong: rgba(0, 0, 0, 0.7);
     --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    
     --logo-primary-color: var(--primary-blue);
     --logo-secondary-color: var(--text-light);
+    
     --warning-bg: #4d441a;
     --warning-text: #ffeb99;
     --warning-hover-bg: #6b5f25;
@@ -32,22 +48,21 @@ html {
     --error-color: #dc3545;
 }
 
-/* Dark Theme */
+/* Dark Theme (Explicit Overrides) */
 body.theme-dark {
-    /* These variables are already defined in :root, only override if different values */
-    --bg-dark: #2e2e2e;
-    --bg-medium: #3c3c3c;
-    --bg-light: #4a4a4a;
+    --bg-dark: #1F2329;
+    --bg-medium: #2e343d;
+    --bg-light: #454a52;
     --text-light: #ffffff;
     --text-medium: #b0b0b0;
-    --primary-blue: #4a90e2;
+    --primary-blue: #b38c62; /* Gold */
     --danger-red: #e74c3c;
     --secondary-gray: #6d6d6d;
-    --border-color: #5a5a5a;
+    --border-color: #454a52;
     --completed-color: #98ff98;
     --warning-yellow: #f1c40f;
-    --gradient-start: #3a3a3a;
-    --gradient-end: #2a2a2a;
+    --gradient-start: #1F2329;
+    --gradient-end: #181b20;
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.5);
     --shadow-strong: rgba(0, 0, 0, 0.7);
@@ -63,48 +78,53 @@ body.theme-dark {
 }
 
 /* Light Theme */
-/* Add or modify these rules in your style.css file */
-
-/* Light Theme Specific Styles */
 body.theme-light {
-    /* Existing light theme variables and styles */
-    --bg-dark: #e0e0e0;
-    --bg-medium: #f0f0f0;
-    --bg-light: #ffffff;
-    --text-color: #333333;
-    --primary-blue: #3b82f6;
-    --secondary-gray: #6b7280;
-    --danger-red: #ef4444;
-    --warning-yellow: #f59e0b;
-    --completed-color: #22c55e;
-    --meeting-purple: #8b5cf6;
-    --border-color: #d1d5db;
+    --bg-dark: #f0f2f5; /* Keep standard light grey for main background */
+    --bg-medium: #ffffff; /* White cards */
+    --bg-light: #e9ecef;
+    
+    /* Text colors mapped to the Logo Dark for high contrast */
+    --text-light: #1F2329; 
+    --text-medium: #454a52; 
+    
+    /* The Gold Brand Color */
+    --primary-blue: #b38c62; 
+    
+    --secondary-gray: #6c757d;
+    --danger-red: #dc3545;
+    --warning-yellow: #ffc107;
+    --completed-color: #28a745;
+    --meeting-purple: #6A0DAD;
+    --border-color: #dee2e6;
+    
     --input-bg: #ffffff;
     --input-border: #d1d5db;
-    --input-focus-border: #93c5fd;
-    --list-item-hover: #e5e7eb; /* Light grey for hover in light mode */
-    --selected-item-bg: #bfdbfe; /* Light blue for selected item in light mode */
+    --input-focus-border: #b38c62; /* Focus ring uses Gold */
+    
+    --list-item-hover: #e5e7eb;
+    --selected-item-bg: #eaddcf; /* Light gold/beige tint for selection */
     --shadow-color: rgba(0, 0, 0, 0.1);
 
-    /* NEW: Button text color for light theme */
+    /* Button adjustments for Gold contrast */
     .btn-primary {
-        color: white; /* Ensures primary button text is white in light theme */
+        color: white; 
+        background-color: var(--primary-blue);
+    }
+    
+    .btn-primary:hover {
+        /* Darken the gold slightly on hover */
+        background-color: #a37c52; 
     }
 
     .btn-secondary {
-        color: white; /* Ensures secondary button text is white in light theme */
+        color: white; 
     }
     
-    .btn-primary:active {
-        color: white; /* Ensures primary button text is white when active in light theme */
-    }
-
-    /* You might want to add similar rules for other active/hover states if they use black text */
-    .btn-secondary:active {
-        color: white; /* Example for secondary active state */
+    /* Override list item selection shadow to match gold */
+    .list-item.selected {
+        box-shadow: inset 3px 0 0 0 var(--primary-blue);
     }
 }
-
 
 
 
