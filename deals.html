@@ -2,10 +2,10 @@
 <html lang="en">
 
 <head>
-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+    <meta name="description" content="TenWorks CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>TenWorks CRM</title>
+    <title>TenWorks Deals</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script> 
 </head>
 
-<body>
+<body class="theme-dark">
     <div class="crm-container">
         <nav class="nav-sidebar">
             <div data-svg-loader="assets/logo.svg"></div>
@@ -25,7 +25,7 @@
                 <div id="global-search-results" class="global-search-results hidden"></div>
             </div>
 
-            <a href="command-center.html" class="nav-button">Command Center</a>
+            <a href="command-center.html" class="nav-button">Fabrication Shop</a>
             <a href="deals.html" class="nav-button active">Deals</a>
             <a href="contacts.html" class="nav-button">Contacts</a>
             <a href="accounts.html" class="nav-button">Accounts</a>
@@ -59,9 +59,6 @@
                         <span id="user-name-display">Loading...</span>
                     </div>
                     <div id="user-menu-popup" class="user-menu-popup">
-                        <button id="theme-toggle-btn" class="nav-button">
-                            Theme: <span id="theme-name">Dark</span>
-                        </button>
                         <a href="user-guide.html" class="nav-button">User Guide</a>
                         <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
                     </div>
@@ -121,9 +118,9 @@
                                     <th data-sort="term" class="sortable">Term <span></span></th>
                                     <th data-sort="account_name" class="sortable">Account Name <span></span></th>
                                     <th data-sort="stage" class="sortable">Stage <span></span></th>
-                                    <th data-sort="mrc" class="sortable">MRC <span></span></th>
+                                    <th data-sort="mrc" class="sortable">Project Value <span></span></th>
                                     <th data-sort="close_month" class="sortable">Close Month <span></span></th>
-                                    <th data-sort="products" class="sortable">Products <span></span></th>
+                                    <th data-sort="products" class="sortable">Job Details <span></span></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -132,19 +129,16 @@
                     </div>
                 </div>
 
-             <div id="kanban-board-view" class="kanban-board-container hidden">
-                    </div>
+                <div id="kanban-board-view" class="kanban-board-container hidden"></div>
 
-              <div class="deals-table-options">
-  
-  <div class="checkbox-label-group">
-    <input type="checkbox" id="show-closed-lost-check">
-    <label for="show-closed-lost-check">Show Closed Lost</label>
-  </div>
-  
-</div>
+                <div class="deals-table-options">
+                    <div class="checkbox-label-group">
+                        <input type="checkbox" id="show-closed-lost-check">
+                        <label for="show-closed-lost-check">Show Closed Lost</label>
+                    </div>
+                </div>
 
-                <div class="deals-charts-section">
+                <div class="deals-charts-section">
                     <hr> <h3>Deal Insights</h3>
                     <div class="charts-grid">
                         <div class="chart-container" id="deals-by-stage-chart-container">
@@ -167,25 +161,16 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </main>
     </div>
-   <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div id="modal-backdrop" class="modal-backdrop hidden">
         <div class="modal-content">
             <h3 id="modal-title"></h3>
             <div id="modal-body"></div>
-            <div id="modal-actions" class="modal-actions">
-                </div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
-    <script>
-    // This script runs synchronously to apply the theme before the page renders
-    (function() {
-        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
-        document.body.className = `theme-${savedTheme}`;
-    })();
-    </script>
     <script type="module" src="js/deals.js"></script>
 </body>
 </html>
