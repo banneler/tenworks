@@ -83,139 +83,6 @@ body.theme-dark {
     --error-color: #dc3545;
 }
 
-/* Light Theme */
-body.theme-light {
-    --bg-dark: #f0f2f5; /* Keep standard light grey for main background */
-    --bg-medium: #ffffff; /* White cards */
-    --bg-light: #e9ecef;
-    
-    /* Text colors mapped to the Logo Dark for high contrast */
-    --text-light: #1F2329; 
-    --text-medium: #454a52; 
-    
-    /* The Gold Brand Color */
-    --primary-blue: #b38c62; 
-    
-    --secondary-gray: #6c757d;
-    --danger-red: #dc3545;
-    --warning-yellow: #ffc107;
-    --completed-color: #28a745;
-    --meeting-purple: #6A0DAD;
-    --border-color: #dee2e6;
-    
-    --input-bg: #ffffff;
-    --input-border: #d1d5db;
-    --input-focus-border: #b38c62; /* Focus ring uses Gold */
-    
-    --list-item-hover: #e5e7eb;
-    --selected-item-bg: #eaddcf; /* Light gold/beige tint for selection */
-    --shadow-color: rgba(0, 0, 0, 0.1);
-
-    /* Button adjustments for Gold contrast */
-    .btn-primary {
-        color: white; 
-        background-color: var(--primary-blue);
-    }
-    
-    .btn-primary:hover {
-        /* Darken the gold slightly on hover */
-        background-color: #a37c52; 
-    }
-
-    .btn-secondary {
-        color: white; 
-    }
-    
-    /* Override list item selection shadow to match gold */
-    .list-item.selected {
-        box-shadow: inset 3px 0 0 0 var(--primary-blue);
-    }
-}
-
-
-
-/* Green Screen Theme */
-body.theme-green {
-    --bg-dark: #020c02;
-    --bg-medium: #051405;
-    --bg-light: #0a200a;
-    --text-light: #00ff41;
-    --text-medium: #00b32d;
-    --primary-blue: #00ff41;
-    --danger-red: #00ff41;
-    --secondary-gray: #008b25;
-    --border-color: #005217;
-    --completed-color: #00ff41;
-    --warning-yellow: #00ff41;
-    --gradient-start: #000000;
-    --gradient-end: #020c02;
-    --shadow-light: rgba(0, 255, 65, 0.1);
-    --shadow-medium: rgba(0, 255, 65, 0.2);
-    --shadow-strong: rgba(0, 255, 65, 0.3);
-    --font-main: 'Courier New', Courier, monospace;
-    --logo-primary-color: var(--text-medium);
-    --logo-secondary-color: var(--bg-dark);
-    --meeting-purple: #9400D3;
-    --warning-bg: #1a331a;
-    --warning-text: #ffff00;
-    --warning-hover-bg: #2a522a;
-    --success-color: #00ff41;
-    --error-color: #ff0000;
-}
-
-/* --- GLOBAL STYLES --- */
-body {
-    margin: 0;
-    font-family: var(--font-main); /* Uses Inter */
-    background-color: var(--bg-dark);
-    color: var(--text-light);
-    overflow-x: hidden;
-    transition: background-color 0.3s, color 0.3s;
-    letter-spacing: -0.01em; /* Pro touch: slightly tighter body text */
-}
-
-/* Force Industrial Font on Headers & Data */
-h1, h2, h3, h4, h5, h6, 
-.metric-value, 
-.nav-button, 
-.contact-name, 
-th {
-    font-family: var(--font-headers); /* Uses Rajdhani */
-    font-weight: 600;
-    text-transform: uppercase; /* Optional: Adds to the technical look */
-    letter-spacing: 0.05em;    /* Optional: Slight spacing for headers */
-}
-
-body.theme-green {
-    text-shadow: 0 0 5px var(--text-light);
-    animation: flicker 0.15s infinite;
-}
-
-body.theme-green::before {
-    content: " ";
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    z-index: 2;
-    background-size: 100% 4px, 3px 100%;
-    pointer-events: none;
-}
-
-@keyframes flicker {
-    0% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.95;
-    }
-    100% {
-        opacity: 1;
-    }
-}
 
 /* --- SVG LOGO STYLES --- */
 /* Shared styles for both logos */
@@ -248,12 +115,6 @@ body.theme-green::before {
     fill: #FFFFFF !important;
     transition: fill 0.3s;
 }
-
-body.theme-green .nav-logo path[fill="#010101"],
-body.theme-green .auth-logo path[fill="#010101"] {
-    fill: var(--logo-secondary-color) !important;
-}
-
 
 /* --- MAIN LAYOUT --- */
 .crm-container {
@@ -317,20 +178,6 @@ body:not(.theme-green) .nav-button {
     border: none;
 }
 
-body.theme-light .nav-button.active,
-body.theme-light .btn-secondary.active {
-    /* Override the blue gradient with the same Gold one */
-    background: linear-gradient(45deg, #b38c62, #d6ad81);
-    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4);
-    color: #ffffff;
-}
-
-body.theme-green .nav-button.active,
-body.theme-green .btn-secondary.active {
-    background: transparent;
-    border: 1px solid var(--text-light);
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
-}
 
 .content-area {
     flex-grow: 1;
@@ -565,9 +412,7 @@ body:not(.theme-green) .item-list {
     flex-shrink: 0;
 }
 
-body.theme-green .contact-list-indicator {
-    background-color: var(--text-light);
-}
+
 
 .list-item:hover {
     background-color: var(--bg-light);
@@ -826,34 +671,6 @@ body:not(.theme-green) .btn-tertiary { /* Added btn-tertiary here */
     box-shadow: inset 0 1px 3px var(--shadow-light); /* Inset shadow for pressed look */
 }
 
-body.theme-green .btn-tertiary {
-    background-color: transparent;
-    border: 1px solid var(--text-medium);
-    color: var(--text-medium);
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.2);
-}
-
-body.theme-green .btn-tertiary:hover {
-    background-color: rgba(0, 255, 65, 0.1); /* Subtle green background on hover */
-    border-color: var(--text-light);
-    color: var(--text-light);
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
-}
-/* End of btn-tertiary styles */
-
-
-body.theme-green .btn-primary {
-    background-color: var(--secondary-gray);
-    color: var(--text-light);
-}
-
-body.theme-green .btn-danger {
-    background-color: transparent;
-    border: 1px solid var(--danger-red);
-    color: var(--danger-red);
-    box-shadow: none;
-}
-
 .btn-primary:hover,
 .btn-danger:hover,
 .btn-secondary:hover {
@@ -1041,14 +858,6 @@ th.sortable.desc span::after {
     box-shadow: 0 2px 5px var(--shadow-medium);
 }
 
-body.theme-light .btn-success {
-    color: #000;
-}
-
-body.theme-green .btn-success {
-    background-color: var(--success-color);
-    color: var(--bg-dark);
-}
 
 table a {
     color: var(--text-light);
@@ -1188,16 +997,7 @@ body:not(.theme-green) #contact-activities-list li {
     text-decoration: none;
 }
 
-body.theme-green #account-contacts-list li a {
-    color: var(--text-light);
-    text-shadow: 0 0 5px var(--text-light);
-}
 
-body.theme-green #account-contacts-list li a:hover {
-    color: var(--primary-blue);
-    text-decoration: underline;
-    text-shadow: none;
-}
 
 .pending-task-reminder {
     background-color: var(--warning-bg);
@@ -1215,12 +1015,7 @@ body.theme-green #account-contacts-list li a:hover {
     display: none;
 }
 
-body.theme-green .pending-task-reminder {
-    background-color: var(--warning-bg);
-    color: var(--warning-text);
-    border: 1px solid var(--text-light);
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.4);
-}
+
 
 .sequence-status-icon {
     color: var(--completed-color); /* This makes the paper-plane icon green */
@@ -1228,10 +1023,6 @@ body.theme-green .pending-task-reminder {
     vertical-align: middle;
     font-size: 0.9em;
     /* We removed background-color, width, height, and display properties */
-}
-
-body.theme-green .sequence-status-icon {
-    background-color: var(--text-light);
 }
 
 /* --- AUTHENTICATION STYLES --- */
@@ -1369,21 +1160,6 @@ body.theme-dark .auth-box {
 ::-webkit-scrollbar-track {
     background-color: var(--bg-dark);
     border-radius: 0.5rem;
-}
-
-body.theme-green ::-webkit-scrollbar-thumb {
-    background-color: var(--text-medium);
-    border: 2px solid var(--bg-dark);
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.4);
-}
-
-body.theme-green ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--text-light);
-    box-shadow: 0 0 8px rgba(0, 255, 65, 0.6);
-}
-
-body.theme-green ::-webkit-scrollbar-track {
-    background-color: var(--bg-medium);
 }
 
 /* --- LOGGED EMAILS TABLE --- */
@@ -1657,20 +1433,6 @@ body:not(.theme-green) .email-view-body {
     filter: brightness(1.2);
 }
 
-body.theme-light .user-icon path[fill="#FEFEFE"],
-body.theme-light .user-icon path[fill="#FDFDFD"],
-body.theme-light .user-icon path[fill="#F7F7F7"],
-body.theme-light .user-icon path[fill="#FBFBFB"],
-body.theme-light .user-icon path[fill="#FCFCFC"],
-body.theme-light .user-icon path[fill="#EDEDED"],
-body.theme-light .user-icon path[fill="#F6F6F6"],
-body.theme-light .user-icon path[fill="#F3F3F3"],
-body.theme-light .user-icon path[fill="#F0F0F0"],
-body.theme-light .user-icon path[fill="#FAFAFA"],
-body.theme-light .user-icon path[fill="#F9F9F9"],
-body.theme-light .user-icon path[fill="#F4F4F4"] {
-    fill: var(--bg-dark);
-}
 
 #user-name-display {
     font-weight: 600;
@@ -1859,8 +1621,7 @@ body:not(.theme-green) .user-menu-popup {
     .user-menu .user-icon path[fill="#F0F0F0"],
     .user-menu .user-icon path[fill="#FAFAFA"],
     .user-menu .user-icon path[fill="#F9F9F9"],
-    body.theme-light .user-icon path[fill="#F4F4F4"] {
-        fill: var(--bg-light);
+    
     }
 
     .user-menu .user-menu-popup {
@@ -2058,16 +1819,6 @@ body:not(.theme-green) .user-menu-popup {
     text-decoration: none;
 }
 
-/* Specific adjustment for Green Theme */
-body.theme-green #contact-phone-call-blitz {
-    color: var(--warning-yellow); /* Use yellow for visibility on green theme */
-    text-shadow: 0 0 5px var(--warning-yellow);
-}
-
-body.theme-green #contact-phone-call-blitz:hover {
-    color: var(--text-light); /* Changes to light green on hover for green theme */
-    text-shadow: 0 0 8px var(--text-light);
-}
 /* Ensure all form controls, buttons, and table elements inherit the main font */
 input,
 select,
@@ -3169,14 +2920,6 @@ h1, h2, h3, h4, h5, h6 {
     flex-shrink: 0; /* Prevents the icon from shrinking */
 }
 
-body.theme-light .marketing-indicator {
-    color: #6f42c1; /* A good purple for the light theme */
-}
-
-body.theme-green .marketing-indicator {
-    color: #00ff41; /* Use the theme's primary text color */
-}
-/* Add this CSS to your main stylesheet, for example, style.css */
 
 /* Toast container positioning */
 .toast-container {
