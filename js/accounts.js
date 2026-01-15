@@ -1,19 +1,15 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, formatCurrency } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let state = {
         isFormDirty: false,
-
-        // Master lists for the main account list view
         accounts: [],
         contacts: [],
         activities: [],
         deals: [],
         dealStages: [],
-
-        // A dedicated object to hold data for ONLY the selected account
         selectedAccountId: null,
         selectedAccountDetails: {
             account: null,
@@ -23,8 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             tasks: [],
             contact_sequences: []
         },
-
-        contactViewMode: 'list' // 'list' or 'org'
+        contactViewMode: 'list' 
     };
     let globalState = {};
     
@@ -87,14 +82,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- Data Fetching ---
     async function loadInitialData() {
-        globalState = getState(); // <-- ADD THIS
-        if (!globalState.currentUser) return; // <-- UPDATE THIS
+        globalState = getState(); 
+        if (!globalState.currentUser) return; 
         
+        // FIXED: Switched "deals" to "deals_tw"
         const [accountsRes, dealsRes, activitiesRes, contactsRes, dealStagesRes] = await Promise.all([
-            supabase.from("accounts").select("*").eq("user_id", globalState.effectiveUserId), // <-- UPDATE THIS
-            supabase.from("deals").select("id, account_id, stage").eq("user_id", globalState.effectiveUserId), // <-- UPDATE THIS
-            supabase.from("activities").select("id, account_id, contact_id, date").eq("user_id", globalState.effectiveUserId), // <-- UPDATE THIS
-            supabase.from("contacts").select("id, account_id, reports_to").eq("user_id", globalState.effectiveUserId), // <-- UPDATE THIS
+            supabase.from("accounts").select("*").eq("user_id", globalState.effectiveUserId), 
+            supabase.from("deals_tw").select("id, account_id, stage").eq("user_id", globalState.effectiveUserId), 
+            supabase.from("activities").select("id, account_id, contact_id, date").eq("user_id", globalState.effectiveUserId), 
+            supabase.from("contacts").select("id, account_id, reports_to").eq("user_id", globalState.effectiveUserId), 
             supabase.from("deal_stages").select("*").order('sort_order')
         ]);
 
@@ -124,9 +120,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const account = state.accounts.find(a => a.id === state.selectedAccountId);
         state.selectedAccountDetails.account = account;
 
+        // FIXED: Switched "deals" to "deals_tw"
         const [contactsRes, dealsRes, activitiesRes, tasksRes] = await Promise.all([
             supabase.from("contacts").select("*").eq("account_id", state.selectedAccountId),
-            supabase.from("deals").select("*").eq("account_id", state.selectedAccountId),
+            supabase.from("deals_tw").select("*").eq("account_id", state.selectedAccountId),
             supabase.from("activities").select("*").eq("account_id", state.selectedAccountId),
             supabase.from("tasks").select("*").eq("account_id", state.selectedAccountId)
         ]);
@@ -153,14 +150,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     async function refreshData() {
-        hideAccountDetails(true); // Clear selection and details
-        await loadInitialData(); // Reloads list based on effectiveUserId
+        hideAccountDetails(true); 
+        await loadInitialData(); 
     }
 
         
     const hideAccountDetails = (clearSelection = false) => {
         if (accountForm) {
-            // --- FIX: Reverted to your working version ---
             accountForm.classList.remove('hidden'); 
             accountForm.reset();
             accountForm.querySelector("#account-id").value = '';
@@ -170,7 +166,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (contactListView) contactListView.innerHTML = '<ul id="account-contacts-list"></ul>';
         if (contactOrgChartView) contactOrgChartView.innerHTML = "";
         
-        // --- FIX: Also hide the new unassigned container ---
         const unassignedContainer = document.getElementById("unassigned-contacts-container");
         if (unassignedContainer) unassignedContainer.innerHTML = "";
 
@@ -312,10 +307,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         accountForm.querySelector("#account-employees").value = account.employee_count || "";
         accountForm.querySelector("#account-is-customer").checked = account.is_customer;
 
+        // FIXED: Removed Term column from display
         accountDealsTableBody.innerHTML = "";
         deals.forEach((deal) => {
             const row = accountDealsTableBody.insertRow();
-            row.innerHTML = `<td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td><td>${deal.name}</td><td>${deal.term || ""}</td><td>${deal.stage}</td><td>$${deal.mrc || 0}</td><td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td><td>${deal.products || ""}</td><td><button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button></td>`;
+            row.innerHTML = `
+                <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
+                <td>${deal.name}</td>
+                <td>${deal.stage}</td>
+                <td>${formatCurrency(deal.mrc || 0)}</td>
+                <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
+                <td>${deal.products || ""}</td>
+                <td><button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button></td>`;
         });
 
         renderContactView();
@@ -338,25 +341,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     const renderContactView = () => {
-        // Find the new container
         const unassignedContainer = document.getElementById("unassigned-contacts-container");
 
         if (!contactListView || !contactOrgChartView || !contactListBtn || !contactOrgChartBtn || !unassignedContainer) {
-            console.error('Contact view elements not found. Skipping render.');
             return;
         }
 
         if (state.contactViewMode === 'org') {
             contactListView.classList.add('hidden');
             contactOrgChartView.classList.remove('hidden');
-            unassignedContainer.classList.remove('hidden'); // Show this
+            unassignedContainer.classList.remove('hidden'); 
             contactListBtn.classList.remove('active');
             contactOrgChartBtn.classList.add('active');
-            renderOrgChart(); // This function will now render in two places
+            renderOrgChart(); 
         } else {
             contactListView.classList.remove('hidden');
             contactOrgChartView.classList.add('hidden');
-            unassignedContainer.classList.add('hidden'); // Hide this
+            unassignedContainer.classList.add('hidden'); 
             contactListBtn.classList.add('active');
             contactOrgChartBtn.classList.remove('active');
             renderContactList();
@@ -385,19 +386,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const renderOrgChart = () => {
         const { contacts } = state.selectedAccountDetails;
-        // Get both render targets
         const chartView = document.getElementById("contact-org-chart-view");
         const unassignedContainer = document.getElementById("unassigned-contacts-container");
         
         if (!chartView || !unassignedContainer) return;
 
-        chartView.innerHTML = ""; // Clear the main chart
-        unassignedContainer.innerHTML = ""; // Clear the unassigned box
+        chartView.innerHTML = ""; 
+        unassignedContainer.innerHTML = ""; 
 
-        // 1. Create a map for easy lookup
         const contactMap = new Map(contacts.map(c => [c.id, { ...c, children: [] }]));
         
-        // 2. Build the tree structure
         const topLevelNodes = [];
         contactMap.forEach(contact => {
             if (contact.reports_to && contactMap.has(Number(contact.reports_to))) {
@@ -407,11 +405,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
 
-        // 3. Separate managers from unassigned contacts
         const finalTree = [];
         const unassigned = [];
         topLevelNodes.forEach(node => {
-            // A node is part of the tree if it has children
             if (node.children.length > 0) {
                 finalTree.push(node);
             } else {
@@ -419,7 +415,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
 
-        // 4. Recursive function to render the HTML for the main tree
         const createNodeHtml = (contact) => {
             const sortedChildren = contact.children.sort((a, b) => (a.first_name || "").localeCompare(b.first_name || ""));
             
@@ -439,7 +434,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             </li>`;
         };
 
-        // 5. Recursive function to render the HTML for *unassigned* cards
         const createUnassignedCardHtml = (contact) => {
              return `<div class="contact-card" draggable="true" data-contact-id="${contact.id}">
                 <div class="contact-card-name">${contact.first_name} ${contact.last_name}</div>
@@ -447,7 +441,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>`;
         };
 
-        // 6. Render the main tree
         const sortedTree = finalTree.sort((a, b) => (a.first_name || "").localeCompare(b.first_name || ""));
         if (sortedTree.length > 0) {
             chartView.innerHTML = `<ul class="org-chart-root">
@@ -457,7 +450,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             chartView.innerHTML = `<p class="placeholder-text" style="text-align: center; padding: 2rem 0;">No managers with direct reports found.</p>`;
         }
 
-        // 7. Render the new unassigned box
         const sortedUnassigned = unassigned.sort((a, b) => (a.first_name || "").localeCompare(b.first_name || ""));
         if (sortedUnassigned.length > 0) {
             unassignedContainer.innerHTML = `
@@ -466,11 +458,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     ${sortedUnassigned.map(contact => createUnassignedCardHtml(contact)).join('')}
                 </div>`;
         } else {
-            // Optional: Show a message if there are no unassigned contacts
              unassignedContainer.innerHTML = `<h4>Unassigned Contacts</h4><p class="placeholder-text" style="margin: 0; text-align: left; font-style: italic; color: var(--text-medium);">None.</p>`;
         }
         
-        // 8. Set up drag-and-drop listeners
         setupOrgChartDragDrop();
     };
 
@@ -490,7 +480,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             return false;
         };
 
-        // --- FIX 1: Query for ALL contact cards in both containers ---
         const allCards = document.querySelectorAll('#contact-org-chart-view .contact-card, #unassigned-contacts-container .contact-card');
         
         allCards.forEach(card => {
@@ -557,15 +546,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 : contact
                         );
                         
-                        renderOrgChart(); // This is the combined render function
+                        renderOrgChart(); 
                     }
                 }
             });
         });
 
-        // --- FIX 2: Add drop listeners to BOTH containers for background drops ---
-        
-        // Listener for the MAIN chart (promotes someone to top-level manager)
         if (contactOrgChartView) {
             contactOrgChartView.addEventListener('dragover', (e) => {
                 e.preventDefault(); 
@@ -589,30 +575,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const localDraggedContactId = draggedContactId;
                 const targetCard = e.target.closest('.contact-card');
                 
-                // If we dropped on a card or didn't drag anything, do nothing
                 if (targetCard || !localDraggedContactId) {
                     return;
                 }
                 
-                // Dropped on the main chart background.
                 const contact = state.selectedAccountDetails.contacts.find(c => c.id === localDraggedContactId);
 
-                // This action (dropping on main chart) should only be for
-                // promoting an UNASSIGNED contact to a new TOP-LEVEL MANAGER.
-                // It should NOT break existing connections.
                 if (contact && contact.reports_to === null) {
-                    // It's already unassigned, but now it's a "manager"
-                    // In our new logic, this just means re-rendering.
-                    // But we should check if it has children. If not, it stays unassigned.
-                    // This drop target doesn't really do anything in the new logic,
-                    // as "unassigned" and "top-level manager" are both reports_to: null.
-                    // We will let the UNASSIGNED box handle all "break" actions.
                     return; 
                 }
             });
         }
         
-        // Listener for the UNASSIGNED box (sets reports_to to null)
         const unassignedContainer = document.getElementById("unassigned-contacts-container");
         if (unassignedContainer) {
             unassignedContainer.addEventListener('dragover', (e) => {
@@ -641,13 +615,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return;
                 }
                 
-                // Dropped on the unassigned background.
                 const contact = state.selectedAccountDetails.contacts.find(c => c.id === localDraggedContactId);
                 if (contact && contact.reports_to === null) {
-                    return; // Already unassigned
+                    return; 
                 }
 
-                // This is the main "break connection" action
                 const { error } = await supabase.from('contacts')
                     .update({ reports_to: null })
                     .eq('id', localDraggedContactId);
@@ -669,6 +641,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- Deal Handlers ---
     async function handleCommitDeal(dealId, isCommitted) {
+        // FIXED: Switched "deals" to "deals_tw"
         const { error } = await supabase.from('deals_tw').update({ is_committed: isCommitted }).eq('id', dealId);
         if (error) {
             showModal("Error", 'Error updating commit status: ' + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
@@ -686,17 +659,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const stageOptions = state.dealStages.sort((a, b) => a.sort_order - b.sort_order).map(s => `<option value="${s.stage_name}" ${deal.stage === s.stage_name ? 'selected' : ''}>${s.stage_name}</option>`).join('');
 
+        // FIXED: Removed Term Input
         showModal("Edit Deal", `
             <label>Deal Name:</label><input type="text" id="modal-deal-name" value="${deal.name || ''}" required>
-            <label>Term:</label><input type="text" id="modal-deal-term" value="${deal.term || ''}" placeholder="e.g., 12 months">
             <label>Stage:</label><select id="modal-deal-stage" required>${stageOptions}</select>
-            <label>Monthly Recurring Revenue (MRC):</label><input type="number" id="modal-deal-mrc" min="0" value="${deal.mrc || 0}">
+            <label>Project Value:</label><input type="number" id="modal-deal-mrc" min="0" value="${deal.mrc || 0}">
             <label>Close Month:</label><input type="month" id="modal-deal-close-month" value="${deal.close_month || ''}">
-            <label>Products:</label><textarea id="modal-deal-products" placeholder="List products, comma-separated">${deal.products || ''}</textarea>
+            <label>Job Details:</label><textarea id="modal-deal-products" placeholder="List products, comma-separated">${deal.products || ''}</textarea>
         `, async () => {
             const updatedDealData = {
                 name: document.getElementById('modal-deal-name').value.trim(),
-                term: document.getElementById('modal-deal-term').value.trim(),
+                // Term Removed
                 stage: document.getElementById('modal-deal-stage').value,
                 mrc: parseFloat(document.getElementById('modal-deal-mrc').value) || 0,
                 close_month: document.getElementById('modal-deal-close-month').value || null,
@@ -706,63 +679,46 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showModal("Error", "Deal name is required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
                 return false;
             }
+            // FIXED: Switched "deals" to "deals_tw"
             const { error } = await supabase.from('deals_tw').update(updatedDealData).eq('id', dealId);
             if (error) { showModal("Error", 'Error updating deal: ' + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`); }
             else { await refreshData(); hideModal(); showModal("Success", "Deal updated successfully!", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`); }
         }, true, `<button id="modal-confirm-btn" class="btn-primary">Save Deal</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
     }
 
-// MODIFIED: This function is now async to await the canvas generation
     async function handlePrintBriefing() {
         const accountName = state.selectedAccountDetails.account?.name;
-
-        // 1. Find the modal's briefing container
         const briefingContainer = document.querySelector('.ai-briefing-container');
         if (!briefingContainer) {
             alert("Please generate a briefing first.");
             return;
         }
 
-        // --- html2canvas Logic ---
-        
-        // 2. Clone the container to work on it
         const printClone = briefingContainer.cloneNode(true);
-        
-        // 3. Find the org chart *placeholder* element *within the clone*
         const chartElement = printClone.querySelector('.org-chart-print-container');
-        
-        // 4. Find the *live* org chart *inner div* to "screenshot"
-        const sourceChartElement = briefingContainer.querySelector('#org-chart-render-target'); // <-- ORG CHART FIX 1: Target new ID
-        let originalStyle = null; // Store original style here
+        const sourceChartElement = briefingContainer.querySelector('#org-chart-render-target'); 
+        let originalStyle = null; 
 
         if (chartElement && sourceChartElement && sourceChartElement.innerHTML.trim() !== "" && !sourceChartElement.querySelector('.placeholder-text')) {
             try {
-                // --- ORG CHART FIX 2: Temporarily reset zoom for a clean screenshot ---
                 originalStyle = sourceChartElement.getAttribute('style');
-                // Force zoom: 1, add a background (which html2canvas needs), and keep padding
                 sourceChartElement.setAttribute('style', 'transform-origin: top left; zoom: 1; background: var(--bg-dark, #2d3748); padding: 10px;');
                 
-                // 5. "Screenshot" the live org chart element at high resolution
                 const canvas = await html2canvas(sourceChartElement, {
-                    backgroundColor: '#2d3748', // Explicitly set dark background
+                    backgroundColor: '#2d3748', 
                     useCORS: true,
-                    scale: 1.5 // Increase scale for better resolution
+                    scale: 1.5 
                 });
                 
-                // --- ORG CHART FIX 3: Restore original style to the live modal ---
                 if (originalStyle) sourceChartElement.setAttribute('style', originalStyle);
 
-                // 6. Convert the canvas "screenshot" to a PNG image URL
                 const imgDataUrl = canvas.toDataURL('image/png');
-                
-                // 7. Create new, simple HTML for the image
                 const orgChartImageHtml = `
                     <div class="briefing-section" style="page-break-inside: auto !important;">
                         <img src="${imgDataUrl}" style="width: 100%; max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;">
                     </div>
                 `;
                 
-                // 8. *Replace* the complex HTML chart in our clone with the simple image
                 chartElement.parentNode.replaceChild(
                     document.createRange().createContextualFragment(orgChartImageHtml),
                     chartElement
@@ -770,19 +726,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 
             } catch (err) {
                 console.error("html2canvas failed:", err);
-                // If it fails, restore original style
                 if (sourceChartElement && originalStyle) {
                     sourceChartElement.setAttribute('style', originalStyle);
                 }
             }
         }
         
-        // 9. Get the *entire* inner HTML of our modified clone
         const briefingHtml = printClone.innerHTML;
         
-        // --- End of html2canvas Logic ---
-
-        // 10. Create the iframe
         const printFrame = document.createElement('iframe');
         printFrame.style.position = 'absolute';
         printFrame.style.width = '0';
@@ -793,7 +744,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const frameDoc = printFrame.contentWindow.document;
         frameDoc.open();
         
-        // 11. Write the new content to the iframe
         frameDoc.write(`
             <html>
                 <head>
@@ -802,19 +752,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                     
           <style>
     @media print {
-        /* Force sans-serif and dark text for legibility */
         body, p, li, h1, h2, h3, h4, h5, h6, strong, div {
             font-family: system-ui, -apple-system, sans-serif !important;
             color: #1a202c !important;
         }
 
         body {
-            margin: 10mm; /* standard print margin */
+            margin: 10mm; 
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
-        /* HEADER: Compacted to save page 1 real estate */
         .report-header {
             background-color: #3b82f6 !important;
             color: #ffffff !important;
@@ -830,7 +778,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             color: #ffffff !important;
         }
 
-        /* SECTION HEADERS: Prevent orphaned titles at bottom of page */
     h4 {
     font-size: 1.05rem;
     color: #3b82f6 !important;
@@ -839,13 +786,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     margin-top: 20px !important;
     margin-bottom: 10px !important;
     
-    /* THE FIX: Force the header to stay with the following div */
     display: block;
     break-after: avoid !important;
     page-break-after: avoid !important;
 }
 
-/* --- SECTION CONTENT --- */
 .briefing-section {
     background-color: #f9f9f9 !important;
     border: 1px solid #eee !important;
@@ -853,8 +798,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     border-radius: 8px;
     margin-bottom: 12px !important;
     
-    /* THE COMPLEMENTARY FIX: Ensure the section can still break internally 
-       if it is very long, but starts with its header */
     break-before: avoid !important;
     page-break-before: avoid !important;
     page-break-inside: auto !important; 
@@ -915,10 +858,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
                 document.title = originalTitle;
             }
-        }, 250); // This timeout helps the iframe's content render
+        }, 250); 
     }
 
-// --- AI Briefing Handler ---
     async function handleGenerateBriefing() {
         if (!state.selectedAccountId) {
             showModal("Error", "Please select an account to generate a briefing.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
@@ -971,40 +913,26 @@ document.addEventListener("DOMContentLoaded", async () => {
             const { data: briefing, error } = await supabase.functions.invoke('get-account-briefing', { body: { internalData } });
             if (error) throw error;
 
-    // --- UPDATED GLOBAL PROCESSING ---
-const summaryText = flattenAIResponse(briefing.summary);
-
-const keyPlayersHtml = flattenAIResponse(briefing.key_players)
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-const pipelineText = flattenAIResponse(briefing.pipeline);
-
-const activityHighlightsHtml = flattenAIResponse(briefing.activity_highlights);
-
-const newsText = flattenAIResponse(briefing.news);
-const newContactsText = flattenAIResponse(briefing.new_contacts);
-
-const icebreakersHtml = flattenAIResponse(briefing.icebreakers)
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-const recommendationText = flattenAIResponse(briefing.recommendation);
+            const summaryText = flattenAIResponse(briefing.summary);
+            const keyPlayersHtml = flattenAIResponse(briefing.key_players).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            const pipelineText = flattenAIResponse(briefing.pipeline);
+            const activityHighlightsHtml = flattenAIResponse(briefing.activity_highlights);
+            const newsText = flattenAIResponse(briefing.news);
+            const newContactsText = flattenAIResponse(briefing.new_contacts);
+            const icebreakersHtml = flattenAIResponse(briefing.icebreakers).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            const recommendationText = flattenAIResponse(briefing.recommendation);
 
             let orgChartDisplayHtml = '';
 
-            // --- THIS IS THE FIX ---
             if (state.contactViewMode === 'org' && contactOrgChartView && contactOrgChartView.innerHTML.trim() !== "" && !contactOrgChartView.querySelector('.placeholder-text')) {
                 
-                // 1. Get the INNER HTML from the live chart
                 const chartCloneHtml = contactOrgChartView.innerHTML;
-                
-                // 2. Get the INNER HTML from the unassigned container
                 const unassignedContainer = document.getElementById("unassigned-contacts-container");
                 let unassignedCloneHtml = '';
                 if (unassignedContainer) {
                     unassignedCloneHtml = unassignedContainer.innerHTML;
                 }
                 
-                // 3. Re-wrap the HTML in the IDs/classes that our CSS file needs
                 orgChartDisplayHtml = `
                     <h4><i class="fas fa-sitemap"></i> Org Chart</h4>
                     <div class="briefing-section org-chart-print-container"
@@ -1015,7 +943,7 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                             background: var(--bg-dark);
                             padding: 10px;
                             border-radius: 8px;
-                       ">
+                        ">
                         <div id="org-chart-render-target" style="zoom: 0.75; transform-origin: top left;">
                             
                             <div id="contact-org-chart-view">
@@ -1027,7 +955,6 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                             
                         </div>
                     </div>`;
-                // --- END OF FIX ---
                 
             } else if (contacts.length > 0) {
                 orgChartDisplayHtml = `
@@ -1114,8 +1041,8 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                                 showModal("Error", "Account name is required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
                                 return false;
                             }
-                            globalState = getState(); // <-- ADD THIS
-                            const { data: newAccountArr, error } = await supabase.from("accounts").insert([{ name, user_id: globalState.effectiveUserId }]).select(); // <-- UPDATE THIS
+                            globalState = getState(); 
+                            const { data: newAccountArr, error } = await supabase.from("accounts").insert([{ name, user_id: globalState.effectiveUserId }]).select(); 
                             if (error) {
                                 showModal("Error", "Error creating account: " + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
                                 return false;
@@ -1279,7 +1206,7 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
 
                             const recordName = String(record.name).trim().toLowerCase();
                             const existingAccount = existingAccountMap.get(recordName);
-                            globalState = getState(); // <-- ADD THIS
+                            globalState = getState(); 
                             const processedRecord = {
                                 name: String(record.name).trim(),
                                 website: record.website || null,
@@ -1289,7 +1216,7 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                                 quantity_of_sites: (record.quantity_of_sites === 0) ? 0 : (parseInt(record.quantity_of_sites) || null),
                                 employee_count: (record.employee_count === 0) ? 0 : (parseInt(record.employee_count) || null),
                                 is_customer: record.is_customer === true,
-                                user_id: globalState.effectiveUserId // <-- UPDATE THIS
+                                user_id: globalState.effectiveUserId 
                             };
 
                             if (existingAccount) {
@@ -1404,9 +1331,9 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
 
                 const stageOptions = state.dealStages.sort((a, b) => a.sort_order - b.sort_order).map(s => `<option value="${s.stage_name}">${s.stage_name}</option>`).join('');
 
+                // FIXED: Removed Term Input
                 showModal("Create New Deal", `
                     <label>Deal Name:</label><input type="text" id="modal-deal-name" required>
-                    <label>Term:</label><input type="text" id="modal-deal-term" placeholder="e.g., 12 months">
                     <label>Stage:</label><select id="modal-deal-stage" required>${stageOptions}</select>
                     <label>Monthly Recurring Revenue (MRC):</label><input type="number" id="modal-deal-mrc" min="0" value="0">
                     <label>Close Month:</label><input type="month" id="modal-deal-close-month">
@@ -1414,10 +1341,10 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                 `, async () => {
                     globalState = getState();
                     const newDeal = {
-                        user_id: globalState.effectiveUserId, // <-- UPDATE THIS
+                        user_id: globalState.effectiveUserId, 
                         account_id: state.selectedAccountId,
                         name: document.getElementById('modal-deal-name')?.value.trim(),
-                        term: document.getElementById('modal-deal-term')?.value.trim(),
+                        // Term Removed
                         stage: document.getElementById('modal-deal-stage')?.value,
                         mrc: parseFloat(document.getElementById('modal-deal-mrc')?.value) || 0,
                         close_month: document.getElementById('modal-deal-close-month')?.value || null,
@@ -1430,6 +1357,7 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                         return false;
                     }
 
+                    // FIXED: Switched "deals" to "deals_tw"
                     const { error } = await supabase.from('deals_tw').insert([newDeal]);
                     if (error) {
                         showModal("Error", 'Error creating deal: ' + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
@@ -1469,9 +1397,9 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                             showModal("Error", "Task description is required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
                             return false;
                         }
-                            globalState = getState(); // <-- ADD THIS
+                            globalState = getState(); 
                         const newTask = {
-                            user_id: globalState.effectiveUserId, // <-- UPDATE THIS
+                            user_id: globalState.effectiveUserId, 
                             description,
                             due_date: document.getElementById('modal-task-due-date')?.value || null,
                             status: 'Pending',
@@ -1515,24 +1443,19 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
             });
         }
     }
+    
     async function initializePage() {
         await loadSVGs();
         
-        // --- MODIFIED: Use new global state initialization ---
         globalState = await initializeAppState(supabase);
         if (!globalState.currentUser) {
-            // initializeAppState handles the redirect, but we stop execution
             return; 
         }
 
-        // --- NEW: Add the listener for the impersonation event ---
         window.addEventListener('effectiveUserChanged', async () => {
-            // When the user is changed in the menu, get the new state
             globalState = getState();
-            // Reload all data using the new effectiveUserId
             await refreshData();
         });
-        // --- END NEW ---
 
         try {
             await loadInitialData();
@@ -1550,7 +1473,6 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                 hideAccountDetails(true);
             }
             
-            // --- MODIFIED: Pass globalState to user menu setup ---
             await setupUserMenuAndAuth(supabase, globalState);
             
             await setupGlobalSearch(supabase);
@@ -1568,40 +1490,38 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
             );
         }
     }
+
     /**
- /**
- * Global Helper to prevent [object Object] errors.
- * Also handles bullet point formatting for lists.
- */
-function flattenAIResponse(data) {
-    if (!data) return "";
-    
-    // If it's an array, join it into a string first
-    if (Array.isArray(data)) {
-        data = data.map(item => {
-            if (typeof item === 'object' && item !== null) {
-                return item.name ? `${item.name}${item.title ? ` (${item.title})` : ''}` : Object.values(item).join(': ');
-            }
-            return String(item);
-        }).join('\n'); 
-    }
-    
-    // If it's a single object, flatten its values
-    if (typeof data === 'object' && data !== null) {
-        data = Object.values(data).join(': ');
+     * Global Helper to prevent [object Object] errors.
+     * Also handles bullet point formatting for lists.
+     */
+    function flattenAIResponse(data) {
+        if (!data) return "";
+        
+        if (Array.isArray(data)) {
+            data = data.map(item => {
+                if (typeof item === 'object' && item !== null) {
+                    return item.name ? `${item.name}${item.title ? ` (${item.title})` : ''}` : Object.values(item).join(': ');
+                }
+                return String(item);
+            }).join('\n'); 
+        }
+        
+        if (typeof data === 'object' && data !== null) {
+            data = Object.values(data).join(': ');
+        }
+
+        let text = String(data);
+
+        if (text.includes('•') || text.includes('\n')) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            return `<ul class="briefing-bullet-list">
+                ${lines.map(line => `<li>${line.replace(/^[•\-\*]\s*/, '')}</li>`).join('')}
+            </ul>`;
+        }
+
+        return text;
     }
 
-    let text = String(data);
-
-    // Convert newlines or existing bullet characters into a standard HTML bulleted list
-    if (text.includes('•') || text.includes('\n')) {
-        const lines = text.split('\n').filter(line => line.trim() !== '');
-        return `<ul class="briefing-bullet-list">
-            ${lines.map(line => `<li>${line.replace(/^[•\-\*]\s*/, '')}</li>`).join('')}
-        </ul>`;
-    }
-
-    return text;
-}
     initializePage();
 });
