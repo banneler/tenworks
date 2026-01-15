@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategic - CRM - Contacts</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Global Search...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
+            </div>
+
+            <a href="command-center.html" class="nav-button">Command Center</a>
+            <a href="deals.html" class="nav-button">Deals</a>
+            <a href="contacts.html" class="nav-button active">Contacts</a>
+            <a href="accounts.html" class="nav-button">Accounts</a>
+            <a href="irr.html" class="nav-button">IRR Calculator</a>
+            <a href="campaigns.html" class="nav-button">Campaigns</a>
+            <a href="sequences.html" class="nav-button">Sequences</a>
+            <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+            
+            <div class="nav-bottom-section">
+                <div style="position: relative;">
+                    <a href="cognito.html" class="nav-button cognito-nav-link">
+                        <h1>
+                            C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#60a5fa;"></stop>
+                                        <stop offset="100%" style="stop-color:#3b82f6;"></stop>
+                                    </linearGradient>
+                                </defs>
+                                <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
+                                    <path d="M32.2,32.2 L45,45"></path>
+                                    <circle cx="20" cy="20" r="15"></circle>
+                                </g>
+                            </svg>gnito
+                        </h1>
+                    </a>
+                    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+                </div>
+
+                <div class="user-menu" style="margin-top: auto;">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="theme-toggle-btn" class="nav-button">
+                            Theme: <span id="theme-name">Dark</span>
+                        </button>
+                        <a href="user-guide.html" class="nav-button">User Guide</a>
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="content-area">
+            <div id="contacts" class="content-view active-view">
+                <h2>Contacts</h2>
+                <div id="toast-container" class="toast-container"></div>
+                <div class="split-view">
+                    <div class="item-list-container">
+                        <button id="add-contact-btn" class="btn-primary full-width">Add New Contact</button>
+                        <button id="import-contact-screenshot-btn" class="btn-secondary full-width">Import Contact Screenshot</button>
+                        <button id="take-picture-btn" class="btn-secondary full-width mobile-only">Take Picture of Signature</button>
+                        <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+                        <button id="bulk-import-contacts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
+                        <input type="file" id="contact-csv-input" accept=".csv" class="hidden">
+                        <button id="bulk-export-contacts-btn" class="btn-secondary full-width">Download Contacts CSV</button>
+                        <input type="text" id="contact-search" placeholder="Search by name, email...">
+                        
+                        <!-- NEW: Contact Display Toggle -->
+                        <div class="display-toggle-container">
+                            <button id="sort-first-last-btn" class="btn-secondary">First Name</button>
+                            <button id="sort-last-first-btn" class="btn-secondary">Last Name</button>
+                        </div>
+
+                        <div id="contact-list" class="item-list"></div>
+                    </div>
+                    <div id="contact-details" class="details-panel">
+                        <span id="organic-star-indicator" class="organic-star" title="Mark as organic contact">★</span>
+                        
+                        <div id="contact-pending-task-reminder" class="pending-task-reminder hidden"></div>
+                        
+                        <div class="details-header-line">
+                            <h3>Contact Details</h3>
+                        </div>
+
+                        <form id="contact-form">
+                            <input type="hidden" id="contact-id">
+                            <div class="form-grid">
+                                <div><label for="contact-first-name">First Name</label><input type="text" id="contact-first-name" required></div>
+                                <div><label for="contact-last-name">Last Name</label><input type="text" id="contact-last-name" required></div>
+                                <div><label for="contact-email">Email</label><input type="email" id="contact-email"></div>
+                                <div><label for="contact-phone">Phone</label><input type="tel" id="contact-phone"></div>
+                                <div><label for="contact-title">Title</label><input type="text" id="contact-title"></div>
+                                <div><label for="contact-account-name">Account</label>
+                                    <select id="contact-account-name">
+                                        <option value="">-- No Account --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="notes-section">
+                                <label for="contact-notes">Notes</label>
+                                <textarea id="contact-notes"></textarea>
+                                <small id="contact-last-saved" class="last-saved-text"></small>
+                            </div>
+                            <div class="form-buttons">
+                                <button type="submit" class="btn-primary">Save Changes</button>
+                                <button type="button" id="delete-contact-btn" class="btn-danger">Delete Contact</button>
+                            </div>
+                        </form>
+                        <hr>
+                        <div class="action-buttons">
+                            <button id="log-activity-btn" class="btn-secondary">Log Activity</button>
+                            <button id="assign-sequence-btn" class="btn-secondary">Assign Sequence</button>
+                            <button id="add-task-contact-btn" class="btn-secondary">Add Task</button>
+                            <button id="ai-activity-insight-btn" class="btn-primary"><i class="fas fa-bolt-lightning"></i> &nbsp;AI Activity Insight</button>
+                            <button id="ai-write-email-btn" class="btn-primary"><i class="fas fa-bolt-lightning"></i> &nbsp;Write Email with AI</button>
+                        </div>
+                        <div class="related-info">
+                            <h4>Sequence Status</h4>
+                            <div id="sequence-status-content" class="sequence-status-display hidden">
+                                <div id="ring-chart" class="ring-chart-container">
+                                    <div id="ring-chart-progress"></div>
+                                    <div id="ring-chart-text" class="ring-chart-text"></div>
+                                </div>
+                                <p id="contact-sequence-info-text"></p>
+                                <button id="complete-sequence-btn" class="btn-primary">Complete Sequence</button>
+                                <button id="remove-from-sequence-btn" class="btn-danger">Remove from Sequence</button>
+                            </div>
+                            <p id="no-sequence-text" class="placeholder-text">Select a contact to see details.</p>
+                        </div>
+                        <div class="related-info">
+                            <h4>Logged Emails</h4>
+                            <div class="table-container">
+                                <table id="contact-emails-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Subject</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="contact-emails-table-body">
+                                        <tr><td colspan="3" class="placeholder-text">No logged emails for this contact.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="related-info">
+                            <h4>Related Activities</h4>
+                            <ul id="contact-activities-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions">
+            </div>
+        </div>
+    </div>
+
+    <div id="email-view-modal-backdrop" class="modal-backdrop hidden">
+        <div class="email-view-modal">
+            <div class="email-view-header">
+                <h3 id="email-view-subject" class="email-view-subject"></h3>
+                <button id="email-view-close-btn" class="email-view-close">&times;</button>
+            </div>
+            <div class="email-view-meta">
+                <p><strong>From:</strong> <span id="email-view-from"></span></p>
+                <p><strong>To:</strong> <span id="email-view-to"></span></p>
+                <p><strong>Date:</strong> <span id="email-view-date"></span></p>
+            </div>
+            <div id="email-view-attachments-container" class="attachments-container"></div>
+            <div class="email-view-body">
+                <pre id="email-view-body-content"></pre>
+            </div>
+        </div>
+    </div>
+        
+    <script>
+    // This script runs synchronously to apply the theme before the page renders
+    (function() {
+        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+        document.body.className = `theme-${savedTheme}`;
+    })();
+    </script>
+    <script type="module" src="js/contacts.js"></script>
+</body>
+
+</html>

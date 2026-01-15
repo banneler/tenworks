@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constellation CRM - User Guide</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div id="auth-container" class="auth-container hidden">
+        <div class="auth-box">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <h3 id="auth-title">User Guide Access</h3>
+            <p>Please log in to view the user guide.</p>
+            <a href="index.html" class="btn-primary full-width" style="text-decoration: none; text-align: center; margin-top: 1rem;">Return to Login</a>
+        </div>
+    </div>
+
+    <div id="user-guide-container" class="crm-container hidden">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <h2 class="text-xl font-bold text-center mb-4" style="color: var(--text-light);">USER GUIDE</h2>
+            
+            <div id="user-guide-nav" class="user-guide-nav-sections">
+                <a href="#" class="nav-button active" data-section="introduction">Introduction</a>
+                <a href="#" class="nav-button" data-section="global-search">Global Search</a>
+                <a href="#" class="nav-button" data-section="command-center">Command Center</a>
+                <a href="#" class="nav-button" data-section="deals">Deals</a>
+                <a href="#" class="nav-button" data-section="contacts">Contacts</a>
+                <a href="#" class="nav-button" data-section="accounts">Accounts</a>
+                <a href="#" class="nav-button" data-section="campaigns">Campaigns</a>
+                <a href="#" class="nav-button" data-section="sequences">Sequences</a>
+                <a href="#" class="nav-button" data-section="social-hub">Social Hub</a>
+                <a href="#" class="nav-button" data-section="cognito">Cognito</a>
+                <a href="#" class="nav-button" data-section="theme-management">User Menu</a>
+            </div>
+
+            <div class="nav-bottom-section">
+                 <a href="command-center.html" class="nav-button" style="text-align: center; font-size: 0.8rem;">Exit User Guide</a>
+            </div>
+            
+            <div class="user-menu" style="margin-top: auto;">
+                <div class="user-menu-header">
+                    <div data-svg-loader="assets/user-icon.svg"></div>
+                    <span id="user-name-display">Loading...</span>
+                </div>
+                <div id="user-menu-popup" class="user-menu-popup">
+                    <button id="theme-toggle-btn" class="nav-button">
+                        Theme: <span id="theme-name">Dark</span>
+                    </button>
+                    <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                </div>
+            </div>
+        </nav>
+        <main class="content-area">
+            <div id="user-guide-content" class="content-view active-view">
+                <!-- Content will be loaded here dynamically by JavaScript -->
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
+        </div>
+    </div>
+    
+    <script>
+    (function() {
+        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+        document.body.className = `theme-${savedTheme}`;
+    })();
+    </script>
+    <script type="module" src="js/user-guide.js"></script>
+</body>
+</html>

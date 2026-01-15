@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategic - CRM - Login</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+    <div id="auth-container" class="auth-container">
+        <div class="auth-box">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <p id="auth-error" class="auth-error"></p>
+            
+            <form id="auth-form">
+                <input type="email" id="auth-email" placeholder="Email" required>
+                <input type="password" id="auth-password" placeholder="Password" required>
+                <div id="signup-fields" class="hidden">
+                    <input type="password" id="auth-confirm-password" placeholder="Confirm Password" >
+                </div>
+                <button type="submit" id="auth-submit-btn" class="btn-primary full-width">Login</button>
+            </form>
+
+            <form id="reset-form" class="hidden">
+                <input type="email" id="reset-email" placeholder="Email" required>
+                <button type="submit" id="reset-submit-btn" class="btn-primary full-width">Send Reset Link</button>
+            </form>
+
+            <a href="#" id="auth-toggle-link">Need an account? Sign Up</a>
+            <a href="#" id="forgot-password-link">Forgot Password?</a>
+            <a href="#" id="return-to-login-link" class="hidden">Return to Login</a>
+        </div>
+    </div>
+
+   <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions">
+                </div>
+        </div>
+    </div>
+
+    <script>
+    // This script runs synchronously to apply the theme before the page renders
+    (function() {
+        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+        document.body.className = `theme-${savedTheme}`;
+    })();
+    </script>
+    <script type="module" src="js/auth.js"></script>
+</body>
+
+</html>

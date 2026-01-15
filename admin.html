@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constellation - Admin Portal</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <h2 class="text-xl font-bold text-center mb-4" style="color: var(--text-light);">ADMIN</h2>
+            <a href="#user-management" class="nav-button admin-nav active">User Management</a>
+            <a href="#content-management" class="nav-button admin-nav">Content Management</a>
+            <a href="#analytics" class="nav-button admin-nav">Analytics & Logs</a>
+            <a href="#script-logs" class="nav-button admin-nav">Script Logs</a>
+            <a href="#settings" class="nav-button admin-nav">System Settings</a>
+            <div class="nav-bottom-section">
+                 <a href="command-center.html" class="nav-button" style="text-align: center; font-size: 0.8rem;">Exit Admin Portal</a>
+            </div>
+        </nav>
+        
+        <main class="content-area">
+            <div id="user-management-view" class="content-view active-view">
+                <h2>User Management</h2>
+                <div class="table-container"><table id="user-management-table"><thead><tr><th>Full Name</th><th>Email</th><th>Last Login</th><th>Monthly Quota ($)</th><th>Is Manager?</th><th>Exclude from Reporting?</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+                
+                <div id="reassignment-section" class="hidden" style="margin-top: 2rem;">
+                    <h3>Bulk Data Reassignment</h3>
+                    <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">
+                      Quickly reassign all open deals, contacts, and accounts from one user to another. This is useful when a team member's role changes or they leave the company.
+                    </p>
+                    <div class="filter-bar">
+                        <label for="reassign-from-user">Reassign records FROM:</label>
+                        <select id="reassign-from-user"></select>
+                        <label for="reassign-to-user">TO:</label>
+                        <select id="reassign-to-user"></select>
+                        <button id="reassign-btn" class="btn-primary">Reassign</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-management-view" class="content-view hidden">
+                <h2>Content Management</h2>
+                <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">
+                  Manage which templates and sequences are shared across the organization.
+                </p>
+                <div class="deals-view-toggle" style="margin-bottom: 1.5rem;">
+                    <button id="view-templates-btn" class="btn-secondary content-view-btn active">Email Templates</button>
+                    <button id="view-sequences-btn" class="btn-secondary content-view-btn">Marketing Sequences</button>
+                </div>
+                <div class="table-container"><table id="content-management-table"><thead></thead><tbody></tbody></table></div>
+            </div>
+
+            <div id="analytics-view" class="content-view hidden">
+                <h2>System Analytics</h2>
+                <div class="filter-bar">
+                    <select id="analytics-rep-filter"></select>
+                    <select id="analytics-date-filter">
+                        <option value="this_month">This Month</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="last_2_months">Previous 2 Months</option>
+                        <option value="this_fiscal_year">This Fiscal Year</option>
+                        <option value="last_365_days">Last 365 Days</option>
+                    </select>
+                    <div id="analytics-chart-view-toggle" class="deals-view-toggle">
+                        <button id="view-combined-btn" class="btn-secondary btn-sm active">Combined</button>
+                        <button id="view-individual-btn" class="btn-secondary btn-sm">Individual</button>
+                    </div>
+                </div>
+                <div id="analytics-charts-container" class="charts-grid">
+                    <div class="chart-container" id="activities-chart-container">
+                        <div class="chart-header"><h4>Activities Logged</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                        <div class="analytics-metric-card"><div class="metric-value-large" id="activities-metric">0</div></div>
+                        <div class="chart-wrapper hidden"><canvas id="activities-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                    </div>
+                    <div class="chart-container" id="sequences-chart-container">
+                        <div class="chart-header"><h4>Contacts in Sequence</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                        <div class="analytics-metric-card"><div class="metric-value-large" id="sequences-metric">0</div></div>
+                        <div class="chart-wrapper hidden"><canvas id="sequences-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                    </div>
+                    <div class="chart-container" id="campaigns-chart-container">
+                        <div class="chart-header"><h4>Campaigns Completed</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                        <div class="analytics-metric-card"><div class="metric-value-large" id="campaigns-metric">0</div></div>
+                        <div class="chart-wrapper hidden"><canvas id="campaigns-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                    </div>
+                    <div class="chart-container" id="tasks-chart-container">
+                        <div class="chart-header"><h4>Tasks Past Due</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                        <div class="analytics-metric-card"><div class="metric-value-large" id="tasks-metric">0</div></div>
+                        <div class="chart-wrapper hidden"><canvas id="tasks-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                    </div>
+                    <div class="chart-container" id="new-deals-chart-container">
+                        <div class="chart-header"><h4>Deals Added to Funnel</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                        <div class="analytics-metric-card"><div class="metric-value-large" id="new-deals-metric">0</div></div>
+                        <div class="chart-wrapper hidden"><canvas id="new-deals-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                    </div>
+                    <div class="chart-container" id="new-deals-value-chart-container">
+                        <div class="chart-header"><h4>Value of New Deals</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                        <div class="analytics-metric-card"><div class="metric-value-large" id="new-deals-value-metric">$0K</div></div>
+                        <div class="chart-wrapper hidden"><canvas id="new-deals-value-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                    </div>
+                    <div class="chart-container" id="closed-won-chart-container">
+                        <div class="chart-header"><h4>Closed Won Deals</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                        <div class="analytics-metric-card"><div class="metric-value-large" id="closed-won-metric">$0K</div></div>
+                        <div class="chart-wrapper hidden"><canvas id="closed-won-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                    </div>
+                </div>
+                 <h2 style="margin-top: 2rem;">System Activity Log</h2>
+                <div class="table-container">
+                    <table id="activity-log-table">
+                        <thead><tr><th>Date</th><th>User</th><th>Type</th><th>Description</th><th>Related Contact</th><th>Related Account</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="script-logs-view" class="content-view hidden">
+                <h2>Script Logs</h2>
+                <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">
+                  View the run history for automated scripts that feed data into Constellation.
+                </p>
+                <div class="table-container">
+                    <table id="script-logs-table">
+                        <thead>
+                            <tr>
+                                <th>Script Name</th>
+                                <th>Last Run At</th>
+                                <th>Outcome</th>
+                                <th>User</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="settings-view" class="content-view hidden">
+                <h2>System Settings</h2>
+                <div class="split-view">
+                    <div class="details-panel">
+                        <h3>Deal Stages</h3>
+                        <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">Define the stages of your sales pipeline. The order can be rearranged by dragging and dropping.</p>
+                        <ul id="deal-stages-list" class="settings-list"></ul>
+                        <div class="settings-add-form">
+                            <input type="text" id="new-deal-stage-name" placeholder="New stage name...">
+                            <button id="add-deal-stage-btn" class="btn-primary">Add Stage</button>
+                        </div>
+                    </div>
+                    <div class="details-panel">
+                        <h3>Activity Types</h3>
+                        <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">Define the types of activities your team can log (e.g., Call, Email, Demo).</p>
+                        <ul id="activity-types-list" class="settings-list"></ul>
+                        <div class="settings-add-form">
+                            <input type="text" id="new-activity-type-name" placeholder="New activity type...">
+                            <button id="add-activity-type-btn" class="btn-primary">Add Type</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
+        </div>
+    </div>
+    
+    <script>
+    // This script runs synchronously to apply the theme before the page renders
+    (function() {
+        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+        document.body.className = `theme-${savedTheme}`;
+    })();
+    </script>
+
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>

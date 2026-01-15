@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constellation - Social Hub</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Global Search...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
+            </div>
+
+            <a href="command-center.html" class="nav-button">Command Center</a>
+            <a href="deals.html" class="nav-button">Deals</a>
+            <a href="contacts.html" class="nav-button">Contacts</a>
+            <a href="accounts.html" class="nav-button">Accounts</a>
+            <a href="irr.html" class="nav-button">IRR Calculator</a>
+            <a href="campaigns.html" class="nav-button">Campaigns</a>
+            <a href="sequences.html" class="nav-button">Sequences</a>
+            <a href="social_hub.html" class="nav-button active">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+            
+            <div class="nav-bottom-section">
+                <div style="position: relative;">
+                    <a href="cognito.html" class="nav-button cognito-nav-link">
+                        <h1>
+                            C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#60a5fa;"></stop>
+                                        <stop offset="100%" style="stop-color:#3b82f6;"></stop>
+                                    </linearGradient>
+                                </defs>
+                                <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
+                                    <path d="M32.2,32.2 L45,45"></path>
+                                    <circle cx="20" cy="20" r="15"></circle>
+                                </g>
+                            </svg>gnito
+                        </h1>
+                    </a>
+                    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+                </div>
+
+                <div class="user-menu" style="margin-top: auto;">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="theme-toggle-btn" class="nav-button">
+                            Theme: <span id="theme-name">Dark</span>
+                        </button>
+                        <a href="user-guide.html" class="nav-button">User Guide</a>
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
+        <main class="content-area">
+            <div id="social-hub-view" class="content-view active-view">
+                <h2>Social Hub</h2>
+                <p class="placeholder-text" style="margin-bottom: 40px;">Amplify our voice. Share relevant news and updates with your network.</p>
+               <div class="alerts-container" style="margin-bottom: 40px; grid-template-columns: 1fr;">
+    <div class="alert-card">
+        <div class="alert-header">
+            <span class="alert-trigger-type">On-Demand Content</span>
+        </div>
+        <h5 class="alert-headline">Create a Custom Product Post</h5>
+        <p class="alert-summary">
+            Generate a unique social media post from scratch. Select one or more products, choose a target industry, and provide a prompt to create tailored content for your network.
+        </p>
+        <div class="alert-actions" style="justify-content: flex-end;">
+            <button id="ai-product-post-btn" class="btn-primary">
+                <i class="fas fa-magic-wand-sparkles"></i> Create Post
+            </button>
+        </div>
+    </div>
+</div>
+
+                <h3>AI-Curated Content</h3>
+                <div id="ai-articles-container" class="alerts-container">
+                    </div>
+
+               <div class="section-header" style="margin-top: 50px;">
+    <h3>From Our Marketing Team</h3>
+    <a href="https://gpcom-my.sharepoint.com/personal/dmunoz_gpcom_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fdmunoz%5Fgpcom%5Fcom%2FDocuments%2FDesktop%2FGraphics%20for%20LI%20posts&ga=1&startedResponseCatch=true" class="btn-primary" target="_blank" rel="noopener noreferrer">
+        View Content Image Library ↗
+    </a>
+</div>
+<div id="marketing-posts-container" class="alerts-container">
+    </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content" style="max-width: 650px;">
+            <h3 id="modal-title">Prepare Your Post</h3>
+            <div id="modal-body">
+                <p style="margin-bottom: 15px;"><strong>Sharing Link:</strong> <a id="modal-article-link" href="#" target="_blank" rel="noopener noreferrer">Article Title</a></p>
+                
+                <label for="post-text">Suggested Post Text:</label>
+                <textarea id="post-text" rows="8" placeholder="AI-generated text will appear here..."></textarea>
+
+                <div id="refine-prompt-section" style="margin-top: 20px;">
+                    <label for="custom-prompt-input">Refine with Custom Prompt:</label>
+                    <input type="text" id="custom-prompt-input" placeholder="e.g., 'Make it more casual' or 'Add a question at the end'">
+                    <button class="btn-primary" id="generate-custom-btn" style="width: 100%; margin-top: 10px;">Regenerate</button>
+                </div>
+            </div>
+            <div id="modal-actions" class="modal-actions">
+                 <button id="copy-text-btn" class="btn-secondary">Copy Text</button>
+                 <button id="post-to-linkedin-btn" class="btn-primary">Post to LinkedIn</button>
+                 <button id="modal-close-btn" class="btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+    <script>
+    // This script runs synchronously to apply the theme before the page renders
+    (function() {
+        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+        document.body.className = `theme-${savedTheme}`;
+    })();
+    </script>
+    <script type="module" src="js/social_hub.js"></script>
+</body>
+</html>

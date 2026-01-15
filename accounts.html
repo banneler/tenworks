@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, outreach, and deals.">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategic - CRM - Accounts</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Global Search...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
+            </div>
+            <a href="command-center.html" class="nav-button">Command Center</a>
+            <a href="deals.html" class="nav-button">Deals</a>
+            <a href="contacts.html" class="nav-button">Contacts</a>
+            <a href="accounts.html" class="nav-button active">Accounts</a>
+            <a href="irr.html" class="nav-button">IRR Calculator</a>
+            <a href="campaigns.html" class="nav-button">Campaigns</a>
+            <a href="sequences.html" class="nav-button">Sequences</a>
+            <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+            <div class="nav-bottom-section">
+                <div style="position: relative;">
+                    <a href="cognito.html" class="nav-button cognito-nav-link">
+                        <h1>
+                            C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#60a5fa;"></stop>
+                                        <stop offset="100%" style="stop-color:#3b82f6;"></stop>
+                                    </linearGradient>
+                                </defs>
+                                <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
+                                    <path d="M32.2,32.2 L45,45"></path>
+                                    <circle cx="20" cy="20" r="15"></circle>
+                                </g>
+                            </svg>gnito
+                        </h1>
+                    </a>
+                    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+                </div>
+                <div class="user-menu" style="margin-top: auto;">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="theme-toggle-btn" class="nav-button">
+                            Theme: <span id="theme-name">Dark</span>
+                        </button>
+                        <a href="user-guide.html" class="nav-button">User Guide</a>
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        <main class="content-area">
+            <div id="accounts" class="content-view active-view">
+                <h2>Accounts</h2>
+                <div class="split-view">
+                    <div class="item-list-container">
+                        <button id="add-account-btn" class="btn-primary full-width">Add New Account</button>
+                        <button id="bulk-import-accounts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
+                        <button id="bulk-export-accounts-btn" class="btn-secondary full-width">Bulk Export to CSV</button>
+                        <input type="file" id="account-csv-input" accept=".csv" class="hidden">
+                        <input type="text" id="account-search" placeholder="Search Accounts..." class="item-search-input">
+                        <div class="filter-bar">
+                            <select id="account-status-filter">
+                                <option value="all">All Accounts</option>
+                                <option value="hot">🔥 Hot Accounts</option>
+                                <option value="with_deals">💰 With Open Deals</option>
+                                <option value="customer">Customers</option>
+                                <option value="prospect">Prospects</option>
+                            </select>
+                        </div>
+                        <div id="account-list" class="item-list"></div>
+                    </div>
+                    <div id="account-details" class="details-panel">
+                        <div id="account-pending-task-reminder" class="pending-task-reminder hidden"></div>
+                        <h3>Account Details</h3>
+                        <form id="account-form">
+                            <input type="hidden" id="account-id">
+                            <div class="form-grid">
+                                <div><label for="account-name">Account Name</label><input type="text" id="account-name" required></div>
+                                <div>
+                                    <label for="account-website">Website</label>
+                                    <div class="input-with-icon">
+                                        <input type="text" id="account-website">
+                                        <a href="#" id="account-website-link" target="_blank" class="external-link-icon hidden" title="Open website in new tab">
+                                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div><label for="account-industry">Industry</label><input type="text" id="account-industry"></div>
+                                <div><label for="account-phone">Phone</label><input type="tel" id="account-phone"></div>
+                                <div><label for="account-sites">Quantity of Sites</label><input type="number" id="account-sites" min="0"></div>
+                                <div><label for="account-employees">Employee Count</label><input type="number" id="account-employees" min="0"></div>
+                                <div class="full-span-grid-item"><label for="account-address">Address</label><textarea id="account-address"></textarea></div>
+                            </div>
+                            <div class="form-checkbox-group">
+                                <label for="account-is-customer">Is this a Customer?</label>
+                                <input type="checkbox" id="account-is-customer">
+                            </div>
+                            <div class="notes-section"><label for="account-notes">Notes</label><textarea id="account-notes"></textarea><small id="account-last-saved" class="last-saved-text"></small></div>
+                            <div class="form-buttons"><button type="submit" class="btn-primary">Save Changes</button><button type="button" id="delete-account-btn" class="btn-danger">Delete Account</button></div>
+                        </form>
+                        <hr>
+                        <div class="action-buttons">
+                            <button id="add-deal-btn" class="btn-secondary">New Deal</button>
+                            <button id="add-task-account-btn" class="btn-secondary">Add Task</button>
+                            <!-- MODIFIED: Replaced old AI button with the new Briefing button -->
+                            <button id="ai-briefing-btn" class="btn-primary cognito-style-btn"><i class="fas fa-bolt-lightning"></i> &nbsp;Generate AI Briefing</button>
+                        </div>
+                        <div class="related-info">
+                            <h4>Current Deals</h4>
+                            <div class="table-container">
+                                <table id="account-deals-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Committed</th>
+                                            <th>Deal Name</th>
+                                            <th>Term</th>
+                                            <th>Stage</th>
+                                            <th>MRC</th>
+                                            <th>Close Month</th>
+                                            <th>Products</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="related-info">
+                            <!-- NEW: Header for the contact view toggle -->
+                            <div class="contact-view-header">
+                                <h4>Associated Contacts</h4>
+                                <div class="view-mode-toggle">
+                                    <button id="contact-list-btn" class="view-mode-btn active" title="List View"><i class="fas fa-list"></i></button>
+                                    <button id="contact-org-chart-btn" class="view-mode-btn" title="Org Chart View"><i class="fas fa-sitemap"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- NEW: Container for the list view (default) -->
+                            <div id="contact-list-view">
+                                <ul id="account-contacts-list"></ul>
+                            </div>
+
+                            <!-- NEW: Container for the org chart view (hidden) -->
+                            <!-- We'll reuse the kanban-board-container style for its horizontal scrolling properties -->
+                            <div id="contact-org-chart-view" class="kanban-board-container hidden">
+                            </div>
+
+                        <div id="unassigned-contacts-container" class="hidden">
+                            </div>
+                    </div>
+                        <div class="related-info">
+                            <h4>Related Activities</h4>
+                            <ul id="account-activities-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions">
+            </div>
+        </div>
+    </div>
+    <div id="email-view-modal-backdrop" class="modal-backdrop hidden">
+        <div class="email-view-modal">
+            <div class="email-view-header">
+                <h3 id="email-view-subject" class="email-view-subject"></h3>
+                <button id="email-view-close-btn" class="email-view-close">&times;</button>
+            </div>
+            <div class="email-view-meta">
+                <p><strong>From:</strong> <span id="email-view-from"></span></p>
+                <p><strong>To:</strong> <span id="email-view-to"></span></p>
+                <p><strong>Date:</strong> <span id="email-view-date"></span></p>
+            </div>
+            <div class="email-view-body">
+                <pre id="email-view-body-content"></pre>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+            document.body.className = `theme-${savedTheme}`;
+        })();
+    </script>
+    <script type="module" src="js/accounts.js"></script>
+</body>
+</html>

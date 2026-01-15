@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategic - CRM - Command Center</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-medium);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.75s ease-out;
+        }
+
+        #loading-screen video {
+            width: 100%;
+            max-width: 1200px;
+            height: auto;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-screen" class="hidden">
+        <video autoplay muted playsinline>
+            <source src="Constellation-Animation.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <div class="crm-container">
+       <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Global Search...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
+            </div>
+
+            <a href="command-center.html" class="nav-button active">Command Center</a>
+            <a href="deals.html" class="nav-button">Deals</a>
+            <a href="contacts.html" class="nav-button">Contacts</a>
+            <a href="accounts.html" class="nav-button">Accounts</a>
+           <a href="irr.html" class="nav-button">IRR Calculator</a>
+            <a href="campaigns.html" class="nav-button">Campaigns</a>
+            <a href="sequences.html" class="nav-button">Sequences</a>
+            <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+            
+            <div class="nav-bottom-section">
+                <div style="position: relative;">
+                    <a href="cognito.html" class="nav-button cognito-nav-link">
+                        <h1>
+                            C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#60a5fa;"></stop>
+                                        <stop offset="100%" style="stop-color:#3b82f6;"></stop>
+                                    </linearGradient>
+                                </defs>
+                                <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
+                                    <path d="M32.2,32.2 L45,45"></path>
+                                    <circle cx="20" cy="20" r="15"></circle>
+                                </g>
+                            </svg>gnito
+                        </h1>
+                    </a>
+                    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+                </div>
+
+                <div class="user-menu" style="margin-top: auto;">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="theme-toggle-btn" class="nav-button">
+                            Theme: <span id="theme-name">Dark</span>
+                        </button>
+                        <a href="ai-admin.html" class="nav-button" style="border-bottom: 1px solid var(--border-color); margin-bottom: 5px;">
+                   </i> &nbsp;AI Admin
+                </a>
+                        <a href="user-guide.html" class="nav-button">User Guide</a>
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
+        <main class="content-area">
+            <div id="dashboard" class="content-view active-view">
+                
+                <!-- Container for the AI briefing to be injected into -->
+                <div id="ai-briefing-container" class="hidden"></div>
+
+                <!-- NEW: Header for the My Tasks section -->
+                <div class="tasks-header">
+                    <div class="tasks-header-left">
+                        <h2>My Tasks</h2>
+                        <button id="add-new-task-btn" class="btn-primary">Add New Task</button>
+                    </div>
+                    <div class="tasks-header-right">
+                        <button id="ai-daily-briefing-btn" class="btn-primary cognito-style-btn btn-large"><i class="fas fa-bolt-lightning"></i> &nbsp;Generate AI Daily Briefing</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="my-tasks-table">
+                        <thead>
+                            <tr>
+                                <th>Due Date</th>
+                                <th>Description</th>
+                                <th>Linked To</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                
+                
+                <h2 style="margin-top: 30px;">Sequence Steps Due</h2>
+                <div class="table-container">
+                    <table id="dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>Due Date</th>
+                                <th>Contact</th>
+                                <th>Sequence</th>
+                                <th>Step</th>
+                                <th>Description</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                
+                
+                <h2 style="margin-top: 30px;">Upcoming Sequence Steps</h2> 
+                <div class="table-container">
+                    <table id="all-tasks-table">
+                        <thead>
+                            <tr>
+                                <th>Next Task Due Date</th>
+                                <th>Contact Name</th>
+                                <th>Account Name</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <h2 style="margin-top: 30px;">Recent Activities</h2>
+                <div class="table-container">
+                    <table id="recent-activities-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Account</th>
+                                <th>Contact</th>
+                                <th>Activity</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="downloads-section">
+                    <h4>Download CSV Templates</h4>
+                    <p>Use these templates to ensure your data is formatted correctly for bulk imports.</p>
+                    <div class="downloads-links">
+                        <a href="contacts_template.csv" class="btn-secondary" download>Download Contacts Template</a>
+                        <a href="accounts_template.csv" class="btn-secondary" download>Download Accounts Template</a>
+                        <a href="sequence_steps_template.csv" class="btn-secondary" download>Download Sequence Steps Template</a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+       <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions">
+                </div>
+        </div>
+    </div>
+    </div>
+    <script>
+    // This script runs synchronously to apply the theme before the page renders
+    (function() {
+        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+        document.body.className = `theme-${savedTheme}`;
+    })();
+
+    // Script for the loading screen
+    window.addEventListener('load', () => {
+        const loadingScreen = document.getElementById('loading-screen');
+        setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+        }, 3000); // 3 seconds
+    });
+    </script>
+    <script type="module" src="js/command-center.js"></script>
+</body>
+
+</html>
+
+
+

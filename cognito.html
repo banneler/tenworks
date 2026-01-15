@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constellation AI - Cognito Intelligence</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Global Search...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
+            </div>
+
+            <a href="command-center.html" class="nav-button">Command Center</a>
+            <a href="deals.html" class="nav-button">Deals</a>
+            <a href="contacts.html" class="nav-button">Contacts</a>
+            <a href="accounts.html" class="nav-button">Accounts</a>
+            <a href="irr.html" class="nav-button">IRR Calculator</a>
+            <a href="campaigns.html" class="nav-button">Campaigns</a>
+            <a href="sequences.html" class="nav-button">Sequences</a>
+            <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+            
+            <div class="nav-bottom-section">
+                <div style="position: relative;">
+                    <a href="cognito.html" class="nav-button cognito-nav-link active">
+                        <h1>
+                            C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#60a5fa;"></stop>
+                                        <stop offset="100%" style="stop-color:#3b82f6;"></stop>
+                                    </linearGradient>
+                                </defs>
+                                <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
+                                    <path d="M32.2,32.2 L45,45"></path>
+                                    <circle cx="20" cy="20" r="15"></circle>
+                                </g>
+                            </svg>gnito
+                        </h1>
+                    </a>
+                  <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+                </div>
+
+                <div class="user-menu" style="margin-top: auto;">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="theme-toggle-btn" class="nav-button">
+                            Theme: <span id="theme-name">Dark</span>
+                        </button>
+                        <a href="user-guide.html" class="nav-button">User Guide</a>
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
+        <main class="content-area">
+            <div id="cognito-view" class="content-view active-view">
+                <h2>Cognito Intelligence</h2>
+                <div class="deals-view-toggle">
+                    <button id="view-dashboard-btn" class="btn-secondary active">New Alerts</button>
+                    <button id="view-archive-btn" class="btn-secondary">Intelligence Archive</button>
+                </div>
+
+                <div class="filter-bar">
+                    <select id="filter-trigger-type">
+                        <option value="">All Trigger Types</option>
+                        <option value="C-Suite Change">C-Suite Change</option>
+                        <option value="Expansion">Expansion</option>
+                        <option value="Technology Partnership">Technology Partnership</option>
+                        <option value="Financial Update">Financial Update</option>
+                    </select>
+                    <select id="filter-relevance">
+                        <option value="">All Relevance</option>
+                        <option value="5">5 🔥</option>
+                        <option value="4">4 🔥</option>
+                        <option value="3">3</option>
+                        <option value="2">2</option>
+                        <option value="1">1</option>
+                    </select>
+                    <select id="filter-account">
+                        <option value="">All Accounts</option>
+                        </select>
+                    <button id="clear-filters-btn" class="btn-secondary">Clear Filters</button>
+                </div>
+                <div id="alerts-container">
+                    </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body">
+                <div class="action-center-content">
+                    <div class="action-center-section">
+                        <h5>Suggested Outreach</h5>
+                        <p class="alert-relevance">Relevance: <span id="relevance-score-display"></span><span id="relevance-fire-emoji"></span></p>
+                        <label for="contact-selector">Suggested Contact:</label>
+                        <select id="contact-selector">
+                            <option value="">-- Select a Contact --</option>
+                            </select>
+                        
+                        <div id="initial-ai-suggestion-section">
+                            <label for="outreach-subject">Suggested Subject:</label>
+                            <input type="text" id="outreach-subject" value="" readonly>
+                            <label for="outreach-body">Suggested Body:</label>
+                            <textarea id="outreach-body" rows="8" readonly></textarea>
+                            <div class="action-buttons">
+                                <button class="btn-secondary" id="copy-btn">Copy</button>
+                                <button class="btn-primary" id="send-email-btn">Open Email Client</button>
+                            </div>
+                            <button class="btn-tertiary" id="refine-suggestion-btn" style="margin-top: 15px;">Refine with Custom Prompt</button>
+                        </div>
+
+                        <div id="custom-prompt-section" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                            <h5>Custom Suggestion Generator</h5>
+                            <p class="placeholder-text">Enter your specific instructions to refine or get a new email suggestion based on the alert.</p>
+                            <label for="custom-prompt-input">Your Custom Prompt:</label>
+                            <textarea id="custom-prompt-input" rows="4" placeholder="e.g., 'Make the email more urgent and focus on a direct call to action for a meeting.'"></textarea>
+                            <button class="btn-primary" id="generate-custom-btn" style="width: 100%; margin-top: 10px;">Generate Custom Suggestion</button>
+                            <button class="btn-secondary" id="cancel-custom-btn" style="width: 100%; margin-top: 10px;">Back to Initial Suggestion</button>
+
+                            <div id="custom-suggestion-output" style="display: none; margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                                <h6>Custom AI Suggestion:</h6>
+                                <label for="custom-outreach-subject">Subject:</label>
+                                <input type="text" id="custom-outreach-subject" value="" readonly>
+                                <label for="custom-outreach-body">Body:</label>
+                                <textarea id="custom-outreach-body" rows="8" readonly></textarea>
+                                <div class="action-buttons">
+                                    <button class="btn-secondary" id="copy-custom-btn">Copy Custom</button>
+                                    <button class="btn-primary" id="send-email-custom-btn">Open Email Client (Custom)</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-center-section">
+                        <h5>Log Actions in Constellation</h5>
+                        <label for="log-interaction-notes">Log an Interaction:</label>
+                        <textarea id="log-interaction-notes" rows="4" placeholder="e.g., Emailed the new CIO..."></textarea>
+                        <button class="btn-secondary" id="log-interaction-btn" style="width: 100%; margin-bottom: 15px;">Log to Constellation</button>
+
+                        <label for="create-task-desc">Create a Task:</label>
+                        <input type="text" id="create-task-desc" placeholder="e.g., Follow up with new CIO in 1 week">
+                        <label for="create-task-due-date">Due Date:</label>
+                        <input type="date" id="create-task-due-date">
+                        <button class="btn-primary" id="create-task-btn" style="width: 100%;">Create in Constellation</button>
+                        
+                        <p class="placeholder-text" style="color: var(--warning-yellow); margin-top: 10px; display: none;" id="no-contact-message">
+                            Add a contact to this account in Constellation to enable logging and task creation.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div id="modal-actions" class="modal-actions"></div>
+        </div>
+    </div>
+    <script>
+    // This script runs synchronously to apply the theme before the page renders
+    (function() {
+        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+        document.body.className = `theme-${savedTheme}`;
+    })();
+    </script>
+    <script type="module" src="js/cognito.js"></script>
+</body>
+</html>
