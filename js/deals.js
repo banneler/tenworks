@@ -288,7 +288,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             th.classList.remove("asc", "desc");
             if (th.dataset.sort === state.dealsSortBy) th.classList.add(state.dealsSortDir);
         });
-    };
+    
 
     // Kanban Board Render Functions
     const renderKanbanBoard = () => {
