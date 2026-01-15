@@ -389,7 +389,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     async function handleCommitDeal(dealId, isCommitted) {
-        const { error } = await supabase.from('deals').update({ is_committed: isCommitted }).eq('id', dealId);
+        const { error } = await supabase.from('deals_tw').update({ is_committed: isCommitted }).eq('id', dealId);
         if (error) {
             alert('Error updating commit status: ' + error.message);
         } else {
@@ -425,7 +425,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 products: document.getElementById('modal-deal-products').value.trim(),
             };
             if (!updatedDeal.name) return alert('Deal name is required.');
-            const { error } = await supabase.from("deals").update(updatedDeal).eq("id", deal.id);
+            const { error } = await supabase.from("deals_tw").update(updatedDeal).eq("id", deal.id);
             if (error) { alert("Error updating deal: " + error.message); }
             else { await loadAllData(); hideModal(); }
         });
@@ -462,7 +462,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (deal && deal.stage !== newStage) {
                     deal.stage = newStage; 
                     render(); 
-                    const { error } = await supabase.from('deals').update({ stage: newStage }).eq('id', dealId);
+                    const { error } = await supabase.from('deals_tw').update({ stage: newStage }).eq('id', dealId);
                     if (error) {
                         console.error("Error updating deal stage:", error);
                         alert("Could not update deal stage. Please try again.");
