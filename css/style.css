@@ -51,7 +51,7 @@ html {
 /* Dark Theme (Explicit Overrides) */
 body.theme-dark {
     --bg-dark: #1F2329;
-    --bg-medium: #2e343d;
+    --bg-medium: #23272e;
     --bg-light: #1f2329;
     --text-light: #ffffff;
     --text-medium: #b0b0b0;
