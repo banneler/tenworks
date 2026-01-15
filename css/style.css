@@ -166,50 +166,50 @@ body.theme-green {
     --error-color: #ff0000;
 }
 
-/* --- GLOBAL STYLES --- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    /* This ensures form inputs and tables don't go rogue */
+    font-family: 'Inter', sans-serif; 
+}
+
 body {
     margin: 0;
-    font-family: var(--font-body); /* Explicitly use the var */
+    font-family: 'Inter', sans-serif; /* Explicitly set Inter */
     background-color: var(--bg-dark);
     color: var(--text-light);
     overflow-x: hidden;
     transition: background-color 0.3s, color 0.3s;
-    letter-spacing: -0.015em; /* Tightens Inter slightly for a more modern UI look */
+    letter-spacing: -0.015em;
     line-height: 1.5;
+    /* Text Smoothing is critical for Dark Mode */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Force Industrial Font on Headers & Data */
+/* 2. SPECIFIC OVERRIDE FOR HEADERS (Rajdhani) */
 h1, h2, h3, h4, h5, h6, 
 .metric-value, 
 .nav-button, 
 .contact-name, 
 th {
-    font-family: var(--font-headers); 
+    font-family: 'Rajdhani', sans-serif !important;
     font-weight: 600;
-    text-transform: uppercase; 
-    letter-spacing: 0.05em; 
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-/* --- FIX FOR "SYSTEM DEFAULT" LOOK IN TABLES --- */
-td, 
-.list-item, 
-p, 
-span, 
-div {
-    font-family: var(--font-body);
+/* 3. HARD OVERRIDE FOR TABLE DATA */
+/* This specifically targets the "system default" text you are seeing */
+td, input, select, textarea, .list-item, p, span, div {
+    font-family: 'Inter', sans-serif !important;
 }
 
-/* Specific fix for the table data to look crisp */
+/* Table specific clean-up */
 td {
-    font-size: 0.95rem; /* Slightly larger for readability */
-    color: var(--text-light); /* High contrast */
-    font-weight: 400;
-}
-
-/* Make the "Description" text in your table slightly lighter to distinguish from links */
-td:nth-child(2) {
+    font-size: 0.95rem;
     color: var(--text-light);
-    font-weight: 500;
+    font-weight: 400;
+    vertical-align: middle;
 }
 
 body.theme-green {
