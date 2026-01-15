@@ -1,250 +1,94 @@
-/* --- GLOBAL SCALING --- */
+/* =========================================
+   TENWORKS CRM - MAIN STYLESHEET (CLEAN)
+   ========================================= */
+
+/* --- GLOBAL VARIABLES & SCALING --- */
 html {
     font-size: 87.5%;
 }
 
-/* --- THEME DEFINITIONS --- */
-/* --- THEME DEFINITIONS --- */
 :root {
-    /* LOGO PALETTE MAPPING */
-    /* Main Background (Logo Dark) */
-    --bg-dark: #1F2329; 
-    /* Card/Panel Background (Calculated mid-tone between Logo Dark and Logo Grey) */
-    --bg-medium: #2e343d; 
-    /* Lighter Elements/Borders (Logo Medium Grey) */
-    --bg-light: #1f2329; 
+    /* --- PALETTE: TENWORKS INDUSTRIAL --- */
+    --bg-dark: #1F2329;       /* Deep Charcoal (Main BG) */
+    --bg-medium: #2e343d;     /* Lighter Charcoal (Cards) */
+    --bg-light: #3a414b;      /* Hover States/Headers */
     
-    --text-light: #ffffff;
-    --text-medium: #b0b0b0;
+    --text-light: #ffffff;    /* Primary Text */
+    --text-medium: #b0b0b0;   /* Secondary Text */
     
-    /* BRAND COLOR (Logo Gold) - Replaces primary-blue */
-    --primary-blue: #b38c62; 
+    /* BRANDING */
+    --primary-blue: #b38c62;  /* TenWorks Gold (Keeping var name for compatibility) */
+    --gold-text: #D4AF37;     /* Bright Gold for Metrics */
     
+    /* STATUS COLORS */
     --danger-red: #e74c3c;
-    --secondary-gray: #6d6d6d;
-    --border-color: #454a52; /* Matched to lighter grey for subtle borders */
-    
-    /* Adjusted secondary colors to match the gold tone better */
-    --completed-color: #98ff98; 
-    --warning-yellow: #f1c40f;
-    --meeting-purple: #8A2BE2;
-    
-    /* Gradient based on Logo Dark */
-    --gradient-start: #1F2329;
-    --gradient-end: #181b20;
-    
-    --shadow-light: rgba(0, 0, 0, 0.3);
-    --shadow-medium: rgba(0, 0, 0, 0.5);
-    --shadow-strong: rgba(0, 0, 0, 0.7);
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    
-    --logo-primary-color: var(--primary-blue);
-    --logo-secondary-color: var(--text-light);
-    
-    --warning-bg: #4d441a;
-    --warning-text: #ffeb99;
-    --warning-hover-bg: #6b5f25;
     --success-color: #28a745;
-    --error-color: #dc3545;
-}
-
-/* Dark Theme (Explicit Overrides) */
-body.theme-dark {
-    --bg-dark: #1F2329;
-    --bg-medium: #2e343d;
-    --bg-light: #1f2329;
-    --text-light: #ffffff;
-    --text-medium: #b0b0b0;
-    --primary-blue: #b38c62; /* Gold */
-    --danger-red: #e74c3c;
-    --secondary-gray: #6d6d6d;
-    --border-color: #454a52;
+    --warning-yellow: #f1c40f;
     --completed-color: #98ff98;
-    --warning-yellow: #f1c40f;
-    --gradient-start: #1F2329;
-    --gradient-end: #181b20;
+    --secondary-gray: #6d6d6d;
+    
+    /* UTILITY */
+    --border-color: #454a52;
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.5);
     --shadow-strong: rgba(0, 0, 0, 0.7);
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    
+    --gradient-start: #1F2329;
+    --gradient-end: #181b20;
+    
+    --font-main: "Orbitron", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    
+    /* LOGO MAPPING */
     --logo-primary-color: var(--primary-blue);
     --logo-secondary-color: var(--text-light);
-    --meeting-purple: #8A2BE2;
-    --warning-bg: #4d441a;
-    --warning-text: #ffeb99;
-    --warning-hover-bg: #6b5f25;
-    --success-color: #28a745;
-    --error-color: #dc3545;
 }
 
-/* Light Theme */
-body.theme-light {
-    --bg-dark: #f0f2f5; /* Keep standard light grey for main background */
-    --bg-medium: #ffffff; /* White cards */
-    --bg-light: #e9ecef;
-    
-    /* Text colors mapped to the Logo Dark for high contrast */
-    --text-light: #1F2329; 
-    --text-medium: #454a52; 
-    
-    /* The Gold Brand Color */
-    --primary-blue: #b38c62; 
-    
-    --secondary-gray: #6c757d;
-    --danger-red: #dc3545;
-    --warning-yellow: #ffc107;
-    --completed-color: #28a745;
-    --meeting-purple: #6A0DAD;
-    --border-color: #dee2e6;
-    
-    --input-bg: #ffffff;
-    --input-border: #d1d5db;
-    --input-focus-border: #b38c62; /* Focus ring uses Gold */
-    
-    --list-item-hover: #e5e7eb;
-    --selected-item-bg: #eaddcf; /* Light gold/beige tint for selection */
-    --shadow-color: rgba(0, 0, 0, 0.1);
-
-    /* Button adjustments for Gold contrast */
-    .btn-primary {
-        color: white; 
-        background-color: var(--primary-blue);
-    }
-    
-    .btn-primary:hover {
-        /* Darken the gold slightly on hover */
-        background-color: #a37c52; 
-    }
-
-    .btn-secondary {
-        color: white; 
-    }
-    
-    /* Override list item selection shadow to match gold */
-    .list-item.selected {
-        box-shadow: inset 3px 0 0 0 var(--primary-blue);
-    }
-}
-
-
-
-/* Green Screen Theme */
-body.theme-green {
-    --bg-dark: #020c02;
-    --bg-medium: #051405;
-    --bg-light: #0a200a;
-    --text-light: #00ff41;
-    --text-medium: #00b32d;
-    --primary-blue: #00ff41;
-    --danger-red: #00ff41;
-    --secondary-gray: #008b25;
-    --border-color: #005217;
-    --completed-color: #00ff41;
-    --warning-yellow: #00ff41;
-    --gradient-start: #000000;
-    --gradient-end: #020c02;
-    --shadow-light: rgba(0, 255, 65, 0.1);
-    --shadow-medium: rgba(0, 255, 65, 0.2);
-    --shadow-strong: rgba(0, 255, 65, 0.3);
-    --font-main: 'Courier New', Courier, monospace;
-    --logo-primary-color: var(--text-medium);
-    --logo-secondary-color: var(--bg-dark);
-    --meeting-purple: #9400D3;
-    --warning-bg: #1a331a;
-    --warning-text: #ffff00;
-    --warning-hover-bg: #2a522a;
-    --success-color: #00ff41;
-    --error-color: #ff0000;
-}
-
-/* --- GLOBAL STYLES --- */
+/* --- RESET & BODY --- */
 body {
     margin: 0;
     font-family: var(--font-main);
     background-color: var(--bg-dark);
     color: var(--text-light);
     overflow-x: hidden;
-    transition: background-color 0.3s, color 0.3s;
+    line-height: 1.5;
 }
 
-body.theme-green {
-    text-shadow: 0 0 5px var(--text-light);
-    animation: flicker 0.15s infinite;
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Orbitron', sans-serif;
+    margin-top: 0;
+    font-weight: 700;
 }
 
-body.theme-green::before {
-    content: " ";
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    z-index: 2;
-    background-size: 100% 4px, 3px 100%;
-    pointer-events: none;
+a {
+    color: var(--primary-blue);
+    text-decoration: none;
+    transition: color 0.2s;
 }
 
-@keyframes flicker {
-    0% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.95;
-    }
-    100% {
-        opacity: 1;
-    }
+a:hover {
+    color: #d6ad81;
 }
 
-/* --- SVG LOGO STYLES --- */
-/* Shared styles for both logos */
-.auth-logo,
-.nav-logo {
-    height: auto;
-    margin-bottom: 0.75rem;
-        transition: filter 0.3s;
+hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 1.25rem 0;
 }
-
-/* Width for the larger logo on the Login/Auth page */
-.auth-logo {
-    width: 250px;
-}
-
-/* Correct, specific width for the smaller logo in the sidebar */
-.nav-logo {
-    width: 180px; /* This is the correct width for the sidebar */
-    margin: 0 auto 0.625rem auto;
-    display: block;
-}
-.nav-logo path[fill="#FEFEFE"],
-.auth-logo path[fill="#FEFEFE"] {
-    fill: var(--logo-primary-color);
-    transition: fill 0.3s;
-}
-
-.nav-logo path[fill="#010101"],
-.auth-logo path[fill="#010101"] {
-    fill: #FFFFFF !important;
-    transition: fill 0.3s;
-}
-
-body.theme-green .nav-logo path[fill="#010101"],
-body.theme-green .auth-logo path[fill="#010101"] {
-    fill: var(--logo-secondary-color) !important;
-}
-
 
 /* --- MAIN LAYOUT --- */
 .crm-container {
     display: flex;
     height: 100vh;
     background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-    transition: background 0.3s;
-    gap: 1.25rem;
 }
 
+.content-area {
+    flex-grow: 1;
+    padding: 1.25rem;
+    overflow-y: auto;
+}
+
+/* --- SIDEBAR NAVIGATION --- */
 .nav-sidebar {
     width: 200px;
     background-color: var(--bg-dark);
@@ -253,13 +97,19 @@ body.theme-green .auth-logo path[fill="#010101"] {
     flex-direction: column;
     flex-shrink: 0;
     box-shadow: 4px 0 10px var(--shadow-medium);
-    transition: background-color 0.3s, box-shadow 0.3s;
-    overflow: visible;
+    border-right: 1px solid var(--border-color);
+    z-index: 10;
 }
 
-body:not(.theme-green) .nav-sidebar {
-    border-radius: 0 10px 10px 0;
+.nav-logo {
+    width: 180px;
+    height: auto;
+    margin: 0 auto 1.5rem auto;
+    display: block;
 }
+
+.nav-logo path[fill="#FEFEFE"] { fill: var(--logo-primary-color); }
+.nav-logo path[fill="#010101"] { fill: #FFFFFF !important; }
 
 .nav-button {
     background: none;
@@ -270,13 +120,9 @@ body:not(.theme-green) .nav-sidebar {
     text-align: left;
     font-size: 1rem;
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s, transform 0.1s;
-    text-decoration: none;
+    transition: all 0.2s;
     font-weight: 600;
     display: block;
-}
-
-body:not(.theme-green) .nav-button {
     border-radius: 5px;
 }
 
@@ -286,804 +132,305 @@ body:not(.theme-green) .nav-button {
     transform: translateX(3px);
 }
 
-.nav-button.active,
-.btn-secondary.active {
-    color: #ffffff; /* Ensure text remains white */
-    font-weight: bold;
-    transform: translateY(-1px);
-    /* NEW GOLD GRADIENT */
-    background: linear-gradient(45deg, #b38c62, #d6ad81); 
-    /* NEW GOLD SHADOW */
-    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4); 
-    border: none;
-}
-
-body.theme-light .nav-button.active,
-body.theme-light .btn-secondary.active {
-    /* Override the blue gradient with the same Gold one */
-    background: linear-gradient(45deg, #b38c62, #d6ad81);
-    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4);
+.nav-button.active {
     color: #ffffff;
+    font-weight: bold;
+    background: linear-gradient(45deg, #b38c62, #d6ad81); /* TenWorks Gold Gradient */
+    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4);
+    transform: translateY(-1px);
 }
 
-body.theme-green .nav-button.active,
-body.theme-green .btn-secondary.active {
-    background: transparent;
-    border: 1px solid var(--text-light);
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
+.nav-notification-dot {
+    color: var(--primary-blue);
+    margin-left: 8px;
+    text-shadow: 0 0 5px var(--primary-blue);
 }
 
-.content-area {
-    flex-grow: 1;
-    padding: 1.25rem;
-    overflow-y: auto;
-}
-
-.deals-header {
-    flex-shrink: 0;
-}
-
-.charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.5625rem;
-    margin-top: 1.25rem;
-    margin-bottom: 1.25rem;
-}
-
-.chart-container {
-    padding: 0.625rem;
-    background-color: var(--bg-medium);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 6px 15px var(--shadow-medium);
-    transition: background-color 0.3s, border-color 0.3s;
-    /* --- ADD THESE LINES --- */
+.nav-bottom-section {
+    margin-top: auto;
     display: flex;
     flex-direction: column;
 }
 
-.analytics-metric-card {
-    display: flex; 
-    justify-content: center;
-    align-items: center; 
-    /* --- ADD THIS LINE --- */
-    flex-grow: 1; /* This makes the card fill the remaining space */
-}
-
-body:not(.theme-green) .chart-container {
-    border-radius: 10px;
-}
-
-.chart-container h4 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-    color: var(--text-medium);
-    font-size: 0.9375rem;
-}
-
-.chart-wrapper {
-    position: relative;
-    height: 11.25rem;
-    width: 100%;
-    margin: 0 auto;
-}
-
-.chart-wrapper canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-}
-
-.chart-empty-message {
-    width: 100%;
-    min-height: 11.25rem;
-    display: flex;
-    justify-content: center;
+/* --- BUTTONS --- */
+.btn-primary, .btn-secondary, .btn-danger, .btn-tertiary {
+    padding: 0.625rem 0.9375rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
+    line-height: 1;
+    min-width: 80px;
+}
+
+.btn-primary {
+    background-color: var(--primary-blue);
+    color: white;
+    box-shadow: 0 2px 5px var(--shadow-medium);
+}
+
+.btn-secondary {
+    background-color: var(--secondary-gray);
+    color: white;
+    box-shadow: 0 2px 5px var(--shadow-medium);
+}
+
+.btn-secondary.active {
+    background: linear-gradient(45deg, #b38c62, #d6ad81);
+    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4);
+}
+
+.btn-danger {
+    background-color: var(--danger-red);
+    color: white;
+}
+
+.btn-tertiary {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
     color: var(--text-medium);
-    font-style: italic;
 }
 
-.deals-view-toggle {
-    margin-bottom: 0.9375rem;
+.btn-primary:hover, .btn-secondary:hover, .btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow-strong);
+    filter: brightness(1.1);
 }
 
+.btn-tertiary:hover {
+    background-color: var(--bg-light);
+    color: var(--text-light);
+    border-color: var(--primary-blue);
+}
+
+/* --- FORMS & INPUTS --- */
+input, select, textarea {
+    width: 100%;
+    padding: 0.625rem;
+    margin: 0.3125rem 0 0.625rem 0;
+    background-color: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-light);
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 5px rgba(179, 140, 98, 0.5);
+}
+
+label {
+    font-weight: bold;
+    color: var(--text-medium);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.form-checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    padding: 10px;
+    background-color: var(--bg-dark);
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+}
+
+.form-checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--primary-blue);
+}
+
+/* --- CARDS & CONTAINERS --- */
+.metric-card, .chart-container, .details-panel, .alert-card, .section-box {
+    background-color: var(--bg-medium);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 4px 10px var(--shadow-medium);
+}
+
+/* --- METRIC CARDS (TENWORKS GOLD EDITION) --- */
 .deals-metrics-container {
     display: flex;
-    justify-content: space-around;
-    gap: 0.9375rem;
-    margin-bottom: 1.25rem;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
     flex-wrap: wrap;
 }
 
 .metric-card {
-    background-color: var(--bg-medium);
-    border: 1px solid var(--border-color);
-    padding: 0.625rem 0.9375rem;
-    text-align: center;
     flex: 1;
-    min-width: 10rem;
-    box-shadow: 0 4px 10px var(--shadow-medium);
+    padding: 1rem;
+    text-align: center;
+    min-width: 150px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     position: relative;
-    min-height: 4.375rem;
-    transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
-}
-
-body:not(.theme-green) .metric-card {
-    border-radius: 10px;
-}
-
-body.theme-dark .metric-card {
     background: linear-gradient(160deg, var(--bg-medium), var(--bg-dark));
 }
 
 .metric-title {
     font-size: 0.75rem;
     color: var(--text-medium);
-    margin-bottom: 0.1875rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
+/* GOLD TEXT FOR STANDARD METRICS */
 .metric-value {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: bold;
-    color: var(--completed-color);
-    padding-bottom: 0.625rem;
+    color: var(--gold-text) !important;
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.15);
+}
+
+/* BRONZE CARD FOR CLOSED WON */
+.metric-card.metric-card-won {
+    background: linear-gradient(135deg, #cd7f32 0%, #8a5a2b 100%) !important;
+    border: 1px solid #8a5a2b;
+    box-shadow: 0 4px 20px rgba(205, 127, 50, 0.25);
+}
+
+.metric-card-won .metric-title,
+.metric-card-won .metric-value {
+    color: #FFF8E7 !important; /* Off-white for contrast */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .metric-quota-percent {
     font-size: 0.8rem;
     color: var(--text-medium);
     position: absolute;
-    bottom: 0.3125rem;
-    right: 0.5rem;
-    white-space: nowrap;
-}
-
-.downloads-section {
-    margin-top: 2.5rem;
-    padding: 1.25rem;
-    background-color: var(--bg-light);
-    border: 1px solid var(--border-color);
-    transition: background-color 0.3s, border-color 0.3s;
-}
-
-body:not(.theme-green) .downloads-section {
-    border-radius: 8px;
-}
-
-.downloads-section h4 {
-    margin-top: 0;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.625rem;
-    margin-bottom: 0.625rem;
-}
-
-.downloads-links {
-    display: flex;
-    gap: 0.9375rem;
-    flex-wrap: wrap;
-}
-
-.downloads-links a {
-    text-decoration: none;
-}
-
-.split-view {
-    display: flex;
-    gap: 1.25rem;
-    height: calc(100vh - 7.5rem);
-}
-
-.item-list-container {
-    display: flex;
-    flex-direction: column;
-    width: 15.625rem;
-    flex-shrink: 0;
-}
-
-.item-list {
-    background-color: var(--bg-medium);
-    border: 1px solid var(--border-color);
-    overflow-y: auto;
-    flex-grow: 1;
-    margin-top: 0.625rem;
-    box-shadow: inset 0 0 5px var(--shadow-light);
-    transition: background-color 0.3s, border-color 0.3s;
-}
-
-body:not(.theme-green) .item-list {
-    border-radius: 5px;
-}
-
-.list-item {
-    padding: 0.625rem 0.9375rem;
-    border-bottom: 1px solid var(--border-color);
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s, border-color 0.3s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.contact-info {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-}
-
-.contact-name {
-    font-weight: bold;
-    font-size: 1em;
-    margin-bottom: 2px;
-    display: flex;
-    align-items: center;
-}
-
-.account-name {
-    font-size: 0.85em;
-    color: var(--text-medium);
-}
-
-.list-item-actions {
-    display: flex;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-.contact-list-indicator {
-    display: inline-block;
-    width: 0.6rem;
-    height: 0.6rem;
-    background-color: var(--primary-blue);
-    border-radius: 2px;
-    margin-left: 0.5rem;
-    vertical-align: middle;
-    flex-shrink: 0;
-}
-
-body.theme-green .contact-list-indicator {
-    background-color: var(--text-light);
-}
-
-.list-item:hover {
-    background-color: var(--bg-light);
-    transform: translateX(2px);
-}
-
-.list-item.selected {
-    background-color: var(--primary-blue);
-    color: var(--text-light);
-    font-weight: bold;
-}
-
-body:not(.theme-green) .list-item.selected {
-    box-shadow: inset 3px 0 0 0 var(--primary-blue);
-}
-
-.list-item:last-child {
-    border-bottom: none;
-}
-
-.details-panel {
-    flex-grow: 1;
-    background-color: var(--bg-medium);
-    padding: 1.25rem;
-    overflow-y: auto;
-    box-shadow: 0 4px 15px var(--shadow-medium);
-    transition: background-color 0.3s, box-shadow 0.3s;
-}
-
-body:not(.theme-green) .details-panel {
-    border-radius: 8px;
-}
-
-.related-info {
-    margin-top: 1.25rem;
-}
-
-/* --- SEQUENCE STATUS & RING CHART --- */
-#contact-sequence-status h4 {
-    margin-top: -5px;
-    margin-bottom: 0.625rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.625rem;
-    width: 100%;
-    text-align: left;
-    box-sizing: border-box;
-}
-
-#contact-sequence-status {
-    background-color: var(--bg-dark);
-    padding: 0.9375rem;
-    border: 1px solid var(--border-color);
-    box-shadow: inset 0 0 5px var(--shadow-light);
-    transition: background-color 0.3s, border-color 0.3s;
-    display: block;
-}
-
-body:not(.theme-green) #contact-sequence-status {
-    border-radius: 5px;
-}
-
-
-.ring-chart-container {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    flex-shrink: 0;
-}
-
-.ring-chart {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    box-sizing: border-box;
-    border: 1px solid var(--text-light);
-    box-shadow: 0 2px 5px var(--shadow-light);
-    transition: background 0.3s;
-    -webkit-mask: radial-gradient(transparent 32px, black 32px);
-    mask: radial-gradient(transparent 32px, black 32px);
-}
-
-.ring-chart-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 16px;
-    font-weight: bold;
-    color: var(--completed-color);
-    white-space: nowrap;
-    z-index: 1;
-}
-
-.sequence-status-details {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.3125rem;
-    height: 100%;
-}
-
-.sequence-status-details p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--text-light);
-}
-
-#remove-from-sequence-btn {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
-}
-
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0 1.25rem;
-}
-
-.full-span-grid-item {
-    grid-column: 1 / -1;
-}
-
-/* --- GENERAL FORM ELEMENTS --- */
-input,
-select,
-textarea {
-    width: 100%;
-    padding: 0.625rem;
-    margin: 0.3125rem 0 0.625rem 0;
-    background-color: var(--bg-dark);
-    border: 1px solid var(--border-color);
-    color: var(--text-light);
-    box-sizing: border-box;
-    box-shadow: inset 1px 1px 3px var(--shadow-light);
-    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
-}
-
-body:not(.theme-green) input,
-body:not(.theme-green) select,
-body:not(.theme-green) textarea {
-    border-radius: 4px;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-    outline: none;
-    border-color: var(--primary-blue);
-    box-shadow: inset 1px 1px 3px var(--shadow-light), 0 0 5px var(--primary-blue);
-}
-
-label {
-    font-weight: bold;
-    color: var(--text-medium);
-    transition: color 0.3s;
-}
-
-.notes-section {
-    margin-top: 0.625rem;
-}
-
-.notes-section textarea {
-    min-height: 6.25rem;
-}
-
-.last-saved-text {
-    display: block;
-    text-align: right;
-    font-size: 0.75rem;
-    color: var(--text-medium);
-    margin-top: -0.625rem;
-}
-
-/* --- BUTTONS --- */
-.btn-primary,
-.btn-danger,
-.btn-secondary,
-.btn-tertiary { /* Added btn-tertiary here */
-    padding: 0.625rem 0.9375rem;
-    border: none;
-    color: var(--text-light);
-    cursor: pointer;
-    font-size: 0.875rem;
-    transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s, background-color 0.3s;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    padding: 8px;
-    width: auto;
-    min-width: 34px;
-    height: 34px;
-    box-sizing: border-box;
-    text-decoration: none;
-}
-
-/* Adjust padding for buttons that explicitly contain text AND icon */
-.btn-danger:has(span),
-.btn-secondary:has(span),
-.btn-primary:has(span),
-.btn-tertiary:has(span) { /* Added btn-tertiary here */
-    padding: 8px 12px;
-    min-width: unset;
-    height: auto;
-}
-
-body:not(.theme-green) .btn-primary,
-body:not(.theme-green) .btn-danger,
-body:not(.theme-green) .btn-secondary,
-body:not(.theme-green) .btn-tertiary { /* Added btn-tertiary here */
-    border-radius: 5px;
-}
-
-.btn-primary {
-    background-color: var(--primary-blue);
-    box-shadow: 0 2px 5px var(--shadow-medium);
-}
-
-.btn-danger {
-    background-color: var(--danger-red);
-    box-shadow: 0 2px 5px var(--shadow-medium);
-}
-
-.btn-secondary {
-    background-color: var(--secondary-gray);
-    box-shadow: 0 2px 5px var(--shadow-medium);
-}
-
-/* --- NEW: btn-tertiary for the "Refine with Custom Prompt" button --- */
-.btn-tertiary {
-    background-color: transparent; /* No background */
-    border: 1px solid var(--border-color); /* Subtle border */
-    color: var(--text-medium); /* Lighter text color */
-    box-shadow: none; /* No shadow by default */
-    padding: 8px 12px; /* Ensure appropriate padding */
-    width: 100%; /* Make it full width for consistent layout in modal */
-    box-sizing: border-box; /* Include padding and border in the element's total width and height */
-}
-
-.btn-tertiary:hover {
-    background-color: var(--bg-light); /* Slight background on hover */
-    color: var(--text-light); /* Brighter text on hover */
-    transform: translateY(-1px); /* Slight lift */
-    box-shadow: 0 2px 5px var(--shadow-light); /* Subtle shadow on hover */
-    border-color: var(--primary-blue); /* Highlight border */
-}
-
-.btn-tertiary:active {
-    transform: translateY(0); /* Press down effect */
-    box-shadow: inset 0 1px 3px var(--shadow-light); /* Inset shadow for pressed look */
-}
-
-body.theme-green .btn-tertiary {
-    background-color: transparent;
-    border: 1px solid var(--text-medium);
-    color: var(--text-medium);
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.2);
-}
-
-body.theme-green .btn-tertiary:hover {
-    background-color: rgba(0, 255, 65, 0.1); /* Subtle green background on hover */
-    border-color: var(--text-light);
-    color: var(--text-light);
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
-}
-/* End of btn-tertiary styles */
-
-
-body.theme-green .btn-primary {
-    background-color: var(--secondary-gray);
-    color: var(--text-light);
-}
-
-body.theme-green .btn-danger {
-    background-color: transparent;
-    border: 1px solid var(--danger-red);
-    color: var(--danger-red);
-    box-shadow: none;
-}
-
-.btn-primary:hover,
-.btn-danger:hover,
-.btn-secondary:hover {
-    opacity: 0.9;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px var(--shadow-medium);
-}
-
-.btn-primary:active,
-.btn-danger:active,
-.btn-secondary:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 3px var(--shadow-light);
-}
-
-.full-width {
-    width: 100%;
-    margin-bottom: 0.625rem;
-}
-
-.controls-bar,
-.form-buttons,
-.action-buttons {
-    display: flex;
-    gap: 0.625rem;
-    margin-bottom: 0.9375rem;
-    align-items: center;
-}
-
-#contact-search,
-#account-search {
-    width: 100%;
-    margin-bottom: 0.625rem;
-}
-
-hr {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 1.25rem 0;
-    transition: border-color 0.3s;
+    bottom: 5px;
+    right: 10px;
 }
 
 /* --- TABLES --- */
 .table-container {
     overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px var(--shadow-medium);
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     background-color: var(--bg-medium);
-    box-shadow: 0 4px 10px var(--shadow-medium);
-    transition: background-color 0.3s, box-shadow 0.3s;
-    box-sizing: border-box;
-}
-
-body:not(.theme-green) table {
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-th,
-td {
-    padding: 0.75rem 0.9375rem;
-    border: 1px solid var(--border-color);
-    text-align: left;
-    transition: border-color 0.3s, background-color 0.3s;
 }
 
 th {
     background-color: var(--bg-light);
-    font-weight: bold;
     color: var(--text-light);
-    text-shadow: 1px 1px 2px var(--shadow-light);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
 }
 
-body.theme-dark th {
-    background: linear-gradient(to bottom, #5a5a5a, #4a4a4a);
+td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-medium);
 }
 
 tbody tr:hover {
     background-color: var(--bg-light);
 }
 
-tbody tr.past-due td {
-    background-color: var(--warning-bg);
-    color: var(--warning-text);
+/* --- CHARTS --- */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.chart-container {
+    padding: 1rem;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-wrapper {
+    flex-grow: 1;
+    position: relative;
+    width: 100%;
+    min-height: 250px;
+}
+
+/* --- COGNITO / ALERTS --- */
+.cognito-nav-link h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    color: var(--text-medium);
+    margin: 0;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cognito-logo-magnifying-glass {
+    height: 1.0em;
+    width: auto;
+    margin: 0 0.05em;
+}
+
+.cognito-nav-link.active h1 {
+    color: var(--text-light);
+    text-shadow: 0 0 8px var(--primary-blue);
+}
+
+.alert-card {
+    border-left: 5px solid var(--primary-blue);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.alert-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--primary-blue);
     font-weight: bold;
 }
 
-tbody tr.past-due:hover td {
-    background-color: var(--warning-hover-bg);
-}
-
-tbody tr.past-due a,
-tbody tr.past-due a:hover {
-    color: var(--warning-text);
-    text-decoration: underline;
-}
-
-th.sortable {
-    cursor: pointer;
-}
-
-th.sortable:hover {
-    background-color: var(--bg-dark);
-}
-
-th.sortable span::after {
-    content: " ";
-    display: inline-block;
-    width: 0;
-    height: 0;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-}
-
-th.sortable.asc span::after {
-    border-bottom: 5px solid var(--text-light);
-}
-
-th.sortable.desc span::after {
-    border-top: 5px solid var(--text-light);
-}
-
-.button-group-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.3125rem;
-}
-
-#my-tasks-table th:last-child,
-#my-tasks-table td:last-child {
-    width: auto;
-    min-width: 250px;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    white-space: nowrap;
-}
-
-#deals-table th:last-child,
-#deals-table td:last-child {
-    width: auto;
-    min-width: 100px;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    white-space: nowrap;
-}
-
-#dashboard-table th:last-child,
-#dashboard-table td:last-child {
-    width: auto;
-    min-width: 150px;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    white-space: nowrap;
-}
-
-#sequence-steps-table td:last-child {
-    white-space: normal;
-    word-break: break-word;
-}
-
-.actions-cell-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.2rem;
-    align-items: center;
-    justify-items: center;
-    height: 100%;
-    width: 100%;
-}
-
-.actions-cell-content .btn {
-    padding: 0.15rem 0.3rem;
-    font-size: 0.7rem;
-    min-width: 45px;
-    box-sizing: border-box;
-}
-
-.btn-success {
-    background-color: var(--success-color);
-    color: var(--text-light); /* Default to text-light, adjust for themes below */
-    box-shadow: 0 2px 5px var(--shadow-medium);
-}
-
-body.theme-light .btn-success {
-    color: #000;
-}
-
-body.theme-green .btn-success {
-    background-color: var(--success-color);
-    color: var(--bg-dark);
-}
-
-table a {
+.alert-account-name {
+    font-size: 1.25rem;
     color: var(--text-light);
-    text-decoration: none;
+    margin: 0;
 }
 
-table a:hover {
-    color: var(--primary-blue);
-    text-decoration: underline;
+.alert-headline {
+    font-size: 1rem;
+    color: var(--text-medium);
+    margin: 0.25rem 0 0.75rem 0;
 }
 
-table input[type="checkbox"] {
-    outline: none;
-    box-shadow: none;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-dark);
-    appearance: none;
-    width: 1.125rem;
-    height: 1.125rem;
-    cursor: pointer;
-    vertical-align: middle;
-    position: relative;
-    border-radius: 3px;
-    transition: background-color 0.2s, border-color 0.2s;
-}
-
-table input[type="checkbox"]:checked {
-    background-color: var(--primary-blue);
-    border-color: var(--primary-blue);
-}
-
-table input[type="checkbox"]:checked::after {
-    content: "✔";
-    font-size: 0.875rem;
-    color: var(--text-light);
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-table input[type="checkbox"]:focus {
-    box-shadow: 0 0 0 2px var(--primary-blue);
-}
-
-
-/* --- GLOBAL MODAL STYLES --- */
+/* --- MODALS --- */
 .modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: rgba(0, 0, 0, 0.85);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1091,3629 +438,167 @@ table input[type="checkbox"]:focus {
 }
 
 .modal-content {
-    background-color: var(--bg-medium);
-    padding: 1.25rem;
-    width: 90%;
-    max-width: 70rem; /* Changed this from 31.25rem to a wider value */
-    box-shadow: 0 8px 25px var(--shadow-strong);
-    position: relative;
-    z-index: 10000;
-    display: flex;
-    flex-direction: column;
-    max-height: 90vh;
-}
-
-body:not(.theme-green) .modal-content {
-    border-radius: 10px;
-}
-
-body.theme-dark .modal-content {
     background: linear-gradient(160deg, var(--bg-medium), var(--bg-dark));
+    padding: 2rem;
+    width: 90%;
+    max-width: 600px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    border: 1px solid var(--border-color);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.625rem;
-    margin-top: 1.25rem;
-}
-
-#modal-body {
-    overflow-y: auto;
-}
-
-#modal-body input,
-#modal-body textarea,
-#modal-body select {
-    margin-top: 0.625rem;
-}
-
-/* --- UTILITY & MISC --- */
-.hidden {
-    display: none !important;
-}
-
-ul {
-    list-style-type: none;
-    padding: 0;
-}
-
-/* Combined styles for both activity and contact lists, applying border-radius where needed */
-#account-activities-list li,
-#contact-activities-list li {
-    background-color: var(--bg-dark);
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.3125rem;
-    font-size: 0.875rem;
-    border-left: 3px solid var(--primary-blue);
-    box-shadow: 0 1px 3px var(--shadow-light);
-    transition: background-color 0.3s, border-color 0.3s;
-}
-
-body:not(.theme-green) #account-activities-list li,
-body:not(.theme-green) #contact-activities-list li {
-    border-radius: 4px;
-}
-
-/* Specific link styles for contacts list only */
-#account-contacts-list li a {
-    color: var(--primary-blue);
-    text-decoration: underline;
-    font-weight: 500;
-    transition: color 0.2s, text-decoration 0.2s;
-    cursor: pointer;
-}
-
-#account-contacts-list li a:hover {
-    color: var(--text-light);
-    text-decoration: none;
-}
-
-body.theme-green #account-contacts-list li a {
-    color: var(--text-light);
-    text-shadow: 0 0 5px var(--text-light);
-}
-
-body.theme-green #account-contacts-list li a:hover {
-    color: var(--primary-blue);
-    text-decoration: underline;
-    text-shadow: none;
-}
-
-.pending-task-reminder {
-    background-color: var(--warning-bg);
-    color: var(--warning-text);
-    padding: 10px 15px;
-    margin-bottom: 15px;
-    border-radius: 5px;
-    font-weight: bold;
-    text-align: center;
-    border: 1px solid var(--warning-yellow);
-    box-shadow: 0 2px 5px var(--shadow-light);
-}
-
-.pending-task-reminder.hidden {
-    display: none;
-}
-
-body.theme-green .pending-task-reminder {
-    background-color: var(--warning-bg);
-    color: var(--warning-text);
-    border: 1px solid var(--text-light);
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.4);
-}
-
-.sequence-status-icon {
-    color: var(--completed-color); /* This makes the paper-plane icon green */
-    margin-left: 8px;
-    vertical-align: middle;
-    font-size: 0.9em;
-    /* We removed background-color, width, height, and display properties */
-}
-
-body.theme-green .sequence-status-icon {
-    background-color: var(--text-light);
-}
-
-/* --- AUTHENTICATION STYLES --- */
-.auth-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background: var(--bg-dark);
-    padding: 10px;
-    box-sizing: border-box;
-}
-
-.auth-box {
-    background-color: var(--bg-medium);
-    padding: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 350px;
-    margin: auto;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    border-radius: 8px;
-    position: relative;
-    min-height: 280px;
-}
-
-body:not(.theme-green) .auth-box {
-    border-radius: 10px;
-}
-
-body.theme-dark .auth-box {
-    background: linear-gradient(160deg, var(--bg-medium), var(--bg-dark));
-}
-
-.auth-logo {
-    margin-bottom: 0.5rem;
-}
-
-.auth-error {
-    color: var(--danger-red);
-    min-height: 0.8rem;
-    margin-top: 0.2rem;
-    margin-bottom: 0.2rem;
-    font-size: 0.85rem;
-}
-
-#auth-toggle-link,
-#forgot-password-link,
-#return-to-login-link {
-    display: block;
-    margin-top: 0.1rem;
-    margin-bottom: 0.1rem;
-    font-size: 0.8rem;
-    color: var(--primary-blue);
-    text-decoration: none;
-}
-
-#auth-toggle-link:hover,
-#forgot-password-link:hover,
-#return-to-login-link:hover {
-    text-decoration: underline;
-}
-
-#auth-form {
-    width: 100%;
-}
-
-#auth-form input {
-    display: block;
-    margin: 6px auto;
-    padding: 8px 12px;
-    width: calc(100% - 24px);
-    box-sizing: border-box;
-}
-
-#auth-form button.btn-primary {
-    margin-top: 0.3rem;
-    margin-bottom: 0.3rem;
-    font-size: 0.9rem;
-}
-
-.crm-container.hidden {
-    display: none !important;
-}
-
-.loader-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-}
-
-.spinner {
-    border: 0.5rem solid var(--bg-light);
-    border-top: 0.5rem solid var(--primary-blue);
-    border-radius: 50%;
-    width: 3.75rem;
-    height: 3.75rem;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-::-webkit-scrollbar {
-    width: 0.75rem;
-    height: 0.75rem;
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: var(--secondary-gray);
-    border-radius: 0.5rem;
-    border: 2px solid var(--bg-medium);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background-color: var(--primary-blue);
-}
-
-::-webkit-scrollbar-track {
-    background-color: var(--bg-dark);
-    border-radius: 0.5rem;
-}
-
-body.theme-green ::-webkit-scrollbar-thumb {
-    background-color: var(--text-medium);
-    border: 2px solid var(--bg-dark);
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.4);
-}
-
-body.theme-green ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--text-light);
-    box-shadow: 0 0 8px rgba(0, 255, 65, 0.6);
-}
-
-body.theme-green ::-webkit-scrollbar-track {
-    background-color: var(--bg-medium);
-}
-
-/* --- LOGGED EMAILS TABLE --- */
-.table-container-scrollable {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-dark);
-    margin-top: 0.625rem;
-}
-
-body:not(.theme-green) .table-container-scrollable {
-    border-radius: 5px;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-color);
-    text-align: left;
-    font-size: 0.875rem;
-}
-
-.data-table th {
-    background-color: var(--bg-medium);
-    font-weight: bold;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-
-.data-table tbody tr:hover {
-    background-color: var(--bg-light);
-}
-
-.btn-view-email {
-    padding: 5px 10px !important;
-    font-size: 0.75rem !important;
-}
-
-/* --- EMAIL VIEW MODAL --- */
-#email-view-modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
-}
-
-.email-view-modal {
-    width: 90%;
-    max-width: 700px;
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-    /* The following styles were duplicated from .modal-content, kept here to ensure no HTML changes are needed for now */
-    background-color: var(--bg-medium);
-    padding: 1.25rem;
-    box-shadow: 0 8px 25px var(--shadow-strong);
-}
-
-body:not(.theme-green) .email-view-modal {
-    border-radius: 10px;
-}
-
-body.theme-dark .email-view-modal {
-    background: linear-gradient(160deg, var(--bg-medium), var(--bg-dark));
-}
-
-.email-view-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-    margin-bottom: 10px;
-    flex-shrink: 0;
-}
-
-.email-view-subject {
-    margin: 0;
-    font-size: 1.2em;
-    color: var(--text-light);
-}
-
-.email-view-close {
-    background: none;
-    border: none;
-    color: var(--text-medium);
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0 5px;
-}
-
-.email-view-close:hover {
-    color: var(--text-light);
-}
-
-.email-view-meta {
-    flex-shrink: 0;
-}
-
-.email-view-meta p {
-    margin: 2px 0;
-    font-size: 14px;
-    color: var(--text-medium);
-}
-
-.email-view-meta strong {
-    color: var(--text-light);
-}
-
-.email-view-body {
-    margin-top: 15px;
-    padding: 15px;
-    background-color: var(--bg-dark);
-    border: 1px solid var(--border-color);
-    flex-grow: 1;
-    overflow-y: auto;
-    font-size: 14px;
-    line-height: 1.6;
-}
-
-body:not(.theme-green) .email-view-body {
-    border-radius: 5px;
-}
-
-.email-view-body pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    margin: 0;
-    font-family: inherit;
-    color: var(--text-light);
+    gap: 1rem;
+    margin-top: 1.5rem;
 }
 
 /* --- USER MENU --- */
 .user-menu {
-    position: relative;
     margin-top: auto;
-    padding: 0.3125rem 0.625rem;
+    padding: 10px;
     background-color: var(--bg-dark);
     border-top: 1px solid var(--border-color);
-    border-radius: 8px 8px 0 0;
 }
 
 .user-menu-header {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: 10px;
     cursor: pointer;
-}
-
-.user-icon {
-    width: 70px;
-    height: 70px;
-    flex-shrink: 0;
-}
-
-.user-icon path[fill="#020202"],
-.user-icon path[fill="#090909"],
-.user-icon path[fill="#070707"],
-.user-icon path[fill="#111"],
-.user-icon path[fill="#0D0D0D"],
-.user-icon path[fill="#141414"],
-.user-icon path[fill="#252525"],
-.user-icon path[fill="#333"],
-.user-icon path[fill="#3F3F3F"],
-.user-icon path[fill="#575757"],
-.user-icon path[fill="#373737"],
-.user-icon path[fill="#2A2A2A"],
-.user-icon path[fill="#363636"],
-.user-icon path[fill="#151515"],
-.user-icon path[fill="#393939"],
-.user-icon path[fill="#313131"],
-.user-icon path[fill="#3A3A3A"],
-.user-icon path[fill="#2F2F2F"],
-.user-icon path[fill="#454545"],
-.user-icon path[fill="#282828"],
-.user-icon path[fill="#323232"],
-.user-icon path[fill="#474747"],
-.user-icon path[fill="#4A4A4A"],
-.user-icon path[fill="#2C2C2C"],
-.user-icon path[fill="#696969"],
-.user-icon path[fill="#858585"],
-.user-icon path[fill="#484848"],
-.user-icon path[fill="#595959"],
-.user-icon path[fill="#3D3D3D"],
-.user-icon path[fill="#565656"],
-.user-icon path[fill="#6B6B6B"],
-.user-icon path[fill="#2E2E2E"],
-.user-icon path[fill="#171717"],
-.user-icon path[fill="#656565"],
-.user-icon path[fill="#101010"],
-.user-icon path[fill="#0F0F0F"],
-.user-icon path[fill="#5B5B5B"],
-.user-icon path[fill="#5A5A5A"],
-.user-icon path[fill="#525252"],
-.user-icon path[fill="#010101"] {
-    fill: var(--primary-blue);
-    transition: fill 0.3s, filter 0.3s;
-}
-
-.user-icon path[fill="#FEFEFE"],
-.user-icon path[fill="#FDFDFD"],
-.user-icon path[fill="#F7F7F7"],
-.user-icon path[fill="#FBFBFB"],
-.user-icon path[fill="#FCFCFC"],
-.user-icon path[fill="#EDEDED"],
-.user-icon path[fill="#F6F6F6"],
-.user-icon path[fill="#F3F3F3"],
-.user-icon path[fill="#F0F0F0"],
-.user-icon path[fill="#FAFAFA"],
-.user-icon path[fill="#F9F9F9"],
-.user-icon path[fill="#F4F4F4"] {
-    fill: var(--bg-dark);
-    transition: fill 0.3s;
-}
-
-.user-menu-header:hover .user-icon path[fill="#020202"],
-.user-menu-header:hover .user-icon path[fill="#090909"],
-.user-menu-header:hover .user-icon path[fill="#070707"],
-.user-menu-header:hover .user-icon path[fill="#111"],
-.user-menu-header:hover .user-icon path[fill="#0D0D0D"],
-.user-menu-header:hover .user-icon path[fill="#141414"],
-.user-menu-header:hover .user-icon path[fill="#252525"],
-.user-menu-header:hover .user-icon path[fill="#333"],
-.user-menu-header:hover .user-icon path[fill="#3F3F3F"],
-.user-menu-header:hover .user-icon path[fill="#575757"],
-.user-menu-header:hover .user-icon path[fill="#373737"],
-.user-menu-header:hover .user-icon path[fill="#2A2A2A"],
-.user-menu-header:hover .user-icon path[fill="#363636"],
-.user-menu-header:hover .user-icon path[fill="#151515"],
-.user-menu-header:hover .user-icon path[fill="#393939"],
-.user-menu-header:hover .user-icon path[fill="#313131"],
-.user-menu-header:hover .user-icon path[fill="#3A3A3A"],
-.user-menu-header:hover .user-icon path[fill="#2F2F2F"],
-.user-menu-header:hover .user-icon path[fill="#454545"],
-.user-menu-header:hover .user-icon path[fill="#282828"],
-.user-menu-header:hover .user-icon path[fill="#323232"],
-.user-menu-header:hover .user-icon path[fill="#474747"],
-.user-menu-header:hover .user-icon path[fill="#4A4A4A"],
-.user-menu-header:hover .user-icon path[fill="#2C2C2C"],
-.user-menu-header:hover .user-icon path[fill="#696969"],
-.user-menu-header:hover .user-icon path[fill="#858585"],
-.user-menu-header:hover .user-icon path[fill="#484848"],
-.user-menu-header:hover .user-icon path[fill="#595959"],
-.user-menu-header:hover .user-icon path[fill="#3D3D3D"],
-.user-menu-header:hover .user-icon path[fill="#565656"],
-.user-menu-header:hover .user-icon path[fill="#6B6B6B"],
-.user-menu-header:hover .user-icon path[fill="#2E2E2E"],
-.user-menu-header:hover .user-icon path[fill="#171717"],
-.user-menu-header:hover .user-icon path[fill="#656565"],
-.user-menu-header:hover .user-icon path[fill="#101010"],
-.user-menu-header:hover .user-icon path[fill="#0F0F0F"],
-.user-menu-header:hover .user-icon path[fill="#5B5B5B"],
-.user-menu-header:hover .user-icon path[fill="#5A5A5A"],
-.user-menu-header:hover .user-icon path[fill="#525252"],
-.user-menu-header:hover .user-icon path[fill="#010101"] {
-    filter: brightness(1.2);
-}
-
-body.theme-light .user-icon path[fill="#FEFEFE"],
-body.theme-light .user-icon path[fill="#FDFDFD"],
-body.theme-light .user-icon path[fill="#F7F7F7"],
-body.theme-light .user-icon path[fill="#FBFBFB"],
-body.theme-light .user-icon path[fill="#FCFCFC"],
-body.theme-light .user-icon path[fill="#EDEDED"],
-body.theme-light .user-icon path[fill="#F6F6F6"],
-body.theme-light .user-icon path[fill="#F3F3F3"],
-body.theme-light .user-icon path[fill="#F0F0F0"],
-body.theme-light .user-icon path[fill="#FAFAFA"],
-body.theme-light .user-icon path[fill="#F9F9F9"],
-body.theme-light .user-icon path[fill="#F4F4F4"] {
-    fill: var(--bg-dark);
-}
-
-#user-name-display {
-    font-weight: 600;
     color: var(--text-light);
-    flex-grow: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 600;
 }
 
 .user-menu-popup {
     display: none;
     position: absolute;
-    bottom: 100%;
-    left: 0;
-    width: 100%;
+    bottom: 70px; /* Position above menu */
+    left: 10px;
+    width: 180px;
     background-color: var(--bg-light);
-    box-shadow: 0 -4px 15px var(--shadow-strong);
-    padding: 0.3125rem;
-    box-sizing: border-box;
-    z-index: 100;
-}
-
-body:not(.theme-green) .user-menu-popup {
-    border-radius: 5px 5px 0 0;
-}
-
-.user-menu-popup.show {
-    display: block;
-}
-
-.user-menu-popup .nav-button {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* --- ALL MOBILE STYLES (768px and smaller) --- */
-@media (max-width: 768px) {
-    body {
-        font-size: 80%;
-        padding-bottom: 60px;
-    }
-
-    .crm-container {
-        flex-direction: column;
-        height: auto;
-        min-height: 100vh;
-        gap: 0;
-    }
-
-    .nav-sidebar {
-        width: 100%;
-        display: grid;
-        grid-template-columns: auto 1fr 1fr;
-        align-items: center;
-        padding: 10px 15px;
-        gap: 10px;
-        box-shadow: 0 4px 10px var(--shadow-medium);
-        border-radius: 0 !important;
-        box-sizing: border-box;
-    }
-
-    .nav-logo {
-        display: block;
-        width: 50px;
-        height: 50px;
-        margin: 0;
-    }
-
-    .nav-button {
-        text-align: center;
-        justify-content: center;
-        flex-grow: 1;
-        min-width: 0;
-        padding: 8px 5px;
-    }
-
-    a.nav-button[href="command-center.html"],
-    a.nav-button[href="deals.html"] {
-        flex-grow: 1;
-    }
-
-    a.nav-button[href="deals.html"]::after {
-        content: '';
-        flex-basis: 100%;
-    }
-
-    a.nav-button[href="contacts.html"],
-    a.nav-button[href="accounts.html"],
-    a.nav-button[href="sequences.html"] {
-        flex-grow: 1;
-    }
-
-    .split-view {
-        flex-direction: column;
-        height: auto;
-        min-height: calc(100vh - 150px);
-    }
-
-    .item-list-container {
-        width: 100%;
-        flex-shrink: 0;
-        height: auto;
-    }
-
-    .item-list {
-        display: flex;
-        flex-direction: row;
-        overflow-x: auto;
-        white-space: nowrap;
-        padding-bottom: 10px;
-        -webkit-overflow-scrolling: touch;
-        border: none;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .list-item {
-        flex: 0 0 auto;
-        width: 120px;
-        border-bottom: none;
-        border-right: 1px solid var(--border-color);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        text-align: center;
-    }
-
-    .details-panel {
-        width: 100%;
-        flex-grow: 1;
-        padding: 1.25rem;
-        overflow-y: auto;
-        box-shadow: 0 4px 15px var(--shadow-medium);
-        transition: background-color 0.3s, box-shadow 0.3s;
-    }
-
-    h2 {
-        font-size: 1.5rem;
-        margin-bottom: 15px;
-    }
-
-    th,
-    td {
-        padding: 10px 8px;
-        font-size: 0.9rem;
-    }
-
-    .btn-primary,
-    .btn-danger,
-    .btn-secondary {
-        padding: 8px 12px;
-        font-size: 0.9rem;
-    }
-
-    .user-menu {
-        position: fixed;
-        bottom: 0;
-        left: 17%;
-        transform: translateX(-50%);
-        width: auto;
-        z-index: 101;
-        border-radius: 15px 15px 0 0;
-        padding: 2px 15px;
-        background-color: var(--bg-light);
-        border: 1px solid var(--border-color);
-        border-bottom: none;
-    }
-
-    .user-menu .user-menu-header {
-        justify-content: center;
-    }
-
-    .user-menu .user-icon {
-        width: 40px;
-        height: 40px;
-    }
-
-    .user-menu .user-icon path[fill="#FEFEFE"],
-    .user-menu .user-icon path[fill="#FDFDFD"],
-    .user-menu .user-icon path[fill="#F7F7F7"],
-    .user-menu .user-icon path[fill="#FBFBFB"],
-    .user-menu .user-icon path[fill="#FCFCFC"],
-    .user-menu .user-icon path[fill="#EDEDED"],
-    .user-menu .user-icon path[fill="#F6F6F6"],
-    .user-menu .user-icon path[fill="#F3F3F3"],
-    .user-menu .user-icon path[fill="#F0F0F0"],
-    .user-menu .user-icon path[fill="#FAFAFA"],
-    .user-menu .user-icon path[fill="#F9F9F9"],
-    body.theme-light .user-icon path[fill="#F4F4F4"] {
-        fill: var(--bg-light);
-    }
-
-    .user-menu .user-menu-popup {
-        border-radius: 5px;
-        width: 100%;
-        left: 0;
-    }
-}
-/* --- Styling for New Account Form Fields --- */
-.form-checkbox-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 15px 0;
-    padding: 10px;
-    background-color: var(--bg-dark);
-    border-radius: 5px;
-}
-
-.form-checkbox-group label {
-    margin-bottom: 0;
-}
-
-.form-checkbox-group input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    margin: 0;
-}
-/* --- Campaigns Page List Headers --- */
-.item-list-container h4 {
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-    font-size: 0.9rem;
-    color: var(--text-medium);
-}
-.item-list-container h4:first-of-type {
-    margin-top: 0.75rem;
-}
-
-/* --- CAMPAIGNS PAGE STYLING --- */
-
-/* Campaign Details Panel Enhancements */
-#campaign-details h3 {
-    border-bottom: 2px solid var(--primary-blue);
-    padding-bottom: 0.625rem;
-}
-
-#campaign-details h4 {
-    margin-top: 0;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.5rem;
-    margin-bottom: 1rem;
-    color: var(--text-light);
-}
-
-/* Creates a "card" look for each workflow view */
-#call-blitz-ui > div,
-#guided-email-ui > div,
-#email-merge-ui {
-    background-color: var(--bg-dark);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1.25rem;
-    margin-top: 1.25rem;
-}
-
-/* Specific styling for the summary views within the cards */
-#call-summary-view p,
-#guided-email-summary-view p,
-#email-merge-ui p {
-    margin-top: 0;
-    margin-bottom: 1.25rem;
-    font-size: 1rem;
-    color: var(--text-medium);
-}
-
-/* Adds a highlight to the top of the active workflow card */
-#active-call-view,
-#active-email-view {
-    border-top: 3px solid var(--primary-blue);
-}
-
-/* Better spacing for the action buttons at the bottom */
-#active-call-view .action-buttons,
-#active-email-view .action-buttons {
-    margin-top: 1rem;
-    margin-bottom: 0;
-}
-
-/* Styles for the merge field buttons in the modal */
-.merge-fields-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.merge-fields-buttons button {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.6rem;
-    font-weight: 500;
-}
-
-/* Styling for the completed campaign summary */
-.email-body-summary {
-    background-color: var(--bg-dark);
-    padding: 0.75rem;
-    border-radius: 5px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    max-height: 200px;
-    overflow-y: auto;
-    font-family: var(--font-main);
-    color: var(--text-medium);
-    border: 1px solid var(--border-color);
-}
-
-/* --- Email Template Manager Specific Styling --- */
-
-/* Parent container for each template row */
-.template-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    border-bottom: 1px solid var(--border-color);
-    background-color: var(--bg-dark);
-    margin-bottom: 5px;
-    border-radius: var(--border-radius, 5px);
-    box-shadow: 0 1px 3px var(--shadow-light);
-    transition: background-color 0.2s, box-shadow 0.2s;
-}
-
-.template-list-item:hover {
-    background-color: var(--bg-light);
-}
-
-/* Styling for the template name itself */
-.template-list-item span {
-    flex-grow: 1;
-    font-weight: bold;
-    color: var(--text-light);
-    margin-right: 15px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Container for the Edit/Delete buttons */
-.template-actions {
-    display: flex;
-    gap: 8px;
-    flex-shrink: 0;
-}
-
-/* Adjust button styles specifically for the template manager for a compact look */
-.template-actions .btn-secondary,
-.template-actions .btn-danger {
-    padding: 6px 10px;
-    font-size: 0.75rem;
-    min-width: unset;
-}
-
-/* Adjust the general .list-item-actions buttons to be a bit smaller */
-.list-item-actions .btn-danger,
-.template-actions .btn-danger,
-.template-actions .btn-secondary {
-    padding: 6px;
-    min-width: 30px;
-    height: 30px;
-    font-size: 0.9em;
-}
-
-.list-item-actions .btn-danger .fa-solid.fa-trash-can,
-.template-actions .btn-danger .fa-solid.fa-trash-can {
-    font-size: 1em;
-}
-
-/* Specific adjustment for the delete button icon if it feels too large */
-.btn-danger .fa-solid.fa-trash-can {
-    font-size: 1.1em;
-}
-/* Custom styles for Call Blitz Phone Link */
-#contact-phone-call-blitz {
-    color: var(--completed-color); /* Bright green on dark/light themes */
-    font-weight: bold;
-    text-decoration: underline;
-    transition: color 0.2s ease-in-out, text-decoration 0.2s ease-in-out;
-}
-
-#contact-phone-call-blitz:hover {
-    color: var(--primary-blue); /* Changes to primary blue on hover */
-    text-decoration: none;
-}
-
-/* Specific adjustment for Green Theme */
-body.theme-green #contact-phone-call-blitz {
-    color: var(--warning-yellow); /* Use yellow for visibility on green theme */
-    text-shadow: 0 0 5px var(--warning-yellow);
-}
-
-body.theme-green #contact-phone-call-blitz:hover {
-    color: var(--text-light); /* Changes to light green on hover for green theme */
-    text-shadow: 0 0 8px var(--text-light);
-}
-/* Ensure all form controls, buttons, and table elements inherit the main font */
-input,
-select,
-textarea,
-button,
-.btn-primary,
-.btn-danger,
-.btn-secondary,
-.btn-tertiary, /* Added btn-tertiary here */
-table,
-th,
-td,
-h1, h2, h3, h4, h5, h6 {
-    font-family: inherit;
-}
-/* Add this to the end of style.css */
-
-/* Positions the sequence name and indicator side-by-side */
-.sequence-list-item-content {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-grow: 1; /* Allows content to take up available space */
-}
-
-}
-/* --- Marketing Sequence Import Modal Styles --- */
-.import-modal-list {
-    max-height: 40vh;
-    overflow-y: auto;
     border: 1px solid var(--border-color);
     border-radius: 5px;
     padding: 5px;
-    background-color: var(--bg-dark);
+    box-shadow: 0 4px 15px var(--shadow-strong);
 }
 
-.import-modal-list .list-item {
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    border-radius: 3px;
-    transition: background-color 0.2s;
-}
+.user-menu-popup.show { display: block; }
 
-.import-modal-list .list-item:hover {
-    background-color: var(--bg-light);
-}
-
-.import-modal-list input[type="radio"] {
-    margin-right: 10px;
-    width: auto; /* Override default form styles */
-}
-
-.import-modal-list label {
-    flex-grow: 1;
-    cursor: pointer;
-    font-weight: normal; /* Override default label boldness */
-    color: var(--text-light);
-}
-/* Styles for the separator in the template list */
-.list-separator {
-    padding: 10px 15px;
-    font-size: 0.9em;
-    font-weight: bold;
-    color: var(--text-color-light);
-    background-color: var(--background-color-offset);
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    margin-top: 5px;
-}
-
-/* Styles for list items containing a shared template */
-.template-list-item-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-/* Styles for the main template name */
-.template-name {
-    font-weight: 500;
-}
-
-/* Styles for the 'Shared by' attribution text */
-.template-creator {
-    font-size: 0.8em;
-    color: var(--text-color-light);
-    font-style: italic;
-}
-/* Styles for the separator in the template list */
-.list-separator {
-    padding: 10px 15px;
-    font-size: 0.9em;
-    font-weight: bold;
-    color: var(--text-color-light);
-    background-color: var(--background-color-offset);
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    margin-top: 5px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* This container allows the name and creator to stack vertically */
-.template-list-item-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-/* Styles the main template name for consistency */
-.template-name {
-    font-weight: 500;
-}
-
-/* Styles for the 'Shared by' attribution text */
-.template-creator {
-    font-size: 0.8em;
-    color: var(--text-color-light);
-    font-style: italic;
-}
-/* --- COGNITO PAGE STYLES --- */
-
-/* Cognito Logo in Nav Bar */
-.cognito-nav-link {
-    padding: 0.5rem 0 !important;
-    margin-top: auto; /* Pushes it to the bottom */
-    margin-bottom: 0.5rem !important;
-}
-
-.cognito-nav-link h1 {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.5rem; /* Scaled down for the nav bar */
-    font-weight: 700;
-    color: var(--text-medium);
-    margin: 0;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s;
-}
-
-.cognito-logo-magnifying-glass {
-    height: 1.0em;    
-    width: auto;
-    margin: 0 0.05em -0.1em 0.05em;
-    transition: transform 0.3s ease-in-out;
-}
-
-.cognito-logo-magnifying-glass #glassGradient stop:nth-child(1) {
-    stop-color: var(--primary-blue);
-}
-.cognito-logo-magnifying-glass #glassGradient stop:nth-child(2) {
-    stop-color: var(--primary-blue);
-    stop-opacity: 0.7;
-}
-
-.cognito-nav-link:hover h1 {
-    color: var(--text-light);
-}
-
-.cognito-nav-link:hover .cognito-logo-magnifying-glass {
-    transform: rotate(-15deg);
-}
-
-.cognito-nav-link.active h1 {
-    color: var(--text-light);
-    text-shadow: 0 0 8px var(--primary-blue);
-}
-
-.cognito-nav-link.active .cognito-logo-magnifying-glass {
-    transform: scale(1.1);
-}
-
-.nav-bottom-section {
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-}
-
-
-/* Alert Card Styling */
-#alerts-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-}
-
-.alert-card {
-    background-color: var(--bg-medium);
-    border-left: 5px solid var(--primary-blue);
-    padding: 1rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 15px var(--shadow-medium);
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.alert-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.alert-trigger-type {
-    background-color: var(--bg-dark);
-    color: var(--primary-blue);
-    padding: 0.25rem 0.5rem;
-    border-radius: 10px;
-}
-
-.alert-status {
-    color: var(--text-medium);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.alert-account-name {
-    margin: 0.25rem 0 0 0;
-    font-size: 1.2rem;
-    color: var(--text-light);
-}
-
-.alert-headline {
-    margin: 0;
-    font-size: 1rem;
-    color: var(--text-medium);
-    font-weight: 400;
-}
-
-.alert-summary {
-    margin: 0.25rem 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    flex-grow: 1;
-}
-
-.alert-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.8rem;
-    color: var(--text-medium);
-    border-top: 1px solid var(--border-color);
-    padding-top: 0.75rem;
-    margin-top: 0.5rem;
-}
-
-.alert-footer a {
-    color: var(--primary-blue);
-    text-decoration: none;
-}
-.alert-footer a:hover {
-    text-decoration: underline;
-}
-
-.alert-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.alert-actions .btn-primary, .alert-actions .btn-secondary {
-    flex-grow: 1;
-}
-
-/* --- ACTION CENTER MODAL (Single Column Layout) --- */
-.action-center-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem; /* Space between sections */
-}
-
-.action-center-section {
-    padding: 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background-color: var(--bg-dark);
-}
-
-.action-center-section h5 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: var(--text-light);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.5rem;
-}
-
-.action-center-section .action-buttons {
-    margin-top: 1rem;
-}
-
-.placeholder-text {
-    color: var(--text-medium);
-    text-align: center;
-    margin-top: 2rem;
-    font-style: italic;
-}
-/* --- COGNITO NAV LINK STYLES (v3 - Final) --- */
-
-/* This container groups the Cognito logo and the User Menu at the bottom */
-.nav-bottom-section {
-    margin-top: auto; /* This is the key to pushing the group to the bottom */
-    display: flex;
-    flex-direction: column;
-}
-
-/* This targets the link with higher specificity to override other .nav-button styles */
-.nav-sidebar a.cognito-nav-link {
-    padding: 0.5rem 0 !important;
-    margin: 0.3125rem 0 !important;
-    background: none !important;
-    box-shadow: none !important;
-    border: none !important; /* Explicitly remove borders */
-    transform: none !important; /* Override hover transforms */
-}
-
-/* Style the "COGNITO" wordmark */
-.cognito-nav-link h1 {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-medium);
-    margin: 0;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s, text-shadow 0.3s;
-}
-
-/* Style the magnifying glass SVG */
-.cognito-logo-magnifying-glass {
-    height: 1.0em;    
-    width: auto;
-    margin: 0 0.05em -0.1em 0.05em;
-    transition: transform 0.3s ease-in-out;
-}
-
-/* Style the gradient of the SVG to match our theme */
-.cognito-logo-magnifying-glass #glassGradient stop:nth-child(1) {
-    stop-color: var(--primary-blue);
-}
-.cognito-logo-magnifying-glass #glassGradient stop:nth-child(2) {
-    stop-color: var(--primary-blue);
-    stop-opacity: 0.7;
-}
-
-/* Hover effect for the link */
-.cognito-nav-link:hover h1 {
-    color: var(--text-light);
-}
-
-.cognito-nav-link:hover .cognito-logo-magnifying-glass {
-    transform: rotate(-15deg);
-}
-
-/* Active state for when the user is on the Cognito page */
-.cognito-nav-link.active h1 {
-    color: var(--text-light);
-    text-shadow: 0 0 8px var(--primary-blue);
-}
-
-.cognito-nav-link.active .cognito-logo-magnifying-glass {
-    transform: scale(1.1);
-}
-/* Add these styles to style.css */
-
+/* --- FILTER BARS --- */
 .filter-bar {
     display: flex;
     gap: 10px;
-    margin-top: 1.25rem;
-    margin-bottom: 1.25rem;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
-    align-items: center;
+    margin: 1.25rem 0;
+    flex-wrap: wrap;
 }
 
-.filter-bar select,
-.filter-bar button {
-    flex: 1; /* Allow items to grow/shrink */
-    min-width: 120px; /* Minimum width for dropdowns */
-    max-width: 200px; /* Max width for consistency */
-    box-sizing: border-box;
-    font-size: 0.9rem;
-    padding: 8px 10px;
-}
-
-.filter-bar button {
-    /* Inherit existing btn-secondary styles */
-    max-width: 150px; /* Adjust if needed */
-}
-
-/* Adjust responsiveness if needed */
-@media (max-width: 768px) {
-    .filter-bar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .filter-bar select,
-    .filter-bar button {
-        max-width: none; /* Full width on small screens */
-    }
-}
-/* Loading Spinner Animation */
-.loader {
-    border: 4px solid var(--bg-medium); /* Spinner track */
-    border-top: 4px solid var(--primary-accent); /* Spinner color */
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 20px auto; /* Center the spinner */
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-/* --- Social Hub Dynamic Link Indicator --- */
-.dynamic-link-indicator {
-    display: inline-block;
-    vertical-align: middle;
-    margin-left: 0.25rem;
-    font-size: 0.9em;
-    cursor: help; /* Shows a question mark on hover, indicating the title tooltip */
-    filter: drop-shadow(0 0 3px var(--primary-blue));
-}
-/* --- ADMIN ANALYTICS FACELIFT V3 --- */
-.chart-table-view {
-    height: 100%;
-    overflow-y: auto;
-}
-
-.chart-table-view table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9em;
-}
-
-.chart-table-view th, .chart-table-view td {
-    padding: 8px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.chart-table-view th {
-    font-weight: bold;
-    background-color: var(--bg-light);
-}
-
-/* --- ADMIN ANALYTICS FACELIFT V4 --- */
-.metric-value-large {
-    font-size: 2.5rem;
-    font-weight: 700; /* Bold */
-    margin: auto;
-    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2); /* Subtle text shadow */
-}
-
-.chart-wrapper .chart-toggle-btn {
-    position: absolute;
-    top: 10px;
-    left: 10px; /* Moved to top-left */
-    z-index: 10; /* Ensure it's on top of the chart */
-}
-/* --- ADMIN ANALYTICS FACELIFT V5 --- */
-.chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-
-.chart-header h4 {
-    margin: 0; /* Remove default margin from h4 */
-}
-
-.chart-wrapper {
-    position: relative; /* Needed for positioning the button inside */
-}
-
-.chart-header .chart-toggle-btn {
-    background-color: var(--secondary-gray) !important;
-    border: none !important;
-    color: var(--text-light) !important;
-    width: 35px;
-    height: 35px;
-    padding: 0 !important;
-    border-radius: 5px !important;
-    flex-shrink: 0; /* Prevent button from shrinking */
-}
-
-.analytics-metric-card {
-    display: flex; /* This enables flexbox properties */
-    justify-content: center; /* This centers the content horizontally */
-    align-items: center; /* This centers the content vertically */
-    height: 100%;
-}
-
-.metric-value-large {
-    font-size: 2.5rem;
-    font-weight: 700; /* Bolder text */
-    color: var(--text-light); /* Ensure text is light */
-    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.chart-table-view {
-    height: 100%;
-    overflow-y: auto;
-}
-
-.chart-table-view table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9em;
-}
-
-.chart-table-view th, .chart-table-view td {
-    padding: 8px;
-    text-align: center;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.chart-table-view th {
-    font-weight: bold;
-    background-color: var(--bg-light);
-}
-
-.metric-value-large {
-    font-weight: bold;
-    color: var(--primary-blue);
-    text-align: center;
-}
-/* --- ADMIN SETTINGS PAGE --- */
-.settings-list {
-    list-style: none;
-    padding: 0;
-    margin-bottom: 1.5rem;
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-}
-
-.settings-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    background-color: var(--bg-dark);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.settings-list-item:last-child {
-    border-bottom: none;
-}
-
-.settings-list-item span {
-    font-weight: 500;
-}
-
-.delete-setting-btn {
-    font-size: 1.2rem;
-    line-height: 1;
-    padding: 0.2rem 0.5rem;
-}
-
-.settings-add-form {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.settings-add-form input {
-    margin: 0;
-    flex-grow: 1;
-}
-
-.settings-add-form button {
+.filter-bar select, .filter-bar input {
+    flex: 1;
+    min-width: 150px;
     margin: 0;
 }
 
-}
-/* --- NEW THEMES (REVISED & ENHANCED) --- */
-/* --- THEME DEFINITIONS --- */
-:root {
-    --bg-dark: #2e2e2e;
-    --bg-medium: #3c3c3c;
-    --bg-light: #4a4a4a;
-    --text-light: #ffffff;
-    --text-medium: #b0b0b0;
-    --primary-blue: #b38c62;
-    --danger-red: #e74c3c;
-    --secondary-gray: #6d6d6d;
-    --border-color: #5a5a5a;
-    --completed-color: #98ff98;
-    --warning-yellow: #f1c40f;
-    --meeting-purple: #8A2BE2;
-    --gradient-start: #3a3a3a;
-    --gradient-end: #2a2a2a;
-    --shadow-light: rgba(0, 0, 0, 0.3);
-    --shadow-medium: rgba(0, 0, 0, 0.5);
-    --shadow-strong: rgba(0, 0, 0, 0.7);
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --logo-primary-color: var(--primary-blue);
-    --logo-secondary-color: var(--text-light);
-    --warning-bg: #4d441a;
-    --warning-text: #ffeb99;
-    --warning-hover-bg: #6b5f25;
-    --success-color: #28a745;
-    --error-color: #dc3545;
-}
-
-/* Dark Theme */
-body.theme-dark {
-    --bg-dark: #2e2e2e;
-    --bg-medium: #3c3c3c;
-    --bg-light: #4a4a4a;
-    --text-light: #ffffff;
-    --text-medium: #b0b0b0;
-    --primary-blue: #b38c62;
-    --danger-red: #e74c3c;
-    --secondary-gray: #6d6d6d;
-    --border-color: #5a5a5a;
-    --completed-color: #98ff98;
-    --warning-yellow: #f1c40f;
-    --gradient-start: #3a3a3a;
-    --gradient-end: #2a2a2a;
-    --shadow-light: rgba(0, 0, 0, 0.3);
-    --shadow-medium: rgba(0, 0, 0, 0.5);
-    --shadow-strong: rgba(0, 0, 0, 0.7);
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --logo-primary-color: var(--primary-blue);
-    --logo-secondary-color: var(--text-light);
-    --meeting-purple: #8A2BE2;
-    --warning-bg: #4d441a;
-    --warning-text: #ffeb99;
-    --warning-hover-bg: #6b5f25;
-    --success-color: #28a745;
-    --error-color: #dc3545;
-}
-
-/* Light Theme */
-body.theme-light {
-    --bg-dark: #f0f2f5;
-    --bg-medium: #ffffff;
-    --bg-light: #e9ecef;
-    --text-light: #212529;
-    --text-medium: #6c757d;
-    --primary-blue: #007bff;
-    --danger-red: #dc3545;
-    --secondary-gray: #6c757d;
-    --border-color: #dee2e6;
-    --completed-color: #28a745;
-    --warning-yellow: #ffc107;
-    --gradient-start: #f8f9fa;
-    --gradient-end: #e9ecef;
-    --shadow-light: rgba(0, 0, 0, 0.05);
-    --shadow-medium: rgba(0, 0, 0, 0.1);
-    --shadow-strong: rgba(0, 0, 0, 0.15);
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --logo-primary-color: var(--primary-blue);
-    --logo-secondary-color: var(--text-light);
-    --meeting-purple: #6A0DAD;
-    --warning-bg: #fff8e1;
-    --warning-text: #856404;
-    --warning-hover-bg: #fff3cd;
-    --success-color: #28a745;
-    --error-color: #dc3545;
-}
-
-/* Green Screen Theme */
-body.theme-green {
-    --bg-dark: #020c02;
-    --bg-medium: #051405;
-    --bg-light: #0a200a;
-    --text-light: #00ff41;
-    --text-medium: #00b32d;
-    --primary-blue: #00ff41;
-    --danger-red: #00ff41;
-    --secondary-gray: #008b25;
-    --border-color: #005217;
-    --completed-color: #00ff41;
-    --warning-yellow: #00ff41;
-    --gradient-start: #000000;
-    --gradient-end: #020c02;
-    --shadow-light: rgba(0, 255, 65, 0.1);
-    --shadow-medium: rgba(0, 255, 65, 0.2);
-    --shadow-strong: rgba(0, 255, 65, 0.3);
-    --font-main: 'Courier New', Courier, monospace;
-    --logo-primary-color: var(--text-medium);
-    --logo-secondary-color: var(--bg-dark);
-    --meeting-purple: #9400D3;
-    --warning-bg: #1a331a;
-    --warning-text: #ffff00;
-    --warning-hover-bg: #2a522a;
-    --success-color: #00ff41;
-    --error-color: #ff0000;
-}
-
-/* --- NEON / Blue Theme --- */
-body.theme-blue {
-    --bg-dark: #000000;
-    --bg-medium: #0d0d0d;
-    --bg-light: #1a1a1a;
-    --text-light: #00ffff;
-    --text-medium: #bbbbbb;
-    --primary-blue: #f92772;
-    --danger-red: #ff3333;
-    --secondary-gray: #2a2a2a;
-    --border-color: #00ffff;
-    --completed-color: #a6e22e;
-    --warning-yellow: #fd971f;
-    --gradient-start: #000000;
-    --gradient-end: #0d0d0d;
-    --shadow-light: rgba(249, 39, 114, 0.2);
-    --shadow-medium: rgba(249, 39, 114, 0.4);
-    --shadow-strong: rgba(249, 39, 114, 0.6);
-    --font-main: 'Orbitron', sans-serif;
-    --logo-primary-color: var(--primary-blue);
-    --logo-secondary-color: var(--text-light);
-    --meeting-purple: #ae81ff;
-    --warning-bg: rgba(253, 151, 31, 0.1);
-    --warning-text: #fd971f;
-    --warning-hover-bg: rgba(253, 151, 31, 0.2);
-}
-
-.theme-blue h1, .theme-blue h2, .theme-blue h3, .theme-blue h4,
-.theme-blue .metric-value, .theme-blue .nav-button.active,
-.theme-blue th {
-    text-shadow: 0 0 4px currentColor, 0 0 8px currentColor;
-}
-
-.theme-blue .btn-primary,
-.theme-blue .details-panel,
-.theme-blue .chart-container,
-.theme-blue .metric-card,
-.theme-blue .modal-content,
-.theme-blue .auth-box,
-.theme-blue .nav-button.active {
-    box-shadow: 0 0 5px var(--primary-blue), 0 0 10px var(--primary-blue), inset 0 0 3px var(--primary-blue);
-    border: 1px solid var(--primary-blue);
-}
-
-.theme-blue input:focus,
-.theme-blue select:focus,
-.theme-blue textarea:focus {
-    border-color: var(--primary-blue);
-    box-shadow: inset 1px 1px 3px var(--shadow-light), 0 0 8px var(--primary-blue);
-}
-
-/* --- Corporate (Windows 95/XP) Theme --- */
-body.theme-corporate {
-    background: #008080 url('https://constellation-crm.com/assets/bliss.png') no-repeat center center fixed !important;
-    background-size: cover !important;
-    font-family: 'Tahoma', 'MS Sans Serif', 'Verdana', sans-serif !important;
-    color: #000000 !important;
-}
-
-body.theme-corporate .crm-container {
-    background: transparent !important;
-}
-
-/* Main rule for all containers */
-body.theme-corporate .nav-sidebar,
-body.theme-corporate .details-panel,
-body.theme-corporate .modal-content,
-body.theme-corporate .auth-box,
-body.theme-corporate .chart-container,
-body.theme-corporate .metric-card,
-body.theme-corporate table,
-body.theme-corporate th,
-body.theme-corporate .user-menu,
-body.theme-corporate .user-menu-header,
-body.theme-corporate .item-list,
-body.theme-corporate .list-item,
-body.theme-corporate #contact-sequence-status,
-body.theme-corporate .form-checkbox-group,
-body.theme-corporate .template-list-item,
-body.theme-corporate .downloads-section,
-body.theme-corporate .alert-card {
-    background-color: #c0c0c0 !important;
-    color: #000000 !important;
-    border-radius: 0 !important;
-    border-style: outset !important;
-    border-width: 2px !important;
-    border-color: #dfdfdf #808080 #808080 #dfdfdf !important;
-    box-shadow: none !important;
-}
-
-/* Styles the active nav button */
-body.theme-corporate .nav-button.active {
-    background: #008080 !important;
-    color: #FFFFFF !important;
-    border-style: inset !important;
-    text-shadow: none !important;
-}
-
-/* Styles all other buttons */
-body.theme-corporate .btn-primary,
-body.theme-corporate .btn-danger,
-body.theme-corporate .btn-secondary,
-body.theme-corporate .btn-tertiary,
-body.theme-corporate .nav-button {
-    background-color: #c0c0c0 !important;
-    color: #000000 !important;
-    border-radius: 0 !important;
-    border-style: outset !important;
-    border-width: 2px !important;
-    border-color: #dfdfdf #808080 #808080 #dfdfdf !important;
-    box-shadow: none !important;
-}
-
-body.theme-corporate .btn-primary:active,
-body.theme-corporate .btn-danger:active,
-body.theme-corporate .btn-secondary:active,
-body.theme-corporate .btn-tertiary:active,
-body.theme-corporate .nav-button:active {
-    border-style: inset !important;
-}
-
-/* Styles all input fields */
-body.theme-corporate input,
-body.theme-corporate select,
-body.theme-corporate textarea {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    border-radius: 0 !important;
-    border-style: inset !important;
-    border-color: #808080 #dfdfdf #dfdfdf #808080 !important;
-    border-width: 2px !important;
-}
-/* Add these new styles to your css/style.css file */
-
-/* Styling for generic section boxes, used on Command Center */
-.section-box {
-    background-color: var(--bg-medium); /* Slightly darker background than main content */
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 30px; /* Space between sections */
-    box-shadow: 0 4px 8px var(--shadow-color);
-}
-
-.section-box h2,
-.section-box h4 {
-    color: var(--text-color);
-    margin-top: 0;
-    margin-bottom: 15px;
-    font-size: 1.5em; /* Consistent with other h2s */
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-}
-
-/* Adjustments for the downloads section if it's also a section-box */
-.section-box.downloads-section h4 {
-    font-size: 1.2em; /* Keep h4 smaller than h2 */
-}
-
-.section-box p {
-    color: var(--text-color);
-    margin-bottom: 15px;
-}
-
-.section-box .table-container {
-    margin-top: 0; /* Override default table-container margin if needed */
-}
-
-/* Ensure buttons within section-box look good */
-.section-box .btn-primary,
-.section-box .btn-secondary {
-    margin-top: 10px; /* Add some space above buttons if needed */
-}
-
-/* Adjustments for the downloads links specifically */
-.section-box .downloads-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 15px;
-}
-
-/* --- Corporate Theme Specific Overrides for Section Boxes --- */
-body.theme-corporate {
-    /* Assuming corporate theme has its own background colors */
-    /* If you have specific corporate theme variables, use them here, e.g., var(--corporate-bg-dark) */
-    
-    .section-box {
-        background-color: #2c2c2c; /* A slightly lighter dark for the box background */
-        border-color: #555555; /* A subtle border */
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); /* Stronger shadow for contrast */
-    }
-
-    .section-box h2,
-    .section-box h4 {
-        color: #e0e0e0; /* Lighter text for headings */
-        border-color: #555555; /* Match border color */
-    }
-
-    .section-box p {
-        color: #cccccc; /* Lighter text for paragraphs */
-    }
-
-    .section-box .table-container th {
-        background-color: #3a3a3a; /* Darker header for tables */
-        color: #e0e0e0; /* Lighter text for table headers */
-    }
-
-    .section-box .table-container td {
-        color: #cccccc; /* Lighter text for table cells */
-    }
-
-    /* Adjust input/textarea colors within section-box for corporate theme if needed */
-    .section-box input[type="text"],
-    .section-box input[type="number"],
-    .section-box input[type="email"],
-    .section-box input[type="tel"],
-    .section-box textarea {
-        background-color: #3a3a3a; /* Darker input background */
-        border-color: #555555;
-        color: #e0e0e0; /* Lighter text in inputs */
-    }
-
-    .section-box input[type="text"]:focus,
-    .section-box input[type="number"]:focus,
-    .section-box input[type="email"]:focus,
-    .section-box input[type="tel"]:focus,
-    .section-box textarea:focus {
-        border-color: #888888; /* Slightly lighter focus border */
-        box-shadow: 0 0 0 2px rgba(136, 136, 136, 0.3);
-    }
-}
-
-/* --- SVG and Logo Styling --- */
-body.theme-corporate .auth-logo,
-body.theme-corporate .nav-logo {
-    filter: none !important;
-}
-body.theme-corporate .nav-logo path[fill="#FEFEFE"],
-body.theme-corporate .auth-logo path[fill="#FEFEFE"] {
-    fill: #008080 !important; 
-}
-/* ... (long list of user icon path selectors) ... */
-body.theme-corporate .user-icon path[fill="#020202"],
-body.theme-corporate .user-icon path[fill="#090909"],
-/* (all other path fills from previous code block) */
-body.theme-corporate .user-icon path[fill="#010101"] {
-    fill: #008080 !important;
-}
-/* ... (long list of user icon path selectors for white parts) ... */
-body.theme-corporate .user-icon path[fill="#FEFEFE"],
-/* (all other path fills from previous code block) */
-body.theme-corporate .user-icon path[fill="#F4F4F4"] {
-    fill: #c0c0c0 !important;
-}
-
-/* --- NEW: Action Card Text and Tag Fixes --- */
-
-/* Makes the headline text bold for better readability */
-body.theme-corporate .alert-headline {
-    font-weight: bold !important;
-}
-
-/* Flattens the "alert type" tag to look like plain text */
-body.theme-corporate .alert-trigger-type {
-    background-color: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    font-weight: bold !important;
-    color: #000000 !important;
-}
-/* Removes the drop-shadow glow from the logo in the corporate theme */
-body.theme-corporate .auth-logo,
-body.theme-corporate .nav-logo {
-    filter: none !important;
-}
-/* --- FINAL GLOBAL ADJUSTMENT --- */
-
-/* * FIX 6: Update existing rules to exclude BOTH green and corporate themes from having rounded corners.
-*/
-body:not(.theme-green):not(.theme-corporate) .nav-sidebar { border-radius: 0 10px 10px 0; }
-body:not(.theme-green):not(.theme-corporate) .nav-button { border-radius: 5px; }
-body:not(.theme-green):not(.theme-corporate) .chart-container { border-radius: 10px; }
-body:not(.theme-green):not(.theme-corporate) .metric-card { border-radius: 10px; }
-body:not(.theme-green):not(.theme-corporate) .downloads-section { border-radius: 8px; }
-body:not(.theme-green):not(.theme-corporate) .item-list { border-radius: 5px; }
-body:not(.theme-green):not(.theme-corporate) .list-item.selected { box-shadow: inset 3px 0 0 0 var(--primary-blue); }
-body:not(.theme-green):not(.theme-corporate) .details-panel { border-radius: 8px; }
-body:not(.theme-green):not(.theme-corporate) #contact-sequence-status { border-radius: 5px; }
-body:not(.theme-green):not(.theme-corporate) input,
-body:not(.theme-green):not(.theme-corporate) select,
-body:not(.theme-green):not(.theme-corporate) textarea { border-radius: 4px; }
-body:not(.theme-green):not(.theme-corporate) .btn-primary,
-body:not(.theme-green):not(.theme-corporate) .btn-danger,
-body:not(.theme-green):not(.theme-corporate) .btn-secondary,
-body:not(.theme-green):not(.theme-corporate) .btn-tertiary { border-radius: 5px; }
-body:not(.theme-green):not(.theme-corporate) table { border-radius: 8px; overflow: hidden; }
-body:not(.theme-green):not(.theme-corporate) .modal-content { border-radius: 10px; }
-body:not(.theme-green):not(.theme-corporate) #account-activities-list li,
-body:not(.theme-green):not(.theme-corporate) #contact-activities-list li { border-radius: 4px; }
-body:not(.theme-green):not(.theme-corporate) .auth-box { border-radius: 10px; }
-body:not(.theme-green):not(.theme-corporate) .table-container-scrollable { border-radius: 5px; }
-body:not(.theme-green):not(.theme-corporate) .email-view-modal { border-radius: 10px; }
-body:not(.theme-green):not(.theme-corporate) .email-view-body { border-radius: 5px; }
-body:not(.theme-green):not(.theme-corporate) .user-menu-popup { border-radius: 5px 5px 0 0; }
-
-/* --- NEW: Fix for Contact Activities List --- */
-
-/* Styles the list items for contact activities */
-body.theme-corporate #contact-activities-list li {
-    background-color: #dfdfdf !important; /* A slightly lighter grey for differentiation */
-    color: #000000 !important;
-    border-radius: 0 !important;
-    border-style: inset !important; /* Use an inset border to look like a sunken panel */
-    border-width: 2px !important;
-    border-color: #808080 #dfdfdf #dfdfdf #808080 !important;
-    box-shadow: none !important;
-    border-left: 2px inset #808080 !important; /* Ensure the left border matches */
-}
-
-/* --- NEW: Fix for ALL Activity Lists --- */
-
-/* Styles the list items for both contact and account activities */
-body.theme-corporate #contact-activities-list li,
-body.theme-corporate #account-activities-list li {
-    background-color: #dfdfdf !important; /* A slightly lighter grey for differentiation */
-    color: #000000 !important;
-    border-radius: 0 !important;
-    border-style: inset !important; /* Use an inset border to look like a sunken panel */
-    border-width: 2px !important;
-    border-color: #808080 #dfdfdf #dfdfdf #808080 !important;
-    box-shadow: none !important;
-    border-left: 2px inset #808080 !important; /* Ensure the left border matches */
-}
-/* Before (in css/style.css)
-// missing the rules for these elements inside alert-card
-
-// After (add this block to the end of your style.css file)
-/* --- NEW: Action Card Text and Tag Fixes --- */
-
-/* Makes the headline text bold for better readability */
-body.theme-corporate .alert-headline {
-    font-weight: bold !important;
-}
-
-/* Flattens the "alert type" tag to look like plain text */
-body.theme-corporate .alert-trigger-type {
-    background-color: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    font-weight: bold !important;
-    color: #000000 !important;
-}
-
-body.theme-corporate #contact-activities-list li,
-body.theme-corporate #account-activities-list li {
-    background-color: #dfdfdf !important;
-    color: #000000 !important;
-    border-radius: 0 !important;
-    border-style: inset !important;
-    border-width: 2px !important;
-    border-color: #808080 #dfdfdf #dfdfdf #808080 !important;
-    box-shadow: none !important;
-    border-left: 2px inset #808080 !important;
-}
-/* Add this to your css/style.css file */
-
-/* Hide the camera button by default on larger screens */
-.mobile-only {
-    display: none;
-}
-
-/* Show the camera button only on screens narrower than 768px */
-@media (max-width: 767px) {
-    .mobile-only {
-        display: block; /* Or flex, inline-block depending on your layout */
-    }
-}
-/* Add these new styles to your css/style.css file */
-
-/* Add these new styles to your css/style.css file */
-
-/* AI Generation Section Styling */
-.ai-generation-section {
-    background-color: var(--bg-medium); /* Slightly darker background than main content */
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
-    margin-top: 30px; /* Space it out from the main sequence details */
-    box-shadow: 0 4px 8px var(--shadow-color);
-}
-
-.ai-generation-section h3 {
-    color: var(--text-color);
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 1.5em;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-}
-
-.ai-generation-section .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* Two columns for inputs */
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.ai-generation-section .form-grid .full-span-grid-item {
-    grid-column: 1 / -1; /* Make the textarea span full width */
-}
-
-.ai-generation-section label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-    color: var(--text-color);
-}
-
-.ai-generation-section input[type="number"],
-.ai-generation-section textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid var(--input-border);
-    border-radius: 5px;
-    background-color: var(--input-bg);
-    color: var(--text-color);
-    font-family: inherit;
-    font-size: 1em;
-    box-sizing: border-box; /* Include padding in element's total width and height */
-}
-
-.ai-generation-section input[type="number"]:focus,
-.ai-generation-section textarea:focus {
-    border-color: var(--input-focus-border);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); /* Focus ring */
-}
-
-/* Checkbox Group Styling - MODIFIED for horizontal layout */
-.ai-generation-section .checkbox-group {
-    display: flex; /* Use flexbox */
-    flex-wrap: wrap; /* Allow items to wrap to the next line */
-    gap: 15px; /* Space between checkbox items */
-    padding: 5px 0;
-    align-items: center; /* Vertically align checkbox and label */
-}
-
-.ai-generation-section .checkbox-group div { /* Container for each checkbox-label pair */
-    display: flex;
-    align-items: center;
-    white-space: nowrap; /* Prevent wrapping for individual checkbox and label */
-}
-
-.ai-generation-section .checkbox-group input[type="checkbox"] {
-    /* Custom checkbox styling */
-    -webkit-appearance: none; /* Hide default checkbox */
-    -moz-appearance: none;
-    appearance: none;
-    width: 20px; /* Size of the custom checkbox */
-    height: 20px;
-    border: 2px solid var(--primary-blue); /* Border color */
-    border-radius: 4px;
-    background-color: var(--input-bg);
-    cursor: pointer;
-    position: relative;
-    margin-right: 8px; /* Space between checkbox and label */
-    flex-shrink: 0; /* Prevent checkbox from shrinking */
-}
-
-.ai-generation-section .checkbox-group input[type="checkbox"]:checked {
-    background-color: var(--primary-blue); /* Fill color when checked */
-    border-color: var(--primary-blue);
-}
-
-.ai-generation-section .checkbox-group input[type="checkbox"]:checked::after {
-    /* Checkmark styling */
-    content: '\2713'; /* Unicode checkmark character */
-    font-size: 14px;
-    color: white; /* Checkmark color */
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.ai-generation-section .checkbox-group input[type="checkbox"]:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); /* Focus ring for accessibility */
-}
-
-
-.ai-generation-section .checkbox-group label {
-    font-weight: normal; /* Reset font-weight for checkbox labels */
-    margin-bottom: 0; /* Remove bottom margin */
-    cursor: pointer;
-    color: var(--text-color);
-}
-
-/* Form Buttons within AI section */
-.ai-generation-section .form-buttons {
-    display: flex;
-    gap: 15px;
-    justify-content: flex-end; /* Align buttons to the right */
-    margin-top: 20px;
-}
-
-/* AI Generated Preview Section */
-.ai-generated-preview {
-    background-color: var(--bg-light); /* Lighter background for preview */
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
-    margin-top: 30px;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05); /* Inner shadow for preview */
-}
-
-.ai-generated-preview h4 {
-    color: var(--text-color);
-    margin-top: 0;
-    margin-bottom: 10px;
-    font-size: 1.2em;
-}
-
-.ai-generated-preview .placeholder-text {
-    color: var(--text-color);
-    font-style: italic;
-    margin-bottom: 20px;
-}
-
-/* Styling for the dynamically generated table within the preview */
-.ai-generated-preview table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 20px;
-}
-
-.ai-generated-preview th,
-.ai-generated-preview td {
-    border: 1px solid var(--border-color);
-    padding: 10px;
-    text-align: left;
-    color: var(--text-color);
-}
-
-.ai-generated-preview th {
-    background-color: var(--bg-medium);
-    font-weight: bold;
-}
-
-/* Styles for inline editing inputs in the preview table */
-.ai-generated-preview .edit-step-type,
-.ai-generated-preview .edit-step-delay,
-.ai-generated-preview .edit-step-subject,
-.ai-generated-preview .edit-step-message {
-    width: 100%;
-    padding: 5px;
-    border: 1px solid var(--input-border);
-    border-radius: 3px;
-    background-color: var(--input-bg);
-    color: var(--text-color);
-    box-sizing: border-box;
-}
-
-.ai-generated-preview .edit-step-message {
-    min-height: 80px; /* Ensure textarea has enough height */
-    resize: vertical;
-}
-
-/* Actions cell content for alignment */
-.ai-generated-preview .actions-cell-content {
-    display: grid;
-    grid-template-columns: 1fr; /* Stack buttons vertically for better touch targets */
-    gap: 5px;
-}
-
-/* Responsive adjustments for smaller screens if needed, though form-grid handles some */
-@media (max-width: 767px) {
-    .ai-generation-section .form-grid {
-        grid-template-columns: 1fr; /* Stack all inputs vertically on small screens */
-    }
-}
-/* Add these new styles to your css/style.css file */
-
-/* Styling for generic section boxes, used on Command Center */
-.section-box {
-    background-color: var(--bg-medium); /* Slightly darker background than main content */
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 30px; /* Space between sections */
-    box-shadow: 0 4px 8px var(--shadow-color);
-}
-
-.section-box h2,
-.section-box h4 {
-    color: var(--text-color);
-    margin-top: 0;
-    margin-bottom: 15px;
-    font-size: 1.5em; /* Consistent with other h2s */
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-}
-
-/* Adjustments for the downloads section if it's also a section-box */
-.section-box.downloads-section h4 {
-    font-size: 1.2em; /* Keep h4 smaller than h2 */
-}
-
-.section-box p {
-    color: var(--text-color);
-    margin-bottom: 15px;
-}
-
-.section-box .table-container {
-    margin-top: 0; /* Override default table-container margin if needed */
-}
-
-/* Ensure buttons within section-box look good */
-.section-box .btn-primary,
-.section-box .btn-secondary {
-    margin-top: 10px; /* Add some space above buttons if needed */
-}
-
-/* Adjustments for the downloads links specifically */
-.section-box .downloads-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin-top: 15px;
-}
-/* Add to the end of the file */
-.table-container {
-    overflow-x: auto;
-}
-
-#script-logs-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-#script-logs-table th, #script-logs-table td {
-    padding: 12px 15px;
-    border: 1px solid var(--border-color);
-    text-align: left;
-}
-
-#script-logs-table th {
-    background-color: var(--bg-light);
-    font-weight: bold;
-    color: var(--text-light);
-}
-
-#script-logs-table tbody tr:hover {
-    background-color: var(--bg-medium);
-}
-/* =================================== */
-/* = Progress Ring (Donut Chart)     = */
-/* =================================== */
-
-/* This MERGES the new styles with your existing container */
-.ring-chart-container {
-    /* Your existing styles are preserved: */
-    position: relative;
-    width: 80px; 
-    height: 80px;
-    flex-shrink: 0;
-    
-    /* New styles for the donut effect: */
-    border-radius: 50%;
-    background-color: var(--bg-medium); /* The track color */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
-}
-
-/* This is a NEW, safe element to add */
-#ring-chart-progress {
-    --p: 0; /* Percentage is set by JS */
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    
-    /* The animated gradient */
-    background: conic-gradient(var(--completed-color) calc(var(--p) * 1%), transparent 0);
-
-    /* Animation */
-    transition: background 0.5s ease-in-out;
-}
-
-/* This creates the "hole" in the donut using your existing container */
-.ring-chart-container::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 75%; /* This controls the thickness of the ring */
-    height: 75%;
-    border-radius: 50%;
-    background-color: var(--bg-light); /* Matches the card background */
-}
-
-/* --- FORM ELEMENT ENHANCEMENTS --- */
-.input-with-link {
-    position: relative;
-    display: flex;
-    flex-direction: column; /* Stack label on top of input */
-}
-
-.input-with-link input {
-    width: 100%;
-    box-sizing: border-box; /* Ensures padding doesn't affect width */
-    padding-right: 35px; /* Make space for the icon inside the input */
-}
-
-.input-with-link a {
-    position: absolute;
-    right: 12px;
-    bottom: 1.3em; /* Vertically center icon with the input text */
-    color: var(--text-medium);
-    text-decoration: none;
-    font-size: 0.9em;
-    transition: color 0.2s;
-}
-
-.input-with-link a:hover {
-    color: var(--primary-blue);
-}
-/* style.css */
-
-/* --- Organic Star (Top Right Corner) --- */
-#contact-details {
-    position: relative; /* This is the anchor for the star */
-}
-
-.organic-star {
-    position: absolute;
-    top: 15px; /* Adjust as needed */
-    right: 20px; /* Adjust as needed */
-    font-size: 2.5rem; /* Much larger star */
-    color: var(--secondary-text-color);
-    cursor: pointer;
-    transition: color 0.2s ease-in-out, transform 0.2s ease;
-}
-
-.organic-star.is-organic {
-    color: #ffc700;
-    transform: scale(1.2);
-}
-/* --- Organic Star in Contact List --- */
-.organic-star-list {
-    color: #ffc700; /* Gold color */
-    font-size: 1em; /* Adjust size as needed */
-    margin-right: 8px;
-    vertical-align: middle;
-}
-.organic-star:hover {
-    transform: scale(1.2);
-}
-/* --- Hot Contact Icon Spacing --- */
-.hot-contact-icon {
-    margin-left: 8px;
-}
-/* --- Account List Item Icons --- */
-.list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.list-item-icons {
-    display: flex;
-    align-items: center;
-    gap: 8px; /* Adds space between icons if both are present */
-}
-
-.deal-open-icon {
-    color: var(--completed-color); /* Green color for money */
-    font-weight: bold;
-}
-/* --- Consistent List Item Naming --- */
-.contact-name,
-.account-list-name {
-    font-weight: 500; /* Makes the font slightly bolder to match */
-}
-/* --- Prevent Button Shrinking in Flex Container --- */
-.item-list-container > button,
-.item-list-container > input[type="text"] {
-    flex-shrink: 0;
-}
-/* --- Sequence List Item Styling --- */
-.sequence-info {
-    width: 100%;
-}
-
-.sequence-name {
-    font-weight: 500;
-    margin-bottom: 4px;
-}
-
-.sequence-stats {
-    font-size: 0.8em;
-    color: var(--secondary-text-color);
-    display: flex;
-    justify-content: space-between;
-}
-
-.sequence-stats .success-rate {
-    font-weight: bold;
-    color: var(--completed-color);
-}
-/* --- Sequence Status & Ring Chart (Grid Fix) --- */
-#sequence-status-content {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    width: 100%;
-    margin-top: 0.625rem;
-}
-
-.ring-chart-container {
-    grid-row: 1 / 2;
-    grid-column: 1 / 2;
-}
-
-#contact-sequence-info-text {
-    grid-row: 1 / 2;
-    grid-column: 2 / 3;
-    margin: 0; /* Remove default margin */
-}
-
-/* --- Sequence List Item Styling (Isolated) --- */
-.sequence-info {
-    flex-grow: 1;
-    padding-right: 10px;
-}
-
-.sequence-name {
-    font-weight: 500;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-}
-
-.sequence-list-stats { /* Using the new, unique class */
-    font-size: 0.8em;
-    color: var(--text-medium);
-    display: flex;
-    justify-content: space-between;
-}
-
-.sequence-list-stats .success-rate {
-    font-weight: bold;
-    color: var(--completed-color);
-}
-/* --- Sequences Page Action Button Grid --- */
-.sequence-actions-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* Creates two equal-width columns */
-    gap: 0.625rem;                  /* Sets the space between the buttons */
-    margin-bottom: 0.9375rem;       /* Adds some space below the grid */
-}
-
-/* Ensures buttons fill the entire grid cell */
-.sequence-actions-grid > .btn-primary,
-.sequence-actions-grid > .btn-secondary {
-    width: 100%; /* Makes the button fill the column width */
-    height: 100%;
-    padding: 0.625rem 0.5rem; /* Adjust padding for smaller button area */
-    font-size: 0.8rem;      /* Slightly smaller font to fit text */
-    white-space: normal;  /* Allows text to wrap if needed */
-    line-height: 1.2;
-}
-/* Add this to the end of style.css */
-
-/* Positions the sequence name and indicator side-by-side */
-.sequence-list-item-content {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-grow: 1; /* Allows content to take up available space */
-}
-
-/* The indicator icon for marketing sequences */
-.marketing-indicator {
-    color: var(--meeting-purple); /* A distinct color */
-    margin-right: 0.5rem; /* Adds space to the right of the icon */
-    font-size: 0.9em; /* Adjust icon size slightly */
-    flex-shrink: 0; /* Prevents the icon from shrinking */
-}
-
-body.theme-light .marketing-indicator {
-    color: #6f42c1; /* A good purple for the light theme */
-}
-
-body.theme-green .marketing-indicator {
-    color: #00ff41; /* Use the theme's primary text color */
-}
-/* Add this CSS to your main stylesheet, for example, style.css */
-
-/* Toast container positioning */
-.toast-container {
-    position: fixed;
-    top: 380px; /* Adjust as needed to position below the navigation bar */
-    left: 510px;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start; /* Aligns toasts to the right side */
-    gap: 0.5rem;
-}
-
-/* Base toast style (no background box) */
-.toast {
-    color: #fff; /* Default text color, will be overridden by type */
-    padding: 0.5rem .5rem;
-    font-weight: bold;
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
-    background-color: transparent; /* Remove the background color */
-    box-shadow: none; /* Remove the box shadow */
-}
-
-/* Success and Error colors */
-.toast-success {
-    color: var(--success-color); /* Green color */
-}
-
-.toast-error {
-    color: var(--danger-color); /* Red color */
-}
-
-.toast-info {
-    color: var(--primary-blue); /* Blue color for info messages */
-}
-
-/* Hide toast on transition */
-.toast.hide {
-    opacity: 0;
-    transform: translateY(-0.5rem);
-}
-/* --- Email View Attachments --- */
-.attachments-container {
-    padding: 10px 15px;
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 15px;
-}
-
-.attachments-container h5 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: var(--text-light);
-}
-
-.attachments-container .attachment-link {
-    margin-right: 10px;
-    margin-bottom: 10px;
-    text-decoration: none;
-}
-/* In style.css (add this to the end) */
-
-/* Container for the scrolling list inside the modal */
-.item-list-container-modal {
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 8px;
-    max-height: 40vh;
-    overflow-y: auto;
-    background-color: var(--bg-dark); /* Use a darker background for contrast */
-}
-
-/* This is the bully fix. We are overriding the global .list-item style. */
-.item-list-container-modal .list-item {
-    display: flex;
-    align-items: center; /* Vertically align items */
-    padding: 10px;
-    border-bottom: 1px solid var(--border-color);
-    transition: background-color 0.2s;
-}
-
-.item-list-container-modal .list-item:hover {
-    background-color: var(--bg-light);
-}
-
-.item-list-container-modal .list-item:last-child {
-    border-bottom: none;
-}
-
-/* Style the checkbox to have a fixed size and not stretch */
-.item-list-container-modal .list-item input[type="checkbox"] {
-    flex-shrink: 0; /* Prevents the checkbox from shrinking */
-    margin-right: 15px; /* Adds space between checkbox and label */
-    width: 18px;
-    height: 18px;
-}
-
-/* The label now correctly takes up the remaining space */
-.item-list-container-modal .list-item label {
-    flex-grow: 1; /* Allows the label to fill the available width */
-    cursor: pointer;
-    display: flex; /* This is crucial for aligning the name and date */
-    justify-content: space-between; /* Pushes the name and date apart */
-    align-items: center;
-}
-
-/* Styling for the new Last Activity Date text */
-.last-activity-date {
-    font-size: 0.8em;
-    color: var(--text-medium);
-    font-style: italic;
-    white-space: nowrap; /* Prevents the date from wrapping */
-    margin-left: 15px; /* Ensures space from the contact name */
-    flex-shrink: 0; /* Prevents the date from shrinking */
-}
-/* In style.css, add this inside the modal styles block */
-
-.item-list-container-modal .list-item label > span:first-child {
-    flex-grow: 1; /* Allows the name/account part to take up space */
-}
-/* --- General Layout Adjustments --- */
-
-/* This new rule removes the sidebar grid layout ONLY on the user guide page */
-.container.no-sidebar {
-    display: block;
-}
-
-.container.no-sidebar .main-content {
-    margin-left: 0;
-}
-
-.header-logo-container {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.header-logo-container .nav-logo {
-    height: 40px; /* Or whatever height you prefer */
-    width: auto;
-}
-#ai-articles-container {
-    display: grid
-;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-}
-#marketing-posts-container {
-    display: grid
-;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-}
-@media (max-width: 767px) {
-    /* ...then change the grid to 1 column. */
-    #marketing-posts-container {
-        grid-template-columns: 1fr;
-    }
-}
-/* --- Contact Display Toggle --- */
-.display-toggle-container {
-    display: flex;
-    margin-bottom: 0.625rem;
-}
-
-.display-toggle-container button {
-    flex: 1;
-    padding: 0.5rem;
-    font-size: 0.8rem;
-    border-radius: 0;
-    /* We use the existing .btn-secondary.active class to show the selected state */
-}
-
-.display-toggle-container button:first-child {
-    border-top-left-radius: 5px;
-    border-bottom-left-radius: 5px;
-}
-
-.display-toggle-container button:last-child {
-    border-top-right-radius: 5px;
-    border-bottom-right-radius: 5px;
-}
-
-/* --- Contact Display Toggle --- */
-.display-toggle-container {
-    display: flex;
-    margin-bottom: 0.625rem;
-}
-
-.display-toggle-container button {
-    flex: 1;
-    padding: 0.5rem;
-    font-size: 0.8rem;
-    border-radius: 0;
-    /* We use the existing .btn-secondary.active class to show the selected state */
-}
-
-.display-toggle-container button:first-child {
-    border-top-left-radius: 5px;
-    border-bottom-left-radius: 5px;
-}
-
-.display-toggle-container button:last-child {
-    border-top-right-radius: 5px;
-    border-bottom-right-radius: 5px;
-}
-
-/* --- Global Search --- */
-.global-search-container {
-    position: relative;
-    margin-bottom: 1rem;
-    padding: 0 0.625rem;
-}
-
-#global-search-input {
-    width: 100%;
-    padding: 0.5rem;
-    background-color: var(--bg-dark);
-    border: 1px solid var(--border-color);
-    color: var(--text-light);
-    border-radius: 5px;
-    box-sizing: border-box;
-    font-size: 0.9rem;
-}
-
-#global-search-input:focus {
-    outline: none;
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 5px var(--primary-blue);
-}
-
-.global-search-results {
-    position: absolute;
-    top: 100%;
-    left: 0.625rem;
-    right: 0.625rem;
-    background-color: var(--bg-light);
-    border: 1px solid var(--border-color);
-    border-top: none;
-    border-radius: 0 0 5px 5px;
-    max-height: 300px;
-    overflow-y: auto;
-    z-index: 1000;
-    box-shadow: 0 8px 15px var(--shadow-medium);
-}
-
-.search-result-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    cursor: pointer;
-    color: var(--text-light);
-    text-decoration: none;
-}
-
-.search-result-item:last-child {
-    border-bottom: none;
-}
-
-.search-result-item:hover {
-    background-color: var(--bg-medium);
-}
-
-.search-result-item .result-type {
-    font-size: 0.8rem;
-    color: var(--text-medium);
-    background-color: var(--bg-dark);
-    padding: 0.2rem 0.4rem;
-    border-radius: 3px;
-}
-
-.search-result-item .result-name {
-    font-weight: 500;
-    text-align: right;
-}
-/* --- Website Input with Icon --- */
-/* This wrapper is the key to positioning the icon inside the input field */
-.input-with-icon {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-/* Add padding to the input to make space for the icon */
-.input-with-icon input {
-    padding-right: 35px; /* Adjust as needed */
-}
-
-/* Style and position the icon link */
-.external-link-icon {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-color-secondary);
-    font-size: 0.9em;
-    opacity: 0.7;
-    transition: opacity 0.2s ease-in-out, color 0.2s ease-in-out;
-}
-
-.external-link-icon:hover {
-    opacity: 1;
-    color: var(--primary-blue);
-}
-
-
-/* --- Associated Contacts List (2-Column Grid) --- */
-/* Main container for the list */
-ul#account-contacts-list {
-    list-style-type: none;
-    padding-left: 0;
-    margin-top: 10px;
-
-    /* --- NEW GRID STYLES --- */
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* This creates two equal-width columns */
-    gap: 10px; /* This adds a nice space between all items */
-}
-
-/* Individual contact items */
-ul#account-contacts-list li {
-    display: flex;
-    align-items: center;
-    gap: 0.5em; 
-    background-color: var(--background-color-secondary);
-    border: 1px solid var(--border-color); 
-    padding: 12px 15px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    margin-bottom: 0; /* Removed margin now that we have a grid gap */
-}
-
-ul#account-contacts-list li:hover {
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 8px var(--primary-blue-transparent);
-}
-
-/* The link inside each list item */
-ul#account-contacts-list li a {
-    color: var(--text-color-primary);
-    text-decoration: none;
-    font-weight: 500;
-}
-
-ul#account-contacts-list li a:hover {
-    text-decoration: underline;
-}
-
-
-/* --- NEW RESPONSIVE STYLE --- */
-/* On smaller screens, stack back to a single column */
-@media (max-width: 900px) {
-    ul#account-contacts-list {
-        grid-template-columns: 1fr;
-    }
-}
-/* --- NEW: Closed Won Metric Card Style (Revised for all themes) --- */
-.metric-card-won {
-    background-color: var(--completed-color) !important;
-    border-color: #2a9d8f !important; /* A slightly darker green for the border */
-}
-
-/* This specifically overrides the dark theme's gradient */
-body.theme-dark .metric-card-won {
-    background: var(--completed-color) !important;
-}
-
-.metric-card-won .metric-title {
-    color: #000000 !important; /* Black text for the title for readability */
-    font-weight: bold;
-}
-
-.metric-card-won .metric-value {
-    color: #ffffff !important; /* White text for the value */
-}
-/* banneler/constellation-v/Constellation-V-8d825689cc599d5206d1e49b4f0dafe9c5ecc390/css/style.css */
-/* --- NEW: Navigation Notification Bell --- */
-.nav-notification-dot {
-    color: var(--primary-blue);
-    margin-left: 8px;
-    text-shadow: 0 0 10px var(--primary-blue);
-    vertical-align: middle; /* Aligns icon with text */
-}
-
-/* Specific positioning for the Cognito link since it's different */
-.cognito-nav-link + .nav-notification-dot {
-    position: absolute;
-    top: 50%;
-    right: 15px; /* Adjust as needed */
-    transform: translateY(-50%);
-    margin-left: 0;
-}
-/* --- User Guide Styles --- */
-.guide-card {
-    background-color: var(--background-light);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.guide-card h2, .guide-card h3 {
-    margin-top: 0;
-    margin-bottom: 16px;
-    color: var(--primary-accent);
-}
-
-.guide-card h4 {
-    margin-top: 16px;
-    margin-bottom: 8px;
-    color: var(--text-light);
-}
-
-.guide-card p, .guide-card li {
-    line-height: 1.6;
-}
-
-.guide-card ol, .guide-card ul {
-    padding-left: 20px;
-}
-
-.guide-card hr.guide-divider {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 24px 0;
-}
-/* --- Loading Screen Styles --- */
-#loading-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: var(--bg-medium);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
-    opacity: 1;
-    transition: opacity 0.75s ease-out;
-}
-
-#loading-screen video {
-    width: 100%;
-    max-width: 400px;
-    height: auto;
-}
-
-#loading-screen.hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-/* === Kanban Board Styles === */
-
-.deals-main-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.view-mode-toggle {
-    display: flex;
-    background-color: var(--bg-light);
-    border-radius: var(--border-radius);
-    padding: 4px;
-}
-
-.view-mode-btn {
-    background-color: transparent;
-    border: none;
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
-    color: var(--text-medium);
-    border-radius: var(--border-radius);
-    transition: all 0.2s ease-in-out;
-}
-
-.view-mode-btn:hover {
-    background-color: var(--bg-dark);
-    color: var(--text-light);
-}
-
-.view-mode-btn.active {
-    background-color: var(--primary-color);
-    color: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
+/* --- KANBAN BOARD --- */
 .kanban-board-container {
     display: flex;
     gap: 1rem;
     overflow-x: auto;
-    padding: 1rem 0;
-    min-height: 400px; /* Ensure it has height even when empty */
+    padding-bottom: 1rem;
 }
 
 .kanban-column {
-    flex: 0 0 300px; /* Flex-shrink, flex-grow, flex-basis */
-    background-color: var(--bg-light);
-    border-radius: var(--border-radius);
+    flex: 0 0 300px;
+    background-color: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
 }
 
 .kanban-column-header {
-    padding: 0.75rem 1rem;
+    padding: 1rem;
+    background-color: var(--bg-light);
     border-bottom: 1px solid var(--border-color);
+    border-radius: 8px 8px 0 0;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-}
-
-.kanban-column-header h4 {
-    margin: 0;
-    font-size: 1rem;
-    color: var(--text-light);
-}
-
-.kanban-column-total {
-    font-size: 0.8rem;
     font-weight: bold;
-    color: var(--primary-color);
 }
+
+.kanban-column-total { color: var(--primary-blue); }
 
 .kanban-column-body {
+    padding: 1rem;
     flex-grow: 1;
-    padding: 0.75rem;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
 }
 
 .kanban-card {
-    background-color: var(--bg-dark);
-    border-radius: var(--border-radius);
+    background-color: var(--bg-medium);
     padding: 1rem;
+    border-radius: 5px;
+    border-left: 4px solid var(--primary-blue);
+    box-shadow: 0 2px 5px var(--shadow-light);
     cursor: grab;
-    border-left: 4px solid var(--primary-color);
-    transition: box-shadow 0.2s ease-in-out;
+    transition: transform 0.2s;
 }
 
-.kanban-card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
+.kanban-card:hover { transform: translateY(-2px); }
 
-.kanban-card.dragging {
-    opacity: 0.5;
-    transform: rotate(2deg);
-}
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .crm-container {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+    }
 
-.kanban-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.25rem;
-}
+    .nav-sidebar {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        overflow-x: auto;
+        padding: 10px;
+        gap: 10px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
 
-.kanban-card-title {
-    margin: 0;
-    font-size: 0.95rem;
-    color: var(--text-light);
-    font-weight: 600;
-}
+    .nav-logo {
+        width: 40px;
+        margin: 0;
+    }
 
-.kanban-card-subtitle {
-    font-size: 0.8rem;
-    color: var(--text-medium);
-    margin: 0 0 1rem 0;
-}
+    .nav-button {
+        padding: 8px;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
 
-.kanban-card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.8rem;
-}
-
-.kanban-card-mrc {
-    font-weight: bold;
-    color: var(--text-light);
-}
-
-.kanban-card-date {
-    color: var(--text-medium);
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-}
-
-.committed-icon {
-    color: #b38c62; /* A nice blue color */
-    font-size: 0.9rem;
-}
-/* --- Print Button Style --- */
-#print-briefing-btn i {
-    margin-right: 0.5rem;
-}
-
-/* Fix for text wrapping and font in AI Briefing modal */
-div.briefing-pre {
-    white-space: pre-wrap;      /* Allows the text to wrap */
-    word-wrap: break-word;        /* Breaks long words if necessary */
-    font-family: inherit;       /* Ensures it uses the standard app font */
-    background-color: var(--bg-dark);
-    padding: 0.75rem;
-    border-radius: var(--border-radius);
-    font-size: 0.9em;
-    line-height: 1.5;
-}
-
-/* Print-specific styles for the briefing PDF */
-@media print {
-    body { 
-        background-color: #ffffff !important; /* NEW: Forces a white background for the whole page */
-        color: #000000 !important;             /* Forces all text to be black */
+    .deals-metrics-container {
+        flex-direction: column;
     }
     
-    /* This ensures our section styles are still applied correctly on top of the body style */
-    .briefing-section, div.briefing-pre {
-        background-color: #f9f9f9 !important; 
-        color: #000000 !important;
+    .charts-grid {
+        grid-template-columns: 1fr;
     }
 }
-/* --- Command Center Header Styles --- */
-.tasks-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start; /* Aligns items to the top */
-    margin-bottom: 1rem;
-}
 
-.tasks-header-left {
-    display: flex;
-    flex-direction: column; /* Stacks the title and button vertically */
-    align-items: flex-start; /* Aligns them to the left */
-    gap: 0.75rem; /* Adds space between the title and the button */
+/* --- UTILITIES --- */
+.hidden { display: none !important; }
+.loader {
+    border: 4px solid var(--bg-light);
+    border-top: 4px solid var(--primary-blue);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
 }
-
-.tasks-header h2 {
-    margin-bottom: 0; /* Removes default margin from the header */
-}
-
-/* --- AI Briefing Widget Styles --- */
-#ai-briefing-container {
-    background-color: var(--bg-light);
-    border-radius: var(--border-radius);
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    border-left: 4px solid var(--primary-color);
-}
-
-#ai-briefing-container h3 {
-    margin-top: 0;
-}
-
-#ai-briefing-list {
-    list-style: none;
-    padding-left: 0;
-}
-
-#ai-briefing-list li {
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
-}
-
-#ai-briefing-list li:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-
-#ai-briefing-list strong {
-    color: var(--text-light);
-    font-weight: 600;
-}
-
-#ai-briefing-list em {
-    color: var(--text-medium);
-    font-style: italic;
-    display: block;
-    margin-top: 0.25rem;
-}
-
-/* --- General Button Styles --- */
-.btn-large {
-    padding: 2rem 2rem; /* Increased padding for a "chunky" feel */
-    font-size: 1.3rem;     /* Slightly larger font */
-    line-height: 1;        /* Helps center the text vertically */
-}
-/* --- Impersonation Dropdown --- */
-.impersonation-container {
-    padding: 0.5rem 0.625rem;
-    margin-top: 1rem;
-    border-top: 1px solid var(--border-color);
-}
-.impersonation-container label {
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: var(--text-medium);
-    display: block;
-    margin-bottom: 0.25rem;
-}
-#impersonation-select {
-    width: 100%;
-    /* It will inherit the global input/select styles */
-}
-/* =================================== */
-/* = Contact View Toggle Header      = */
-/* =================================== */
-
-.contact-view-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem; /* Space below the header */
-}
-
-.contact-view-header h4 {
-    margin: 0; /* Remove default margin */
-}
-/* ========================================= */
-/* = Org Chart Structure (Horizontal-FIXED) = */
-/* ========================================= */
-
-#contact-org-chart-view {
-    padding: 2rem;
-    background-color: var(--bg-dark);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    min-height: 200px;
-    overflow-x: auto;
-    text-align: center; /* THIS CENTERS THE CHART */
-}
-
-/* The root <ul> starts the chart */
-#contact-org-chart-view .org-chart-root {
-    list-style: none;
-    padding: 0;
-    margin: 0 auto; /* <-- CHANGED: This centers the block */
-    display: table; /* <-- CHANGED: This makes the block shrink-to-fit */
-    /* justify-content: center; <-- This is no longer needed */
-    position: relative;
-}
-
-/* A <ul> that contains children */
-#contact-org-chart-view .org-chart-children {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    justify-content: center;
-    position: relative;
-    padding-top: 20px; /* <-- THE FIX: Adds space for the parent's line */
-}
-
-/* The <li> "column" for a node */
-#contact-org-chart-view .org-chart-node {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    padding: 0 5px; /* Compact horizontal spacing */
-    list-style: none;
-}
-
-/* --- THE LINES --- */
-
-/* 1. Line UP from child card to the horizontal bar */
-#contact-org-chart-view .org-chart-node::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 2px;
-    height: 20px; /* Space between card and horizontal line */
-    background-color: var(--border-color);
-}
-
-/* 2. THE FIX: Repurpose the '::after' to be the horizontal bar */
-#contact-org-chart-view .org-chart-node::after {
-    content: '';
-    position: absolute;
-    top: 0; /* Align with the top of the vertical line */
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background-color: var(--border-color);
-}
-
-/* 3. Line DOWN from parent card */
-/* We group this so it works on unassigned cards too (for dragging) */
-#contact-org-chart-view .contact-card::after,
-#unassigned-contacts-container .contact-card::after {
-    content: '';
-    position: absolute;
-    bottom: -20px; /* Matches the 'top' space */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 2px;
-    height: 20px;
-    background-color: var(--border-color);
-}
-
-/* --- LINE CLEANUP --- */
-
-/* 4. THE GHOST FIX: This rule *must* be disabled */
-#contact-org-chart-view .org-chart-children::before {
-    display: none !important;
-}
-
-/* Hide line UP from top-level nodes */
-#contact-org-chart-view .org-chart-root > .org-chart-node::before {
-    display: none;
-}
-/* Hide horizontal bar for top-level nodes */
-#contact-org-chart-view .org-chart-root > .org-chart-node::after {
-    display: none;
-}
-
-/* Hide line DOWN from cards that have NO children (or an empty child list) */
-#contact-org-chart-view .org-chart-node:not(:has(.org-chart-children)) > .contact-card::after,
-#contact-org-chart-view .org-chart-node:has(.org-chart-children:empty) > .contact-card::after {
-    display: none;
-}
-
-/* Hide line DOWN for ALL unassigned cards */
-#unassigned-contacts-container .contact-card::after {
-    display: none;
-}
-
-/* Trim horizontal line for the first child */
-#contact-org-chart-view .org-chart-children .org-chart-node:first-child::after {
-    left: 50%;
-    width: 50%;
-}
-
-/* Trim horizontal line for the last child */
-#contact-org-chart-view .org-chart-children .org-chart-node:last-child::after {
-    left: 0;
-    width: 50%;
-}
-
-/* A single child doesn't need a horizontal line */
-#contact-org-chart-view .org-chart-children .org-chart-node:only-child::after {
-    display: none;
-}
-
-/* --- COMPACT CARD STYLES (FIXES 1 & 3) --- */
-
-/* Grouped selector to style ALL cards */
-#contact-org-chart-view .contact-card,
-#unassigned-contacts-container .contact-card {
-    background-color: var(--bg-medium);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 8px 12px;
-    width: 100px;  /* YOUR NEW WIDTH */
-    text-align: center; /* YOUR NEW TEXT ALIGNMENT */
-    cursor: grab;
-    transition: box-shadow 0.2s, border-color 0.2s;
-    position: relative;
-    z-index: 1;
-    box-shadow: 0 2px 5px var(--shadow-light);
-    margin-top: 20px; /* Space for the line */
-}
-
-/* Specific margin-top override for unassigned cards */
-#unassigned-contacts-container .contact-card {
-    margin-top: 0;
-}
-
-#contact-org-chart-view .contact-card:hover,
-#unassigned-contacts-container .contact-card:hover {
-    border-color: var(--primary-blue);
-}
-
-#contact-org-chart-view .contact-card.dragging,
-#unassigned-contacts-container .contact-card.dragging {
-    opacity: 0.8;
-    background-color: var(--bg-light);
-    transform: scale(1.02);
-}
-
-#contact-org-chart-view .contact-card.drop-target,
-#unassigned-contacts-container .contact-card.drop-target {
-    border-color: var(--completed-color);
-    box-shadow: 0 0 10px var(--completed-color);
-}
-
-/* Grouped selector for Name */
-#contact-org-chart-view .contact-card-name,
-#unassigned-contacts-container .contact-card-name {
-    font-weight: 600;
-    color: var(--text-light);
-    font-size: 0.85rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Grouped selector for Title (WORD WRAP FIX) */
-#contact-org-chart-view .contact-card-title,
-#unassigned-contacts-container .contact-card-title {
-    font-size: 0.75rem;
-    color: var(--text-medium);
-    font-style: italic;
-    white-space: normal; /* Allow wrapping */
-    overflow-wrap: break-word; /* Break long words */
-    min-height: 1.5em; /* Reserve space for two lines */
-}
-
-/* --- UNASSIGNED CONTACTS BOX (STYLES MOVED HERE) --- */
-
-#unassigned-contacts-container {
-    margin-top: 1rem;
-    padding: 1rem;
-    border: 1px dashed var(--border-color);
-    border-radius: 8px;
-    background-color: var(--bg-dark);
-}
-
-#unassigned-contacts-container h4 {
-    color: var(--text-medium);
-    font-size: 0.9rem;
-    text-align: left;
-    margin-top: 0;
-    margin-bottom: 1rem;
-}
-
-#unassigned-contacts-container .unassigned-contacts-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: flex-start; /* Aligns cards to the left */
-}
-
-/* ADD THIS RULE to handle background drop-target styling */
-.drop-target-background {
-    background-color: var(--bg-light);
-    border-color: var(--primary-blue);
-    box-shadow: inset 0 0 10px var(--primary-blue);
-}
-/* NEW FIX: Hide lines from empty, ghost nodes */
-#contact-org-chart-view .org-chart-node:empty::before,
-#contact-org-chart-view .org-chart-node:empty::after {
-    display: none;
-}
-/* --- Deals Page Table Options (Nested Flex Fix) --- */
-
-/* 1. The main (outer) container */
-.deals-table-options {
-  display: flex;
-  justify-content: flex-end; /* Pushes the inner group to the right */
-  margin-top: 1.25rem;
-  padding-right: 0.9375rem; /* Aligns group with the table's right edge */
-  /* We removed all gap/align-items from here */
-}
-
-/* 2. The NEW inner wrapper */
-.checkbox-label-group {
-  display: flex;
-  align-items: center; /* Vertically centers the box and text */
-  gap: 0.3125rem; /* The small 5px gap you wanted */
-}
-
-/* 3. The label */
-.deals-table-options label {
-  font-weight: bold;
-  color: var(--text-light);
-  font-size: 0.9rem;
-  cursor: pointer;
-  margin: 0; /* Remove any default margins */
-}
-
-/* 4. The checkbox */
-.deals-table-options input[type="checkbox"] {
-  outline: none;
-  box-shadow: none;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-dark);
-  appearance: none;
-  width: 1.125rem;
-  height: 1.125rem;
-  cursor: pointer;
-  position: relative;
-  border-radius: 3px;
-  transition: background-color 0.2s, border-color 0.2s;
-  margin: 0; /* Remove any default margins */
-}
-
-.deals-table-options input[type="checkbox"]:checked {
-  background-color: var(--primary-blue);
-  border-color: var(--primary-blue);
-}
-
-.deals-table-options input[type="checkbox"]:checked::after {
-  content: "✔";
-  font-size: 0.875rem;
-  color: var(--text-light);
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.deals-table-options input[type="checkbox"]:focus {
-  box-shadow: 0 0 0 2px var(--primary-blue);
-}
-/* --- Marketing Hub Post List --- */
-#my-posts-container {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 2-column layout */
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-}
-/* --- Dashboard AI Briefing Bullet Styles --- */
-.briefing-bullet-list {
-    margin: 12px 0;
-    padding-left: 25px;
-    list-style-type: disc;
-    color: var(--text-main); /* Or your primary text color variable */
-}
-
-.briefing-bullet-list li {
-    margin-bottom: 8px;
-    line-height: 1.6;
-}
-/* --- FORCE BRAND COLORS (OVERRIDES) --- */
-
-/* Force all Primary Buttons to use the Gold variable */
-.btn-primary, 
-button.btn-primary,
-.nav-button.active,
-.list-item.selected {
-    background-color: var(--primary-blue) !important;
-    color: #fff !important; /* Ensure text is white */
-    border-color: var(--primary-blue) !important;
-}
-
-/* Force links/text that were using the old blue to use Gold */
-a, 
-.text-primary, 
-.contact-name {
-    color: var(--primary-blue);
-}
-
-/* Hover State for Buttons */
-.btn-primary:hover,
-button.btn-primary:hover {
-    filter: brightness(0.9); /* Simply dims the gold slightly */
-}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
