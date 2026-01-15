@@ -2646,7 +2646,7 @@ h1, h2, h3, h4, h5, h6 {
     --bg-light: #4a4a4a;
     --text-light: #ffffff;
     --text-medium: #b0b0b0;
-    --primary-blue: #4a90e2;
+    --primary-blue: #b38c62;
     --danger-red: #e74c3c;
     --secondary-gray: #6d6d6d;
     --border-color: #5a5a5a;
@@ -2675,7 +2675,7 @@ body.theme-dark {
     --bg-light: #4a4a4a;
     --text-light: #ffffff;
     --text-medium: #b0b0b0;
-    --primary-blue: #4a90e2;
+    --primary-blue: #b38c62;
     --danger-red: #e74c3c;
     --secondary-gray: #6d6d6d;
     --border-color: #5a5a5a;
@@ -4255,7 +4255,7 @@ body.theme-dark .metric-card-won {
 }
 
 .committed-icon {
-    color: #3b82f6; /* A nice blue color */
+    color: #b38c62; /* A nice blue color */
     font-size: 0.9rem;
 }
 /* --- Print Button Style --- */
