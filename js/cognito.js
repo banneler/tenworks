@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         selectedAlert: null, // For Action Center logic
         
         // --- FILTERS (INTELLIGENCE) ---
-        filterTriggerType: '',
+       
         filterRelevance: '',
         filterAccountId: '',
         
@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             ? state.alerts.filter(a => a.status === 'New')
             : state.alerts.filter(a => a.status !== 'New');
 
-        if (state.filterTriggerType) alertsToRender = alertsToRender.filter(alert => alert.trigger_type === state.filterTriggerType);
+      
         if (state.filterRelevance) alertsToRender = alertsToRender.filter(alert => alert.relevance_score === parseInt(state.filterRelevance));
         if (state.filterAccountId) alertsToRender = alertsToRender.filter(alert => alert.account_id === parseInt(state.filterAccountId));
 
@@ -634,7 +634,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         // 4. Filters
-        filterTriggerTypeSelect.addEventListener('change', (e) => { state.filterTriggerType = e.target.value; renderContent(); });
+        
         filterRelevanceSelect.addEventListener('change', (e) => { state.filterRelevance = e.target.value; renderContent(); });
         filterAccountSelect.addEventListener('change', (e) => { state.filterAccountId = e.target.value; renderContent(); });
         
