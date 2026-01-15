@@ -56,10 +56,7 @@
                         <span id="user-name-display">Loading...</span>
                     </div>
                     <div id="user-menu-popup" class="user-menu-popup">
-                        <button id="theme-toggle-btn" class="nav-button">
-                            Theme: <span id="theme-name">Dark</span>
-                        </button>
-                        <a href="user-guide.html" class="nav-button">User Guide</a>
+                     
                         <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
                     </div>
                 </div>
@@ -224,13 +221,7 @@
             </div>
         </div>
     </div>
-    <script>
-    // This script runs synchronously to apply the theme before the page renders
-    (function() {
-        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
-        document.body.className = `theme-${savedTheme}`;
-    })();
-    </script>
+
     <script type="module" src="js/sequences.js"></script>
 </body>
 
