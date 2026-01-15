@@ -4689,3 +4689,27 @@ div.briefing-pre {
     margin-bottom: 8px;
     line-height: 1.6;
 }
+/* --- FORCE BRAND COLORS (OVERRIDES) --- */
+
+/* Force all Primary Buttons to use the Gold variable */
+.btn-primary, 
+button.btn-primary,
+.nav-button.active,
+.list-item.selected {
+    background-color: var(--primary-blue) !important;
+    color: #fff !important; /* Ensure text is white */
+    border-color: var(--primary-blue) !important;
+}
+
+/* Force links/text that were using the old blue to use Gold */
+a, 
+.text-primary, 
+.contact-name {
+    color: var(--primary-blue);
+}
+
+/* Hover State for Buttons */
+.btn-primary:hover,
+button.btn-primary:hover {
+    filter: brightness(0.9); /* Simply dims the gold slightly */
+}
