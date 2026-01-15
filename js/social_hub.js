@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadSocialContent() {
         if (!state.currentUser) return;
         try {
-            const { data: posts, error: postsError } = await supabase.from('social_hub_posts_TW').select('*').order('created_at', { ascending: false });
+            const { data: posts, error: postsError } = await supabase.from('social_hub_posts_tw').select('*').order('created_at', { ascending: false });
             if (postsError) throw postsError;
             state.allPosts = posts || [];
 
