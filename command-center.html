@@ -10,43 +10,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <style>
-        #loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: var(--bg-medium);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            opacity: 1;
-            transition: opacity 0.75s ease-out;
-        }
-
-        #loading-screen video {
-            width: 100%;
-            max-width: 1200px;
-            height: auto;
-        }
-
-        #loading-screen.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-    </style>
 </head>
 
 <body>
-    <div id="loading-screen" class="hidden">
-        <video autoplay muted playsinline>
-            <source src="Constellation-Animation.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
-
     <div class="crm-container">
        <nav class="nav-sidebar">
             <div data-svg-loader="assets/logo.svg"></div>
@@ -96,7 +62,7 @@
                             Theme: <span id="theme-name">Dark</span>
                         </button>
                         <a href="ai-admin.html" class="nav-button" style="border-bottom: 1px solid var(--border-color); margin-bottom: 5px;">
-                   </i> &nbsp;AI Admin
+                       </i> &nbsp;AI Admin
                 </a>
                         <a href="user-guide.html" class="nav-button">User Guide</a>
                         <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
@@ -108,10 +74,8 @@
         <main class="content-area">
             <div id="dashboard" class="content-view active-view">
                 
-                <!-- Container for the AI briefing to be injected into -->
                 <div id="ai-briefing-container" class="hidden"></div>
 
-                <!-- NEW: Header for the My Tasks section -->
                 <div class="tasks-header">
                     <div class="tasks-header-left">
                         <h2>My Tasks</h2>
@@ -212,19 +176,8 @@
         const savedTheme = localStorage.getItem('crm-theme') || 'dark';
         document.body.className = `theme-${savedTheme}`;
     })();
-
-    // Script for the loading screen
-    window.addEventListener('load', () => {
-        const loadingScreen = document.getElementById('loading-screen');
-        setTimeout(() => {
-            loadingScreen.classList.add('hidden');
-        }, 3000); // 3 seconds
-    });
     </script>
     <script type="module" src="js/command-center.js"></script>
 </body>
 
 </html>
-
-
-
