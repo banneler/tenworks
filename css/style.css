@@ -943,17 +943,25 @@ body:not(.theme-green) table {
 
 th,
 td {
+    /* FORCE the font family. Tables often ignore the body font. */
+    font-family: 'Inter', sans-serif !important; 
+    
     padding: 0.75rem 0.9375rem;
     border: 1px solid var(--border-color);
     text-align: left;
     transition: border-color 0.3s, background-color 0.3s;
+    
+    /* Better vertical alignment for data */
+    vertical-align: middle; 
+    
+    /* slightly lighter than pure white for better readability */
+    color: var(--text-light); 
+    font-weight: 400;
 }
 
-th {
-    background-color: var(--bg-light);
-    font-weight: bold;
-    color: var(--text-light);
-    text-shadow: 1px 1px 2px var(--shadow-light);
+/* Optional: Make the "Description" column slightly bolder */
+td:nth-child(2) {
+    font-weight: 500;
 }
 
 body.theme-dark th {
