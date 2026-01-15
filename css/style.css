@@ -204,7 +204,7 @@ body.theme-green::before {
 .nav-logo {
     height: auto;
     margin-bottom: 0.75rem;
-    filter: drop-shadow(0 0 7px var(--primary-blue));
+    filter: drop-shadow(0 0 8px #b38c62) !important;
     transition: filter 0.3s;
 }
 
