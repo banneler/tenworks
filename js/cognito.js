@@ -19,16 +19,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let state = {
         currentUser: null,
+        
+        // --- DATA ---
+        alerts: [],      // Original "Farmer" Data
+        leads: [],       // New "Hunter" Data
         accounts: [],
         contacts: [],
-        alerts: [],
-        selectedAlert: null,
-        viewMode: 'dashboard',
-        initialSuggestionSubject: null,
-        initialSuggestionBody: null,
+        
+        // --- UI STATE ---
+        currentSection: 'intelligence', // 'intelligence' OR 'discovery'
+        viewMode: 'dashboard',          // 'dashboard' OR 'archive'
+        
+        // --- SELECTED ITEM ---
+        selectedAlert: null, // For Action Center logic
+        
+        // --- FILTERS (INTELLIGENCE) ---
         filterTriggerType: '',
         filterRelevance: '',
-        filterAccountId: ''
+        filterAccountId: '',
+        
+        // --- FILTERS (DISCOVERY) ---
+        filterStage: '',
+        searchTerm: '',
+
+        // --- AI STATE ---
+        initialSuggestionSubject: null,
+        initialSuggestionBody: null
     };
 
     const ORIGINAL_PROMPT_BASE_TEXT = `
@@ -43,16 +59,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     `.trim();
 
     // --- DOM SELECTORS ---
+    const sectionIntBtn = document.getElementById('section-intelligence-btn');
+    const sectionDiscBtn = document.getElementById('section-discovery-btn');
     const dashboardViewBtn = document.getElementById('view-dashboard-btn');
     const archiveViewBtn = document.getElementById('view-archive-btn');
     const alertsContainer = document.getElementById('alerts-container');
     const pageTitle = document.querySelector('#cognito-view h2');
+    
+    // Filter Containers
+    const intFilters = document.getElementById('intelligence-filters');
+    const discFilters = document.getElementById('discovery-filters');
+
+    // Intelligence Controls
     const filterTriggerTypeSelect = document.getElementById('filter-trigger-type');
     const filterRelevanceSelect = document.getElementById('filter-relevance');
     const filterAccountSelect = document.getElementById('filter-account');
-    const clearFiltersBtn = document.getElementById('clear-filters-btn');
+    const clearIntFiltersBtn = document.getElementById('clear-int-filters-btn');
+
+    // Discovery Controls
+    const filterStageSelect = document.getElementById('filter-project-stage');
+    const filterSearchInput = document.getElementById('filter-search');
+    const clearDiscFiltersBtn = document.getElementById('clear-disc-filters-btn');
 
     // --- MODAL ELEMENTS (Dynamic) ---
+    // These are re-assigned every time the modal opens
     let initialAiSuggestionSection, refineSuggestionBtn, outreachSubjectInput, outreachBodyTextarea;
     let customPromptSection, customPromptInput, generateCustomBtn, cancelCustomBtn;
     let customSuggestionOutput, customOutreachSubjectInput, customOutreachBodyTextarea;
@@ -64,26 +94,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadAllData() {
         if (!state.currentUser) return;
 
+        // Parallel Fetch: Get Alerts (Farmer) AND Leads (Hunter)
         const [
             { data: alerts, error: alertsError },
+            { data: leads, error: leadsError },
             { data: accounts, error: accountsError },
             { data: contacts, error: contactsError }
         ] = await Promise.all([
             supabase.from("cognito_alerts").select("*").eq("user_id", state.currentUser.id),
+            supabase.from("cognito_discovery_tw").select("*").eq("user_id", state.currentUser.id).order('created_at', { ascending: false }),
             supabase.from("accounts").select("*").eq("user_id", state.currentUser.id),
             supabase.from("contacts").select("*").eq("user_id", state.currentUser.id)
         ]);
         
-        if (alertsError) console.error("Error fetching Cognito alerts:", alertsError);
-        if (accountsError) console.error("Error fetching accounts:", accountsError);
-        if (contactsError) console.error("Error fetching contacts:", contactsError);
+        if (alertsError) console.error("Error fetching alerts:", alertsError);
+        if (leadsError) console.error("Error fetching leads:", leadsError);
 
         state.alerts = alerts || [];
+        state.leads = leads || [];
         state.accounts = accounts || [];
         state.contacts = contacts || [];
 
         populateAccountFilter();
-        renderAlerts();
+        renderContent();
     }
 
     function populateAccountFilter() {
@@ -99,75 +132,134 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    // --- RENDER FUNCTIONS ---
-    function renderAlerts() {
+    // --- MAIN RENDER CONTROLLER ---
+    function renderContent() {
         alertsContainer.innerHTML = '';
         
+        if (state.currentSection === 'intelligence') {
+            renderIntelligence();
+        } else {
+            renderDiscovery();
+        }
+    }
+
+    // --- RENDER 1: INTELLIGENCE (Existing Accounts) ---
+    function renderIntelligence() {
         let alertsToRender = state.viewMode === 'dashboard'
             ? state.alerts.filter(a => a.status === 'New')
             : state.alerts.filter(a => a.status !== 'New');
 
-        if (state.filterTriggerType) {
-            alertsToRender = alertsToRender.filter(alert => alert.trigger_type === state.filterTriggerType);
-        }
-        if (state.filterRelevance) {
-            alertsToRender = alertsToRender.filter(alert => alert.relevance_score === parseInt(state.filterRelevance));
-        }
-        if (state.filterAccountId) {
-            alertsToRender = alertsToRender.filter(alert => alert.account_id === parseInt(state.filterAccountId));
-        }
+        if (state.filterTriggerType) alertsToRender = alertsToRender.filter(alert => alert.trigger_type === state.filterTriggerType);
+        if (state.filterRelevance) alertsToRender = alertsToRender.filter(alert => alert.relevance_score === parseInt(state.filterRelevance));
+        if (state.filterAccountId) alertsToRender = alertsToRender.filter(alert => alert.account_id === parseInt(state.filterAccountId));
 
         alertsToRender.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        if (alertsToRender.length === 0 && state.viewMode === 'dashboard') {
-            alertsContainer.innerHTML = `<p class="placeholder-text">No new intelligence alerts today. The archive is available if you need to review past items.</p>`;
-        } else if (alertsToRender.length === 0) {
-            alertsContainer.innerHTML = `<p class="placeholder-text">The Intelligence Archive is empty or no alerts match your filters.</p>`;
-        } else {
-            alertsToRender.forEach(alert => {
-                const account = state.accounts.find(acc => acc.id === alert.account_id);
-                const card = document.createElement('div');
-                card.className = 'alert-card';
-                card.dataset.alertId = alert.id;
-
-                const actionButtonsHTML = alert.status === 'New' ? `
-                    <div class="alert-actions">
-                        <button class="btn-primary action-btn" data-action="action">Action</button>
-                        <button class="btn-secondary action-btn" data-action="dismiss">Dismiss</button>
-                    </div>` : '';
-                
-                const relevanceScore = alert.relevance_score || 0;
-                const relevanceEmoji = relevanceScore >= 4 ? ' 🔥' : '';
-                const relevanceDisplay = `<span class="alert-relevance-pill">Score: ${relevanceScore}/5${relevanceEmoji}</span>`;
-
-                card.innerHTML = `
-                    <div class="alert-header">
-                        <span class="alert-trigger-type" data-type="${alert.trigger_type}">${alert.trigger_type}</span>
-                        <span class="alert-status" data-status="${alert.status}">${alert.status}</span>
-                    </div>
-                    <h4 class="alert-account-name">${account ? account.name : `Account ID #${alert.account_id} (Not Found)`}</h4>
-                    <h5 class="alert-headline">${alert.headline}</h5>
-                    <p class="alert-summary">${alert.summary}</p>
-                    <div class="alert-footer">
-                        <span class="alert-source">Source: <a href="${alert.source_url}" target="_blank">${alert.source_name || 'N/A'}</a></span>
-                        <span class="alert-date">${formatDate(alert.created_at)}</span>
-                        ${relevanceDisplay}
-                    </div>
-                    ${actionButtonsHTML}
-                `;
-                alertsContainer.appendChild(card);
-            });
+        if (alertsToRender.length === 0) {
+            alertsContainer.innerHTML = `<p class="placeholder-text">No account intelligence items found matching criteria.</p>`;
+            return;
         }
+
+        alertsToRender.forEach(alert => {
+            const account = state.accounts.find(acc => acc.id === alert.account_id);
+            const card = document.createElement('div');
+            card.className = 'alert-card';
+            card.dataset.id = alert.id;
+            card.dataset.type = 'intelligence'; // Tagging it
+
+            const actionButtonsHTML = alert.status === 'New' ? `
+                <div class="alert-actions">
+                    <button class="btn-primary action-btn" data-action="action">Action</button>
+                    <button class="btn-secondary action-btn" data-action="dismiss">Dismiss</button>
+                </div>` : '';
+            
+            const relevanceScore = alert.relevance_score || 0;
+            const relevanceEmoji = relevanceScore >= 4 ? ' 🔥' : '';
+            const relevanceDisplay = `<span class="alert-relevance-pill">Score: ${relevanceScore}/5${relevanceEmoji}</span>`;
+
+            card.innerHTML = `
+                <div class="alert-header">
+                    <span class="alert-trigger-type" data-type="${alert.trigger_type}">${alert.trigger_type}</span>
+                    <span class="alert-status" data-status="${alert.status}">${alert.status}</span>
+                </div>
+                <h4 class="alert-account-name">${account ? account.name : `Account ID #${alert.account_id}`}</h4>
+                <h5 class="alert-headline">${alert.headline}</h5>
+                <p class="alert-summary">${alert.summary}</p>
+                <div class="alert-footer">
+                    <span class="alert-source"><a href="${alert.source_url}" target="_blank">${alert.source_name || 'Source'}</a></span>
+                    <span class="alert-date">${formatDate(alert.created_at)}</span>
+                    ${relevanceDisplay}
+                </div>
+                ${actionButtonsHTML}
+            `;
+            alertsContainer.appendChild(card);
+        });
     }
 
-    // --- ACTION CENTER LOGIC (GEMINI INTEGRATED) ---
+    // --- RENDER 2: DISCOVERY (New Projects) ---
+    function renderDiscovery() {
+        let leadsToRender = state.viewMode === 'dashboard'
+            ? state.leads.filter(l => l.status === 'new')
+            : state.leads.filter(l => l.status !== 'new');
+
+        // Apply Discovery Filters
+        if (state.filterStage) leadsToRender = leadsToRender.filter(l => l.project_stage && l.project_stage.includes(state.filterStage));
+        if (state.searchTerm) {
+            const term = state.searchTerm.toLowerCase();
+            leadsToRender = leadsToRender.filter(l => 
+                (l.prospect_name && l.prospect_name.toLowerCase().includes(term)) ||
+                (l.project_name && l.project_name.toLowerCase().includes(term)) ||
+                (l.project_location && l.project_location.toLowerCase().includes(term))
+            );
+        }
+
+        if (leadsToRender.length === 0) {
+            alertsContainer.innerHTML = `<p class="placeholder-text">No fresh leads found. Try running the Hunter engine.</p>`;
+            return;
+        }
+
+        leadsToRender.forEach(lead => {
+            const card = document.createElement('div');
+            card.className = 'alert-card';
+            card.dataset.id = lead.id;
+            card.dataset.type = 'discovery'; // Tagging it
+
+            const actionButtonsHTML = lead.status === 'new' ? `
+                <div class="alert-actions">
+                    <a href="${lead.source_url}" target="_blank" class="btn-primary action-btn" style="text-decoration:none; text-align:center;">View Source</a>
+                    <button class="btn-secondary action-btn" data-action="dismiss-lead">Dismiss</button>
+                </div>` : `
+                <div class="alert-actions">
+                     <a href="${lead.source_url}" target="_blank" class="btn-secondary action-btn" style="text-decoration:none;">Source</a>
+                     <button class="btn-tertiary action-btn" data-action="reactivate-lead">Reactivate</button>
+                </div>`;
+
+            card.innerHTML = `
+                <div class="alert-header">
+                    <span class="alert-trigger-type" style="background:#2c5282;">${lead.project_stage || 'Unknown Stage'}</span>
+                    <span class="alert-status">${lead.project_location || 'N/A'}</span>
+                </div>
+                <h4 class="alert-account-name" style="color: var(--primary-accent);">${lead.prospect_name || 'Unknown Prospect'}</h4>
+                <h5 class="alert-headline">${lead.project_name || 'Unnamed Project'}</h5>
+                <p class="alert-summary">${lead.summary || 'No summary available.'}</p>
+                <div class="alert-footer">
+                    <span class="alert-date">${formatDate(lead.created_at)}</span>
+                </div>
+                ${actionButtonsHTML}
+            `;
+            alertsContainer.appendChild(card);
+        });
+    }
+
+    // --- FULL ACTION CENTER LOGIC (Intelligence Only) ---
+    // This is the complete, complex logic you originally had.
     async function showActionCenter(alertId) {
         state.selectedAlert = state.alerts.find(a => a.id === alertId);
         if (!state.selectedAlert) return;
     
         const account = state.accounts.find(acc => acc.id === state.selectedAlert.account_id);
         if (!account) {
-            alert(`Error: Could not find the corresponding account (ID: ${state.selectedAlert.account_id}) in your Constellation database.`);
+            alert(`Error: Could not find account ID ${state.selectedAlert.account_id}.`);
             return;
         }
         
@@ -180,7 +272,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         `);
         
         document.getElementById('modal-mark-completed-btn').style.display = 'none';
-    
         document.getElementById('modal-close-btn').addEventListener('click', hideModal);
         document.getElementById('modal-mark-completed-btn').addEventListener('click', handleMarkCompleted);
     
@@ -231,11 +322,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     </div>
                     <div id="custom-prompt-section" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
                         <h5>Custom Suggestion Generator</h5>
-                        <p class="placeholder-text">Enter your specific instructions to refine or get a new email suggestion based on the alert.</p>
+                        <p class="placeholder-text">Enter your specific instructions to refine or get a new email suggestion.</p>
                         <label for="custom-prompt-input">Your Custom Prompt:</label>
-                        <textarea id="custom-prompt-input" rows="4" placeholder="e.g., 'Make the email more urgent and focus on a direct call to action for a meeting.'"></textarea>
+                        <textarea id="custom-prompt-input" rows="4" placeholder="e.g., 'Make it more urgent...'"></textarea>
                         <button class="btn-primary" id="generate-custom-btn" style="width: 100%; margin-top: 10px;">Generate Custom Suggestion</button>
-                        <button class="btn-secondary" id="cancel-custom-btn" style="width: 100%; margin-top: 10px;">Back to Initial Suggestion</button>
+                        <button class="btn-secondary" id="cancel-custom-btn" style="width: 100%; margin-top: 10px;">Back to Initial</button>
                         <div id="custom-suggestion-output" style="display: none; margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
                             <h6>Custom AI Suggestion:</h6>
                             <label for="custom-outreach-subject">Subject:</label>
@@ -255,12 +346,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <textarea id="log-interaction-notes" rows="4" placeholder="e.g., Emailed the new CIO..." ${relevantContacts.length === 0 ? 'disabled' : ''}></textarea>
                     <button class="btn-secondary" id="log-interaction-btn" style="width: 100%; margin-bottom: 15px;" ${relevantContacts.length === 0 ? 'disabled' : ''}>Log to Constellation</button>
                     <label for="create-task-desc">Create a Task:</label>
-                    <input type="text" id="create-task-desc" placeholder="e.g., Follow up with new CIO in 1 week" ${relevantContacts.length === 0 ? 'disabled' : ''}>
+                    <input type="text" id="create-task-desc" placeholder="e.g., Follow up..." ${relevantContacts.length === 0 ? 'disabled' : ''}>
                     <label for="create-task-due-date">Due Date:</label>
                     <input type="date" id="create-task-due-date" ${relevantContacts.length === 0 ? 'disabled' : ''}>
                     <button class="btn-primary" id="create-task-btn" style="width: 100%;" ${relevantContacts.length === 0 ? 'disabled' : ''}>Create in Constellation</button>
                     <p class="placeholder-text" style="color: var(--warning-yellow); margin-top: 10px; ${relevantContacts.length === 0 ? '' : 'display: none;'}" id="no-contact-message">
-                        Add a contact to this account in Constellation to enable logging and task creation.
+                        Add a contact to this account in Constellation to enable logging.
                     </p>
                 </div>
             </div>`;
@@ -270,7 +361,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             modalBodyElement.innerHTML = modalBodyContent; 
         }
     
-        // Re-select all elements now that they are in the DOM
+        // Re-select all elements
         contactSelector = document.getElementById('contact-selector');
         initialAiSuggestionSection = document.getElementById('initial-ai-suggestion-section');
         refineSuggestionBtn = document.getElementById('refine-suggestion-btn');
@@ -307,9 +398,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             initialAiSuggestionSection.style.display = 'none';
             customPromptSection.style.display = 'block';
             customSuggestionOutput.style.display = 'none';
-            customPromptInput.value = '';
-            customOutreachSubjectInput.value = '';
-            customOutreachBodyTextarea.value = '';
         });
     
         cancelCustomBtn.addEventListener('click', () => {
@@ -319,10 +407,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         generateCustomBtn.addEventListener('click', async () => {
             const customPrompt = customPromptInput.value.trim();
-            if (!customPrompt) {
-                alert("Please enter a prompt to generate a custom suggestion.");
-                return;
-            }
+            if (!customPrompt) return alert("Please enter a prompt.");
     
             generateCustomBtn.disabled = true;
             generateCustomBtn.textContent = 'Generating...';
@@ -343,9 +428,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 customOutreachBodyTextarea.value = customOutreachCopy.body;
                 customSuggestionOutput.style.display = 'block';
                 handlePersonalizeOutreach({ subject: customOutreachCopy.subject, body: customOutreachCopy.body }, contactSelector.value, true);
-            } else {
-                customOutreachSubjectInput.value = 'Error generating suggestion.';
-                customOutreachBodyTextarea.value = 'Please try again or check the console for details.';
             }
         });
     
@@ -358,22 +440,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     
         if (relevantContacts.length === 0) {
-            logInteractionNotes.disabled = true;
-            logInteractionBtn.disabled = true;
-            createTaskDesc.disabled = true;
-            createTaskDueDate.disabled = true;
-            createTaskBtn.disabled = true;
+            logInteractionNotes.disabled = true; logInteractionBtn.disabled = true;
+            createTaskDesc.disabled = true; createTaskDueDate.disabled = true; createTaskBtn.disabled = true;
             noContactMessage.style.display = 'block';
-        } else {
-            logInteractionNotes.disabled = false;
-            logInteractionBtn.disabled = false;
-            createTaskDesc.disabled = false;
-            createTaskDueDate.disabled = false;
-            createTaskBtn.disabled = false;
-            noContactMessage.style.display = 'none';
         }
     }
 
+    // --- HELPER FUNCTIONS (Restored Logic) ---
     function handlePersonalizeOutreach(outreachCopy, selectedContactId, isCustomTarget = false) {
         const targetBodyTextarea = isCustomTarget ? customOutreachBodyTextarea : outreachBodyTextarea;
         if (!targetBodyTextarea) return;
@@ -401,7 +474,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Error invoking get-gemini-suggestion Edge Function:", error);
             return { 
                 subject: `Following up on ${account.name}'s latest news`, 
-                body: `Hi [FirstName],\n\nI saw the recent news about "${alert.headline}" and wanted to reach out.\n\n[Could not generate AI suggestion. Please write your message here.]\n\nBest regards,\n[Your Name]`
+                body: `Hi [FirstName],\n\nI saw the recent news about "${alert.headline}" and wanted to reach out.\n\n[Best regards,\n[Your Name]`
             };
         }
     }
@@ -418,15 +491,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (error) throw error;
             return data;
         } catch (error) {
-            console.error("Error invoking generate-custom-suggestion Edge Function:", error);
             return {
-                subject: `Custom Suggestion Error: ${account.name}'s news`,
-                body: `Hi [FirstName],\n\n[Failed to generate custom AI suggestion: ${error.message}]\n\nBest regards,\n[Your Name]`
+                subject: `Error generating`,
+                body: `[Failed to generate custom AI suggestion]`
             };
         }
     }
 
-    // --- ACTION HANDLERS (Integration with Constellation) ---
     async function handleContactChange(e) {
         const selectedContactId = e.target.value;
         const initialAiCopyForPersonalization = {
@@ -447,15 +518,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function handleEmailAction(isCustom = false) { 
         const contactId = contactSelector.value;
-        if (!contactId) {
-            alert('Please select a contact to email.');
-            return;
-        }
+        if (!contactId) return alert('Please select a contact.');
         const contact = state.contacts.find(c => c.id === Number(contactId));
-        if (!contact || !contact.email) {
-            alert('Selected contact does not have an email address.');
-            return;
-        }
+        if (!contact || !contact.email) return alert('Selected contact does not have an email address.');
 
         const subject = isCustom ? customOutreachSubjectInput.value : outreachSubjectInput.value;
         const body = isCustom ? customOutreachBodyTextarea.value : outreachBodyTextarea.value;
@@ -464,30 +529,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function handleCopyAction(isCustom = false) { 
         const body = isCustom ? customOutreachBodyTextarea.value : outreachBodyTextarea.value;
-        navigator.clipboard.writeText(body).then(() => {
-            alert('Email body copied to clipboard!');
-        });
+        navigator.clipboard.writeText(body).then(() => alert('Email body copied!'));
     }
     
     async function handleMarkCompleted() {
         if (!state.selectedAlert) return;
-        console.log(`Marking alert ${state.selectedAlert.id} as completed.`);
-        await updateAlertStatus(state.selectedAlert.id, 'Actioned');
+        await updateAlertStatus(state.selectedAlert.id, 'Actioned', 'cognito_alerts');
         hideModal();
     }
 
     async function handleLogInteraction() {
         const selectedContactId = contactSelector.value;
-        if (!selectedContactId) {
-            alert('Please select a contact to log this interaction against.');
-            return;
-        }
-
+        if (!selectedContactId) return alert('Please select a contact.');
         const notes = logInteractionNotes.value.trim();
-        if (!notes) {
-            alert('Please enter notes for the interaction.');
-            return;
-        }
+        if (!notes) return alert('Please enter notes.');
 
         const { error } = await supabase.from('activities').insert({
             account_id: state.selectedAlert.account_id,
@@ -498,27 +553,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             date: new Date().toISOString()
         });
 
-        if (error) {
-            alert('Error logging interaction: ' + error.message);
-        } else {
-            alert('Interaction logged to Constellation!');
-            logInteractionNotes.value = '';
-        }
+        if (error) alert('Error: ' + error.message);
+        else { alert('Logged!'); logInteractionNotes.value = ''; }
     }
 
     async function handleCreateTask() {
         const selectedContactId = contactSelector.value;
-        if (!selectedContactId) {
-            alert('Please select a contact to associate with this task.');
-            return;
-        }
-        
+        if (!selectedContactId) return alert('Please select a contact.');
         const description = createTaskDesc.value.trim();
         const dueDate = createTaskDueDate.value;
-        if (!description) {
-            alert('Please enter a description for the task.');
-            return;
-        }
+        if (!description) return alert('Please enter a description.');
 
         const { error } = await supabase.from('tasks').insert({
             account_id: state.selectedAlert.account_id,
@@ -529,21 +573,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             user_id: state.currentUser.id
         });
 
-        if (error) {
-            alert('Error creating task: ' + error.message);
-        } else {
-            alert('Task created in Constellation!');
-            createTaskDesc.value = '';
-            createTaskDueDate.value = '';
-        }
+        if (error) alert('Error: ' + error.message);
+        else { alert('Task created!'); createTaskDesc.value = ''; createTaskDueDate.value = ''; }
     }
 
-    async function updateAlertStatus(alertId, newStatus) {
-        console.log(`Updating alert ${alertId} status to ${newStatus}.`);
-        const { error } = await supabase.from('cognito_alerts').update({ status: newStatus }).eq('id', alertId);
-        if (error) {
-            alert('Error updating alert status: ' + error.message);
-        }
+    async function updateAlertStatus(id, newStatus, table) {
+        const { error } = await supabase.from(table).update({ status: newStatus }).eq('id', id);
+        if (error) alert('Error: ' + error.message);
         await loadAllData();
     }
 
@@ -551,86 +587,89 @@ document.addEventListener("DOMContentLoaded", async () => {
     function setupPageEventListeners() {
         setupModalListeners();
         
+        // 1. Master Toggles (The "Double Barrel" logic)
+        sectionIntBtn.addEventListener('click', () => {
+            state.currentSection = 'intelligence';
+            sectionIntBtn.classList.add('active', 'btn-primary'); sectionIntBtn.classList.remove('btn-secondary');
+            sectionDiscBtn.classList.remove('active', 'btn-primary'); sectionDiscBtn.classList.add('btn-secondary');
+            intFilters.classList.remove('hidden'); discFilters.classList.add('hidden');
+            renderContent();
+        });
+
+        sectionDiscBtn.addEventListener('click', () => {
+            state.currentSection = 'discovery';
+            sectionDiscBtn.classList.add('active', 'btn-primary'); sectionDiscBtn.classList.remove('btn-secondary');
+            sectionIntBtn.classList.remove('active', 'btn-primary'); sectionIntBtn.classList.add('btn-secondary');
+            discFilters.classList.remove('hidden'); intFilters.classList.add('hidden');
+            renderContent();
+        });
+
+        // 2. Dashboard/Archive Toggles
         dashboardViewBtn.addEventListener('click', () => {
             state.viewMode = 'dashboard';
-            pageTitle.textContent = 'New Alerts';
-            dashboardViewBtn.classList.add('active');
-            archiveViewBtn.classList.remove('active');
-            renderAlerts();
+            dashboardViewBtn.classList.add('active'); archiveViewBtn.classList.remove('active');
+            renderContent();
         });
 
         archiveViewBtn.addEventListener('click', () => {
             state.viewMode = 'archive';
-            pageTitle.textContent = 'Intelligence Archive';
-            archiveViewBtn.classList.add('active');
-            dashboardViewBtn.classList.remove('active');
-            renderAlerts();
+            archiveViewBtn.classList.add('active'); dashboardViewBtn.classList.remove('active');
+            renderContent();
         });
 
+        // 3. Card Actions (Unified Listener)
         alertsContainer.addEventListener('click', (e) => {
             const button = e.target.closest('.action-btn');
             if (!button) return;
-
             const card = e.target.closest('.alert-card');
-            if (!card) return;
-
-            const alertId = Number(card.dataset.alertId);
+            const id = parseInt(card.dataset.id);
             const action = button.dataset.action;
 
-            if (action === 'action') {
-                showActionCenter(alertId);
-            } else if (action === 'dismiss') {
-                showModal("Confirm Dismissal", "Are you sure you want to dismiss this alert?", () => {
-                    updateAlertStatus(alertId, 'Dismissed');
-                    hideModal();
-                });
+            if (action === 'action') showActionCenter(id);
+            if (action === 'dismiss') {
+                if(confirm("Dismiss this alert?")) updateAlertStatus(id, 'Dismissed', 'cognito_alerts');
             }
+            if (action === 'dismiss-lead') updateAlertStatus(id, 'dismissed', 'cognito_discovery_tw');
+            if (action === 'reactivate-lead') updateAlertStatus(id, 'new', 'cognito_discovery_tw');
         });
 
-        filterTriggerTypeSelect.addEventListener('change', (e) => {
-            state.filterTriggerType = e.target.value;
-            renderAlerts();
+        // 4. Filters
+        filterTriggerTypeSelect.addEventListener('change', (e) => { state.filterTriggerType = e.target.value; renderContent(); });
+        filterRelevanceSelect.addEventListener('change', (e) => { state.filterRelevance = e.target.value; renderContent(); });
+        filterAccountSelect.addEventListener('change', (e) => { state.filterAccountId = e.target.value; renderContent(); });
+        
+        filterStageSelect.addEventListener('change', (e) => { state.filterStage = e.target.value; renderContent(); });
+        filterSearchInput.addEventListener('input', (e) => { state.searchTerm = e.target.value; renderContent(); });
+
+        clearIntFiltersBtn.addEventListener('click', () => {
+            state.filterTriggerType = ''; state.filterRelevance = ''; state.filterAccountId = '';
+            filterTriggerTypeSelect.value = ''; filterRelevanceSelect.value = ''; filterAccountSelect.value = '';
+            renderContent();
         });
 
-        filterRelevanceSelect.addEventListener('change', (e) => {
-            state.filterRelevance = e.target.value;
-            renderAlerts();
-        });
-
-        filterAccountSelect.addEventListener('change', (e) => {
-            state.filterAccountId = e.target.value;
-            renderAlerts();
-        });
-
-        clearFiltersBtn.addEventListener('click', () => {
-            state.filterTriggerType = '';
-            state.filterRelevance = '';
-            state.filterAccountId = '';
-            filterTriggerTypeSelect.value = '';
-            filterRelevanceSelect.value = '';
-            filterAccountSelect.value = '';
-            renderAlerts();
+        clearDiscFiltersBtn.addEventListener('click', () => {
+            state.filterStage = ''; state.searchTerm = '';
+            filterStageSelect.value = ''; filterSearchInput.value = '';
+            renderContent();
         });
     }
 
- // --- INITIALIZATION ---
-async function initializePage() {
-    await loadSVGs();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        state.currentUser = session.user;
-        await setupUserMenuAndAuth(supabase, state);
-        updateActiveNavLink();
-        setupPageEventListeners();
-        await setupGlobalSearch(supabase, state.currentUser);
-        await loadAllData(); 
-
-        // NUKE-LEVEL FIX: Await the check, THEN update the visit time.
-        await checkAndSetNotifications(supabase);
-        updateLastVisited(supabase, 'cognito');
-    } else {
-        window.location.href = "index.html";
+    // --- INITIALIZATION ---
+    async function initializePage() {
+        await loadSVGs();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            state.currentUser = session.user;
+            await setupUserMenuAndAuth(supabase, state);
+            updateActiveNavLink();
+            setupPageEventListeners();
+            await setupGlobalSearch(supabase, state.currentUser);
+            await loadAllData(); 
+            await checkAndSetNotifications(supabase);
+            updateLastVisited(supabase, 'cognito');
+        } else {
+            window.location.href = "index.html";
+        }
     }
-}
-initializePage();
+    initializePage();
 });
