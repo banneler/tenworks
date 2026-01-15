@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const isManager = state.currentUser.user_metadata?.is_manager === true;
         const isTeamView = state.dealsViewMode === 'all' && isManager;
 
-        const dealsQuery = supabase.from("deals").select("*");
+        const dealsQuery = supabase.from("deals_tw").select("*");
         const accountsQuery = supabase.from("accounts").select("*");
         const dealStagesQuery = supabase.from("deal_stages").select("stage_name, sort_order").order('sort_order');
         
