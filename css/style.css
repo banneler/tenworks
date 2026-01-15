@@ -247,7 +247,7 @@ body.theme-green .auth-logo path[fill="#010101"] {
 
 .nav-sidebar {
     width: 200px;
-    background-color: var(--bg-light);
+    background-color: var(--bg-dark);
     padding: 1.25rem 0.625rem;
     display: flex;
     flex-direction: column;
