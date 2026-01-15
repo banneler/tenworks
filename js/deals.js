@@ -275,17 +275,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         dealsWithAccount.forEach((deal) => {
             const row = dealsTableBody.insertRow();
             // Maps 'mrc' -> Project Value, 'products' -> Job Details
-            row.innerHTML = `
-                <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
-                <td class="deal-name-link" data-deal-id="${deal.id}">${deal.name}</td>
-                <td>${deal.term || ""}</td>
-                <td>${deal.account_name}</td>
-                <td>${deal.stage}</td>
-                <td>${formatCurrency(deal.mrc || 0)}</td>
-                <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
-                <td>${deal.products || ""}</td>
-                <td><div class="button-group-wrapper"><button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button></div></td>`;
-        });
+           row.innerHTML = `
+    <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
+    <td class="deal-name-link" data-deal-id="${deal.id}">${deal.name}</td>
+    <td>${deal.account_name}</td>
+    <td>${deal.stage}</td>
+    <td>${formatCurrency(deal.mrc || 0)}</td>
+    <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
+    <td>${deal.products || ""}</td>
+    <td><div class="button-group-wrapper"><button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button></div></td>`;
         document.querySelectorAll("#deals-table th.sortable").forEach((th) => {
             th.classList.remove("asc", "desc");
             if (th.dataset.sort === state.dealsSortBy) th.classList.add(state.dealsSortDir);
@@ -415,7 +413,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         showModal("Edit Deal", `
             <label>Deal Name:</label><input type="text" id="modal-deal-name" value="${deal.name || ''}" required>
             <label>Account:</label><select id="modal-deal-account" required>${accountOptions}</select>
-            <label>Term:</label><input type="text" id="modal-deal-term" value="${deal.term || ''}" placeholder="e.g., 12 months">
+            
             <label>Stage:</label><select id="modal-deal-stage" required>${stageOptions}</select>
             <label>Project Value:</label><input type="number" id="modal-deal-mrc" min="0" value="${deal.mrc || 0}">
             <label>Close Month:</label><input type="month" id="modal-deal-close-month" value="${deal.close_month || ''}">
