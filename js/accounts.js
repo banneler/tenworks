@@ -669,7 +669,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- Deal Handlers ---
     async function handleCommitDeal(dealId, isCommitted) {
-        const { error } = await supabase.from('deals').update({ is_committed: isCommitted }).eq('id', dealId);
+        const { error } = await supabase.from('deals_tw').update({ is_committed: isCommitted }).eq('id', dealId);
         if (error) {
             showModal("Error", 'Error updating commit status: ' + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
         } else {
