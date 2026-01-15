@@ -289,17 +289,22 @@ body:not(.theme-green) .nav-button {
 
 .nav-button.active,
 .btn-secondary.active {
-    color: var(--text-light);
+    color: #ffffff; /* Ensure text remains white */
     font-weight: bold;
     transform: translateY(-1px);
-    background: linear-gradient(45deg, #3a7bd5, #00d2ff);
-    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+    /* NEW GOLD GRADIENT */
+    background: linear-gradient(45deg, #b38c62, #d6ad81); 
+    /* NEW GOLD SHADOW */
+    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4); 
     border: none;
 }
 
 body.theme-light .nav-button.active,
 body.theme-light .btn-secondary.active {
-    background: linear-gradient(45deg, #007bff, #00c6ff);
+    /* Override the blue gradient with the same Gold one */
+    background: linear-gradient(45deg, #b38c62, #d6ad81);
+    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4);
+    color: #ffffff;
 }
 
 body.theme-green .nav-button.active,
