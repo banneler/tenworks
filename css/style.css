@@ -10,7 +10,7 @@ html {
     /* Main Background (Logo Dark) */
     --bg-dark: #1F2329; 
     /* Card/Panel Background (Calculated mid-tone between Logo Dark and Logo Grey) */
-    --bg-medium: #2e343d; 
+    --bg-medium: #23272e; 
     /* Lighter Elements/Borders (Logo Medium Grey) */
     --bg-light: #1f2329; 
     
