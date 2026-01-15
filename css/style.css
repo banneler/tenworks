@@ -1546,12 +1546,12 @@ body:not(.theme-green) .email-view-body {
 .user-icon path[fill="#3F3F3F"],
 .user-icon path[fill="#575757"],
 .user-icon path[fill="#373737"],
-.user-icon path[fill="#2A2A2A"],
+.user-icon path[fill="#181b20"],
 .user-icon path[fill="#363636"],
 .user-icon path[fill="#151515"],
 .user-icon path[fill="#393939"],
 .user-icon path[fill="#313131"],
-.user-icon path[fill="#3A3A3A"],
+.user-icon path[fill="#1F2329"],
 .user-icon path[fill="#2F2F2F"],
 .user-icon path[fill="#454545"],
 .user-icon path[fill="#282828"],
@@ -1566,7 +1566,7 @@ body:not(.theme-green) .email-view-body {
 .user-icon path[fill="#3D3D3D"],
 .user-icon path[fill="#565656"],
 .user-icon path[fill="#6B6B6B"],
-.user-icon path[fill="#2E2E2E"],
+.user-icon path[fill="#1F2329"],
 .user-icon path[fill="#171717"],
 .user-icon path[fill="#656565"],
 .user-icon path[fill="#101010"],
@@ -1606,12 +1606,12 @@ body:not(.theme-green) .email-view-body {
 .user-menu-header:hover .user-icon path[fill="#3F3F3F"],
 .user-menu-header:hover .user-icon path[fill="#575757"],
 .user-menu-header:hover .user-icon path[fill="#373737"],
-.user-menu-header:hover .user-icon path[fill="#2A2A2A"],
+.user-menu-header:hover .user-icon path[fill="#181b20"],
 .user-menu-header:hover .user-icon path[fill="#363636"],
 .user-menu-header:hover .user-icon path[fill="#151515"],
 .user-menu-header:hover .user-icon path[fill="#393939"],
 .user-menu-header:hover .user-icon path[fill="#313131"],
-.user-menu-header:hover .user-icon path[fill="#3A3A3A"],
+.user-menu-header:hover .user-icon path[fill="#1F2329"],
 .user-menu-header:hover .user-icon path[fill="#2F2F2F"],
 .user-menu-header:hover .user-icon path[fill="#454545"],
 .user-menu-header:hover .user-icon path[fill="#282828"],
@@ -1626,7 +1626,7 @@ body:not(.theme-green) .email-view-body {
 .user-menu-header:hover .user-icon path[fill="#3D3D3D"],
 .user-menu-header:hover .user-icon path[fill="#565656"],
 .user-menu-header:hover .user-icon path[fill="#6B6B6B"],
-.user-menu-header:hover .user-icon path[fill="#2E2E2E"],
+.user-menu-header:hover .user-icon path[fill="#1F2329"],
 .user-menu-header:hover .user-icon path[fill="#171717"],
 .user-menu-header:hover .user-icon path[fill="#656565"],
 .user-menu-header:hover .user-icon path[fill="#101010"],
@@ -2640,7 +2640,7 @@ h1, h2, h3, h4, h5, h6 {
 /* --- NEW THEMES (REVISED & ENHANCED) --- */
 /* --- THEME DEFINITIONS --- */
 :root {
-    --bg-dark: #2e2e2e;
+    --bg-dark: #1F2329;
     --bg-medium: #3c3c3c;
     --bg-light: #4a4a4a;
     --text-light: #ffffff;
@@ -2652,8 +2652,8 @@ h1, h2, h3, h4, h5, h6 {
     --completed-color: #98ff98;
     --warning-yellow: #f1c40f;
     --meeting-purple: #8A2BE2;
-    --gradient-start: #3a3a3a;
-    --gradient-end: #2a2a2a;
+    --gradient-start: #1F2329;
+    --gradient-end: #181b20;
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.5);
     --shadow-strong: rgba(0, 0, 0, 0.7);
@@ -2669,7 +2669,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dark Theme */
 body.theme-dark {
-    --bg-dark: #2e2e2e;
+    --bg-dark: #1F2329;
     --bg-medium: #3c3c3c;
     --bg-light: #4a4a4a;
     --text-light: #ffffff;
@@ -2680,8 +2680,8 @@ body.theme-dark {
     --border-color: #5a5a5a;
     --completed-color: #98ff98;
     --warning-yellow: #f1c40f;
-    --gradient-start: #3a3a3a;
-    --gradient-end: #2a2a2a;
+    --gradient-start: #1F2329;
+    --gradient-end: #181b20;
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.5);
     --shadow-strong: rgba(0, 0, 0, 0.7);
@@ -2763,7 +2763,7 @@ body.theme-blue {
     --text-medium: #bbbbbb;
     --primary-blue: #f92772;
     --danger-red: #ff3333;
-    --secondary-gray: #2a2a2a;
+    --secondary-gray: #181b20;
     --border-color: #00ffff;
     --completed-color: #a6e22e;
     --warning-yellow: #fd971f;
@@ -2958,7 +2958,7 @@ body.theme-corporate {
     }
 
     .section-box .table-container th {
-        background-color: #3a3a3a; /* Darker header for tables */
+        background-color: #1F2329; /* Darker header for tables */
         color: #e0e0e0; /* Lighter text for table headers */
     }
 
@@ -2972,7 +2972,7 @@ body.theme-corporate {
     .section-box input[type="email"],
     .section-box input[type="tel"],
     .section-box textarea {
-        background-color: #3a3a3a; /* Darker input background */
+        background-color: #1F2329; /* Darker input background */
         border-color: #555555;
         color: #e0e0e0; /* Lighter text in inputs */
     }
