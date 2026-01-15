@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TenWorks CRM</title>
+    <title>TenWorks Intelligence</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="crm-container">
@@ -64,13 +65,21 @@
         
         <main class="content-area">
             <div id="cognito-view" class="content-view active-view">
-                <h2>Cognito Intelligence</h2>
-                <div class="deals-view-toggle">
-                    <button id="view-dashboard-btn" class="btn-secondary active">New Alerts</button>
-                    <button id="view-archive-btn" class="btn-secondary">Intelligence Archive</button>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Cognito Intelligence</h2>
+                    <div class="deals-view-toggle">
+                        <button id="section-intelligence-btn" class="btn-primary active">Account Intelligence</button>
+                        <button id="section-discovery-btn" class="btn-secondary">Project Discovery (Hunter)</button>
+                    </div>
                 </div>
 
-                <div class="filter-bar">
+                <div class="deals-view-toggle" style="justify-content: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px;">
+                    <button id="view-dashboard-btn" class="btn-secondary active" style="margin-right: 10px;">Active Items</button>
+                    <button id="view-archive-btn" class="btn-secondary">Archive</button>
+                </div>
+
+                <div id="intelligence-filters" class="filter-bar">
                     <select id="filter-trigger-type">
                         <option value="">All Trigger Types</option>
                         <option value="C-Suite Change">C-Suite Change</option>
@@ -83,16 +92,26 @@
                         <option value="5">5 🔥</option>
                         <option value="4">4 🔥</option>
                         <option value="3">3</option>
-                        <option value="2">2</option>
-                        <option value="1">1</option>
                     </select>
                     <select id="filter-account">
                         <option value="">All Accounts</option>
-                        </select>
-                    <button id="clear-filters-btn" class="btn-secondary">Clear Filters</button>
+                    </select>
+                    <button id="clear-int-filters-btn" class="btn-secondary">Clear Filters</button>
                 </div>
-                <div id="alerts-container">
-                    </div>
+
+                <div id="discovery-filters" class="filter-bar hidden">
+                    <select id="filter-project-stage">
+                        <option value="">All Project Stages</option>
+                        <option value="Groundbreaking">Groundbreaking</option>
+                        <option value="Planning">Planning</option>
+                        <option value="Construction">Construction</option>
+                        <option value="Approved">Approved</option>
+                    </select>
+                    <input type="text" id="filter-search" placeholder="Search Prospects or Cities..." style="padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); width: 250px;">
+                    <button id="clear-disc-filters-btn" class="btn-secondary">Clear Filters</button>
+                </div>
+
+                <div id="alerts-container"></div>
             </div>
         </main>
     </div>
@@ -100,73 +119,12 @@
     <div id="modal-backdrop" class="modal-backdrop hidden">
         <div class="modal-content">
             <h3 id="modal-title"></h3>
-            <div id="modal-body">
-                <div class="action-center-content">
-                    <div class="action-center-section">
-                        <h5>Suggested Outreach</h5>
-                        <p class="alert-relevance">Relevance: <span id="relevance-score-display"></span><span id="relevance-fire-emoji"></span></p>
-                        <label for="contact-selector">Suggested Contact:</label>
-                        <select id="contact-selector">
-                            <option value="">-- Select a Contact --</option>
-                            </select>
-                        
-                        <div id="initial-ai-suggestion-section">
-                            <label for="outreach-subject">Suggested Subject:</label>
-                            <input type="text" id="outreach-subject" value="" readonly>
-                            <label for="outreach-body">Suggested Body:</label>
-                            <textarea id="outreach-body" rows="8" readonly></textarea>
-                            <div class="action-buttons">
-                                <button class="btn-secondary" id="copy-btn">Copy</button>
-                                <button class="btn-primary" id="send-email-btn">Open Email Client</button>
-                            </div>
-                            <button class="btn-tertiary" id="refine-suggestion-btn" style="margin-top: 15px;">Refine with Custom Prompt</button>
-                        </div>
-
-                        <div id="custom-prompt-section" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-                            <h5>Custom Suggestion Generator</h5>
-                            <p class="placeholder-text">Enter your specific instructions to refine or get a new email suggestion based on the alert.</p>
-                            <label for="custom-prompt-input">Your Custom Prompt:</label>
-                            <textarea id="custom-prompt-input" rows="4" placeholder="e.g., 'Make the email more urgent and focus on a direct call to action for a meeting.'"></textarea>
-                            <button class="btn-primary" id="generate-custom-btn" style="width: 100%; margin-top: 10px;">Generate Custom Suggestion</button>
-                            <button class="btn-secondary" id="cancel-custom-btn" style="width: 100%; margin-top: 10px;">Back to Initial Suggestion</button>
-
-                            <div id="custom-suggestion-output" style="display: none; margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
-                                <h6>Custom AI Suggestion:</h6>
-                                <label for="custom-outreach-subject">Subject:</label>
-                                <input type="text" id="custom-outreach-subject" value="" readonly>
-                                <label for="custom-outreach-body">Body:</label>
-                                <textarea id="custom-outreach-body" rows="8" readonly></textarea>
-                                <div class="action-buttons">
-                                    <button class="btn-secondary" id="copy-custom-btn">Copy Custom</button>
-                                    <button class="btn-primary" id="send-email-custom-btn">Open Email Client (Custom)</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="action-center-section">
-                        <h5>Log Actions in Constellation</h5>
-                        <label for="log-interaction-notes">Log an Interaction:</label>
-                        <textarea id="log-interaction-notes" rows="4" placeholder="e.g., Emailed the new CIO..."></textarea>
-                        <button class="btn-secondary" id="log-interaction-btn" style="width: 100%; margin-bottom: 15px;">Log to Constellation</button>
-
-                        <label for="create-task-desc">Create a Task:</label>
-                        <input type="text" id="create-task-desc" placeholder="e.g., Follow up with new CIO in 1 week">
-                        <label for="create-task-due-date">Due Date:</label>
-                        <input type="date" id="create-task-due-date">
-                        <button class="btn-primary" id="create-task-btn" style="width: 100%;">Create in Constellation</button>
-                        
-                        <p class="placeholder-text" style="color: var(--warning-yellow); margin-top: 10px; display: none;" id="no-contact-message">
-                            Add a contact to this account in Constellation to enable logging and task creation.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <div id="modal-body"></div>
             <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
+
     <script>
-    // This script runs synchronously to apply the theme before the page renders
     (function() {
         const savedTheme = localStorage.getItem('crm-theme') || 'dark';
         document.body.className = `theme-${savedTheme}`;
