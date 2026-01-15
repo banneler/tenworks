@@ -36,7 +36,12 @@ html {
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.5);
     --shadow-strong: rgba(0, 0, 0, 0.7);
-    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* TYPOGRAPHY */
+    --font-headers: 'Rajdhani', sans-serif; /* The Sexy Industrial Font */
+    --font-body: 'Inter', sans-serif;       /* The Pro UI Font */
+    
+    /* We map main to body for default */
+    --font-main: var(--font-body);
     
     --logo-primary-color: var(--primary-blue);
     --logo-secondary-color: var(--text-light);
@@ -158,13 +163,27 @@ body.theme-green {
 }
 
 /* --- GLOBAL STYLES --- */
+/* Update BODY to use the clean UI font */
 body {
     margin: 0;
-    font-family: var(--font-main);
+    font-family: var(--font-body); /* Inter */
     background-color: var(--bg-dark);
     color: var(--text-light);
     overflow-x: hidden;
     transition: background-color 0.3s, color 0.3s;
+    letter-spacing: -0.01em; /* Tighten it up slightly for a pro look */
+}
+
+/* Update HEADERS to use the industrial font */
+h1, h2, h3, h4, h5, h6, 
+.metric-value,          /* Make the money numbers look industrial */
+.nav-button,            /* Make the menu look technical */
+.contact-name,          /* Make names pop */
+th {                    /* Table headers */
+    font-family: var(--font-headers); /* Rajdhani */
+    font-weight: 600;
+    text-transform: uppercase; /* Optional: adds to the "Blueprint" vibe */
+    letter-spacing: 0.05em;
 }
 
 body.theme-green {
