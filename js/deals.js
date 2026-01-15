@@ -109,8 +109,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     function createChartGradient(ctx, chartArea, index, totalDatasets) {
         if (!chartArea || !ctx) return 'rgba(0,0,0,0.5)';
         
-        // TenWorks Default Palette (Industrial Blues/cyans)
-        const palette = ['#007bff', '#00aeff', '#00c6ff', '#00dfff', '#00f2ff'];
+        // TenWorks Gold Palette (Metallic/Industrial Golds)
+        const palette = [
+            '#D4AF37', // Classic Gold
+            '#C5A028', // Deep Gold
+            '#E5C150', // Bright Gold
+            '#B69121', // Dark Gold
+            '#F1D06E'  // Pale Gold
+        ];
         
         const baseColor = palette[index % palette.length];
         const lightenColor = (color, percent) => {
