@@ -1,6 +1,11 @@
-/* --- GLOBAL SCALING --- */
+/* --- FONTS IMPORT (CRITICAL FOR TENWORKS LOOK) --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&family=Montserrat:wght@400;500;600&display=swap');
+
+/* --- GLOBAL SCALING & SMOOTHING --- */
 html {
     font-size: 87.5%;
+    -webkit-font-smoothing: antialiased; /* Makes text look thinner/sharper */
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* --- THEME DEFINITIONS --- */
@@ -38,10 +43,8 @@ html {
     --shadow-strong: rgba(0, 0, 0, 0.7);
     
     /* TYPOGRAPHY - TenWorks Pro */
-    --font-headers: 'Rajdhani', sans-serif; /* Industrial / Technical */
-    --font-body: 'Inter', Montserrat;       /* Clean / UI */
-    
-    /* Map main font to body */
+   --font-headers: 'Rajdhani', sans-serif; /* Industrial / Technical */
+    --font-body: 'Inter', 'Montserrat', sans-serif; /* Clean / UI */
     --font-main: var(--font-body);
     
     --logo-primary-color: var(--primary-blue);
@@ -166,12 +169,13 @@ body.theme-green {
 /* --- GLOBAL STYLES --- */
 body {
     margin: 0;
-    font-family: 'Inter', 'Montserrat', sans-serif;
+    font-family: var(--font-body); /* Explicitly use the var */
     background-color: var(--bg-dark);
     color: var(--text-light);
     overflow-x: hidden;
     transition: background-color 0.3s, color 0.3s;
-    letter-spacing: -0.01em; /* Pro touch: slightly tighter body text */
+    letter-spacing: -0.015em; /* Tightens Inter slightly for a more modern UI look */
+    line-height: 1.5;
 }
 
 /* Force Industrial Font on Headers & Data */
@@ -180,10 +184,32 @@ h1, h2, h3, h4, h5, h6,
 .nav-button, 
 .contact-name, 
 th {
-    font-family: var(--font-headers); /* Uses Rajdhani */
+    font-family: var(--font-headers); 
     font-weight: 600;
-    text-transform: uppercase; /* Optional: Adds to the technical look */
-    letter-spacing: 0.05em;    /* Optional: Slight spacing for headers */
+    text-transform: uppercase; 
+    letter-spacing: 0.05em; 
+}
+
+/* --- FIX FOR "SYSTEM DEFAULT" LOOK IN TABLES --- */
+td, 
+.list-item, 
+p, 
+span, 
+div {
+    font-family: var(--font-body);
+}
+
+/* Specific fix for the table data to look crisp */
+td {
+    font-size: 0.95rem; /* Slightly larger for readability */
+    color: var(--text-light); /* High contrast */
+    font-weight: 400;
+}
+
+/* Make the "Description" text in your table slightly lighter to distinguish from links */
+td:nth-child(2) {
+    color: var(--text-light);
+    font-weight: 500;
 }
 
 body.theme-green {
