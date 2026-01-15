@@ -4717,3 +4717,36 @@ a,
 button.btn-primary:hover {
     filter: brightness(0.9); /* Simply dims the gold slightly */
 }
+/* ================================================= */
+/* = TENWORKS BRANDING OVERRIDES (Bottom of File)  = */
+/* ================================================= */
+
+/* 1. FORCE THE BRONZE CARD (Closed Won) */
+/* Overrides standard green and theme-specific backgrounds */
+.metric-card.metric-card-won {
+    background: linear-gradient(135deg, #cd7f32 0%, #8a5a2b 100%) !important;
+    border: 1px solid #8a5a2b !important;
+    box-shadow: 0 4px 20px rgba(205, 127, 50, 0.25) !important;
+}
+
+/* 2. FORCE TEXT CONTRAST IN BRONZE CARD */
+/* Gold text on Bronze is unreadable, so we force White/Cream here */
+.metric-card-won .metric-title,
+.metric-card-won .metric-value {
+    color: #FFF8E7 !important; /* Cosmic Latte / Off-white */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 3. FORCE GOLD VALUES ON DARK CARDS */
+/* This hits "My Current Commit", "Best Case", and "Funnel" */
+.metric-value {
+    color: #D4AF37 !important; /* TenWorks Classic Gold */
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.15); /* Subtle metallic glow */
+}
+
+/* 4. OPTIONAL: Make the titles on dark cards slightly more silver/metallic */
+.metric-title {
+    color: #b0b0b0 !important;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
