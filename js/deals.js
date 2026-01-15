@@ -5,7 +5,7 @@ import {
     formatMonthYear,
     formatCurrencyK,
     formatCurrency,
-    themes,
+    // themes, // Removed theme import
     setupModalListeners,
     showModal,
     hideModal,
@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         dealsSortDir: "asc",
         dealsViewMode: 'mine',
         currentView: 'list', // 'list' or 'board'
-        showClosedLost: true, // NEW: Toggle state, default to true
+        showClosedLost: true, 
         currentUserQuota: 0,
         allUsersQuotas: [],
         dealsByStageChart: null,
@@ -60,9 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const boardViewBtn = document.getElementById('board-view-btn');
     const dealsByStageChartContainer = document.getElementById('deals-by-stage-chart-container');
 
-    // NEW: Selector for the 'Closed Lost' toggle
     const toggleClosedLost = document.getElementById('show-closed-lost-check');
-
 
     // --- Data Fetching ---
     async function loadAllData() {
@@ -103,7 +101,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (error) {
             console.error("Critical error in loadAllData:", error);
         } finally {
-            // Call all render functions to update the page
             renderAll(); 
         }
     }
@@ -111,17 +108,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --- Chart Colors & Helpers ---
     function createChartGradient(ctx, chartArea, index, totalDatasets) {
         if (!chartArea || !ctx) return 'rgba(0,0,0,0.5)';
-        const bodyClass = document.body.className;
-        let palette;
-        if (bodyClass.includes('theme-green')) {
-            palette = ['#00ff41', '#33ff66', '#66ff99', '#99ffcc', '#ccffee'];
-        } else if (bodyClass.includes('theme-blue')) {
-            palette = ['#f92772', '#ae81ff', '#66d9ef', '#a6e22e', '#fd971f'];
-        } else if (bodyClass.includes('theme-corporate')) {
-            palette = ['#000080', '#0000ff', '#008080', '#00ffff', '#808080'];
-        } else { // Default for dark and light themes
-            palette = ['#007bff', '#00aeff', '#00c6ff', '#00dfff', '#00f2ff'];
-        }
+        
+        // TenWorks Default Palette (Industrial Blues/cyans)
+        const palette = ['#007bff', '#00aeff', '#00c6ff', '#00dfff', '#00f2ff'];
+        
         const baseColor = palette[index % palette.length];
         const lightenColor = (color, percent) => {
             const f=parseInt(color.slice(1),16),t=percent<0?0:255,p=percent<0?percent*-1:percent,R=f>>16,G=f>>8&0x00FF,B=f&0x0000FF;
@@ -133,24 +123,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         return gradient;
     }
 
-    /**
-     * Gets all deals with a future or null close date.
-     */
     function getFutureDeals() {
         const today = new Date();
         const currentYear = today.getFullYear();
         const currentMonth = today.getMonth() + 1;
         return state.deals.filter(deal => {
-            if (!deal.close_month) return true; // Keep deals with no close date
+            if (!deal.close_month) return true; 
             const [dealYear, dealMonth] = deal.close_month.split('-').map(Number);
             return dealYear > currentYear || (dealYear === currentYear && dealMonth >= currentMonth);
         });
     }
 
-    /**
-     * NEW: Gets deals for the funnel (list, chart) based on the toggle.
-     * This filters out "Closed Won" and optionally "Closed Lost".
-     */
     function getFunnelDeals() {
         const futureDeals = getFutureDeals();
         return futureDeals.filter(deal => {
@@ -160,20 +143,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
     
-    /**
-     * NEW: Master render function to update all dynamic parts of the page.
-     */
     const renderAll = () => {
-        render(); // Renders List or Board
+        render(); 
         renderDealsMetrics();
         renderDealsByStageChart();
         renderDealsByTimeChart();
     };
 
-    // Main render function to switch between views
     const render = () => {
         if (state.currentView === 'list') {
-            renderDealsPage(); // Your original table render function
+            renderDealsPage(); 
             listViewContainer.classList.remove('hidden');
             kanbanBoardView.classList.add('hidden');
             dealsByStageChartContainer.classList.remove('hidden');
@@ -181,7 +160,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             renderKanbanBoard();
             listViewContainer.classList.add('hidden');
             kanbanBoardView.classList.remove('hidden');
-            dealsByStageChartContainer.classList.add('hidden'); // Hide redundant chart
+            dealsByStageChartContainer.classList.add('hidden'); 
         }
     };
 
@@ -189,7 +168,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderDealsByStageChart() {
         if (!dealsByStageCanvas || !stageChartEmptyMessage) return;
 
-        // UPDATED: Use getFunnelDeals() to respect the toggle
         const openDeals = getFunnelDeals(); 
 
         if (openDeals.length === 0) {
@@ -200,26 +178,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         dealsByStageCanvas.classList.remove('hidden');
         stageChartEmptyMessage.classList.add('hidden');
-        const stageMrc = openDeals.reduce((acc, deal) => {
+        
+        // Use 'mrc' (Project Value) for aggregation
+        const stageValue = openDeals.reduce((acc, deal) => {
             const stage = deal.stage || 'Uncategorized';
             acc[stage] = (acc[stage] || 0) + (deal.mrc || 0);
             return acc;
         }, {});
-        const sortedStages = Object.entries(stageMrc).sort(([, a], [, b]) => a - b);
+        
+        const sortedStages = Object.entries(stageValue).sort(([, a], [, b]) => a - b);
         const labels = sortedStages.map(([stage]) => stage);
-        const data = sortedStages.map(([, mrc]) => mrc);
+        const data = sortedStages.map(([, val]) => val);
+        
         const isManager = state.currentUser.user_metadata?.is_manager === true;
         const isMyTeamView = state.dealsViewMode === 'all' && isManager;
         const effectiveMonthlyQuota = isMyTeamView ? state.allUsersQuotas.reduce((sum, quota) => sum + (quota.monthly_quota || 0), 0) : state.currentUserQuota;
+        
         if (state.dealsByStageChart) state.dealsByStageChart.destroy();
         state.dealsByStageChart = new Chart(dealsByStageCanvas, {
             type: 'bar',
-            data: { labels, datasets: [{ label: 'MRC by Stage', data, backgroundColor: (c) => createChartGradient(c.chart.ctx, c.chart.chartArea, c.dataIndex, labels.length), borderColor: 'var(--bg-light)', borderWidth: 1, borderRadius: 5 }] },
+            data: { labels, datasets: [{ label: 'Value by Stage', data, backgroundColor: (c) => createChartGradient(c.chart.ctx, c.chart.chartArea, c.dataIndex, labels.length), borderColor: 'var(--bg-light)', borderWidth: 1, borderRadius: 5 }] },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: (c) => `MRC: ${formatCurrency(c.parsed.x)}` } },
+                    tooltip: { callbacks: { label: (c) => `Value: ${formatCurrency(c.parsed.x)}` } },
                     annotation: { annotations: { quotaLine: { type: 'line', scaleID: 'x', value: effectiveMonthlyQuota, borderColor: 'red', borderWidth: 2, borderDash: [6, 6] } } }
                 },
                 scales: { x: { ticks: { color: 'var(--text-medium)', callback: (v) => formatCurrencyK(v) }, grid: { color: 'var(--border-color)' } }, y: { ticks: { color: 'var(--text-medium)' }, grid: { display: false } } }
@@ -230,7 +213,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderDealsByTimeChart() {
         if (!dealsByTimeCanvas || !timeChartEmptyMessage) return;
         
-        // This chart shows OPEN deals, so it should also respect the toggle.
         const openDeals = getFunnelDeals().filter(d => d.close_month);
 
         if (openDeals.length === 0) {
@@ -255,6 +237,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const isManager = state.currentUser.user_metadata?.is_manager === true;
         const isMyTeamView = state.dealsViewMode === 'all' && isManager;
         const effectiveMonthlyQuota = isMyTeamView ? state.allUsersQuotas.reduce((sum, quota) => sum + (quota.monthly_quota || 0), 0) : state.currentUserQuota;
+        
         if (state.dealsByTimeChart) state.dealsByTimeChart.destroy();
         state.dealsByTimeChart = new Chart(dealsByTimeCanvas, {
             type: 'bar',
@@ -263,7 +246,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: (c) => `MRC: ${formatCurrency(c.parsed.x)}` } },
+                    tooltip: { callbacks: { label: (c) => `Value: ${formatCurrency(c.parsed.x)}` } },
                     annotation: { annotations: { quotaLine: { type: 'line', scaleID: 'x', value: effectiveMonthlyQuota, borderColor: 'red', borderWidth: 2, borderDash: [6, 6] } } }
                 },
                 scales: { x: { ticks: { color: 'var(--text-medium)', callback: (v) => formatCurrencyK(v) }, grid: { color: 'var(--border-color)' } }, y: { ticks: { color: 'var(--text-medium)' }, grid: { display: false }, barPercentage: 0.7, categoryPercentage: 0.6 } }
@@ -274,7 +257,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const renderDealsPage = () => {
         if (!dealsTableBody) return;
 
-        // UPDATED: Use getFunnelDeals() to respect the toggle
         const dealsForList = getFunnelDeals();
         
         const dealsWithAccount = dealsForList.map((deal) => ({ ...deal, account_name: state.accounts.find((a) => a.id === deal.account_id)?.name || "N/A" }));
@@ -286,7 +268,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         dealsTableBody.innerHTML = "";
         dealsWithAccount.forEach((deal) => {
             const row = dealsTableBody.insertRow();
-            row.innerHTML = `<td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td><td class="deal-name-link" data-deal-id="${deal.id}">${deal.name}</td><td>${deal.term || ""}</td><td>${deal.account_name}</td><td>${deal.stage}</td><td>${formatCurrency(deal.mrc || 0)}</td><td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td><td>${deal.products || ""}</td><td><div class="button-group-wrapper"><button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button></div></td>`;
+            // Maps 'mrc' -> Project Value, 'products' -> Job Details
+            row.innerHTML = `
+                <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
+                <td class="deal-name-link" data-deal-id="${deal.id}">${deal.name}</td>
+                <td>${deal.term || ""}</td>
+                <td>${deal.account_name}</td>
+                <td>${deal.stage}</td>
+                <td>${formatCurrency(deal.mrc || 0)}</td>
+                <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
+                <td>${deal.products || ""}</td>
+                <td><div class="button-group-wrapper"><button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button></div></td>`;
         });
         document.querySelectorAll("#deals-table th.sortable").forEach((th) => {
             th.classList.remove("asc", "desc");
@@ -298,15 +290,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const renderKanbanBoard = () => {
         kanbanBoardView.innerHTML = '';
         
-        // UPDATED: Filter out "Closed Won" deals
         const dealsToRender = getFutureDeals().filter(deal => deal.stage !== 'Closed Won');
 
-        // UPDATED: Filter columns based on the toggle
         const stages = state.dealStages
             .map(s => s.stage_name)
             .filter(stageName => {
-                if (stageName === 'Closed Won') return false; // Never show "Closed Won" column
-                if (stageName === 'Closed Lost' && !state.showClosedLost) return false; // Hide column if toggled off
+                if (stageName === 'Closed Won') return false; 
+                if (stageName === 'Closed Lost' && !state.showClosedLost) return false; 
                 return true;
             });
 
@@ -315,11 +305,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             const column = document.createElement('div');
             column.className = 'kanban-column';
             column.dataset.stage = stage;
-            const totalMRC = dealsInStage.reduce((sum, deal) => sum + deal.mrc, 0);
+            const totalValue = dealsInStage.reduce((sum, deal) => sum + deal.mrc, 0);
             column.innerHTML = `
                 <div class="kanban-column-header">
                     <h4>${stage} (${dealsInStage.length})</h4>
-                    <span class="kanban-column-total">${formatCurrency(totalMRC)}</span>
+                    <span class="kanban-column-total">${formatCurrency(totalValue)}</span>
                 </div>
                 <div class="kanban-column-body">
                     ${dealsInStage.map(deal => renderDealCard(deal)).join('')}
@@ -372,7 +362,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
         let currentCommit = 0, bestCase = 0, closedWon = 0;
         
-        // This logic remains the same, as it's for *current month* metrics, not the future funnel.
         state.deals.forEach((deal) => {
             const dealCloseDate = deal.close_month ? new Date(deal.close_month + '-02') : null;
             const isCurrentMonth = dealCloseDate && dealCloseDate.getMonth() === currentMonth && dealCloseDate.getFullYear() === currentYear;
@@ -385,13 +374,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
 
-        // UPDATED: Use getFunnelDeals() for the "My Current Funnel" metric
         const dealsForFunnel = getFunnelDeals();
         const totalFunnel = dealsForFunnel.reduce((sum, deal) => sum + (deal.mrc || 0), 0);
 
         metricCurrentCommit.textContent = formatCurrencyK(currentCommit);
         metricBestCase.textContent = formatCurrencyK(bestCase);
-        metricFunnel.textContent = formatCurrencyK(totalFunnel); // Updated to use toggled value
+        metricFunnel.textContent = formatCurrencyK(totalFunnel);
         metricClosedWon.textContent = formatCurrencyK(closedWon);
         
         const commitPercentage = effectiveMonthlyQuota > 0 ? ((currentCommit / effectiveMonthlyQuota) * 100).toFixed(1) : 0;
@@ -416,14 +404,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!deal) return;
         const stageOptions = state.dealStages.sort((a,b) => a.sort_order - b.sort_order).map(s => `<option value="${s.stage_name}" ${deal.stage === s.stage_name ? 'selected' : ''}>${s.stage_name}</option>`).join('');
         const accountOptions = state.accounts.sort((a,b) => (a.name || "").localeCompare(b.name || "")).map(acc => `<option value="${acc.id}" ${deal.account_id === acc.id ? 'selected' : ''}>${acc.name}</option>`).join('');
+        
+        // TenWorks Custom Labels in Modal
         showModal("Edit Deal", `
             <label>Deal Name:</label><input type="text" id="modal-deal-name" value="${deal.name || ''}" required>
             <label>Account:</label><select id="modal-deal-account" required>${accountOptions}</select>
             <label>Term:</label><input type="text" id="modal-deal-term" value="${deal.term || ''}" placeholder="e.g., 12 months">
             <label>Stage:</label><select id="modal-deal-stage" required>${stageOptions}</select>
-            <label>Monthly Recurring Revenue (MRC):</label><input type="number" id="modal-deal-mrc" min="0" value="${deal.mrc || 0}">
+            <label>Project Value:</label><input type="number" id="modal-deal-mrc" min="0" value="${deal.mrc || 0}">
             <label>Close Month:</label><input type="month" id="modal-deal-close-month" value="${deal.close_month || ''}">
-            <label>Products:</label><textarea id="modal-deal-products" placeholder="List products, comma-separated">${deal.products || ''}</textarea>
+            <label>Job Details:</label><textarea id="modal-deal-products" placeholder="List products, comma-separated">${deal.products || ''}</textarea>
         `, async () => {
             const updatedDeal = {
                 name: document.getElementById('modal-deal-name').value.trim(),
@@ -441,7 +431,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // NEW: Drag and Drop Logic
+    // Drag and Drop Logic
     const setupDragAndDrop = () => {
         const cards = document.querySelectorAll('.kanban-card');
         const columns = document.querySelectorAll('.kanban-column-body');
@@ -470,8 +460,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const dealId = Number(draggedCard.dataset.id);
                 const deal = state.deals.find(d => d.id === dealId);
                 if (deal && deal.stage !== newStage) {
-                    deal.stage = newStage; // Optimistic update
-                    render(); // Re-render to update column totals
+                    deal.stage = newStage; 
+                    render(); 
                     const { error } = await supabase.from('deals').update({ stage: newStage }).eq('id', dealId);
                     if (error) {
                         console.error("Error updating deal stage:", error);
@@ -551,19 +541,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
         }
         
-        // Event listeners for the view toggle
         listViewBtn.addEventListener('click', () => handleViewToggle('list'));
         boardViewBtn.addEventListener('click', () => handleViewToggle('board'));
 
-        // NEW: Event listener for the 'Closed Lost' toggle
         toggleClosedLost.addEventListener('change', (e) => {
             state.showClosedLost = e.target.checked;
             localStorage.setItem('deals_show_closed_lost', state.showClosedLost);
-            renderAll(); // Re-render everything that depends on this filter
+            renderAll(); 
         });
     }
     
-    // Handler for the view toggle
     const handleViewToggle = (view) => {
         state.currentView = view;
         localStorage.setItem('deals_view_mode', view);
@@ -582,7 +569,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             await setupUserMenuAndAuth(supabase, state);
             if (dealsViewToggleDiv) {
                 const isManager = state.currentUser.user_metadata?.is_manager === true;
-                // This selector is for the PARENT div, to hide 'My Team's Deals'
                 const viewToggleButtons = dealsViewToggleDiv.querySelector('div:first-child');
                 if (viewToggleButtons) {
                     viewToggleButtons.classList.toggle('hidden', !isManager);
@@ -597,15 +583,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             await setupGlobalSearch(supabase, state.currentUser);
             await checkAndSetNotifications(supabase);
             
-            // NEW: Load saved view from localStorage
             const savedView = localStorage.getItem('deals_view_mode') || 'list';
             state.currentView = savedView;
             listViewBtn.classList.toggle('active', savedView === 'list');
             boardViewBtn.classList.toggle('active', savedView === 'board');
 
-            // NEW: Load saved toggle state from localStorage
             const savedShowClosedLost = localStorage.getItem('deals_show_closed_lost');
-            // Default to true if nothing is saved
             state.showClosedLost = savedShowClosedLost === null ? true : (savedShowClosedLost === 'true');
             toggleClosedLost.checked = state.showClosedLost;
             
