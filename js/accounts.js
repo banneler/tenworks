@@ -706,7 +706,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showModal("Error", "Deal name is required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
                 return false;
             }
-            const { error } = await supabase.from('deals').update(updatedDealData).eq('id', dealId);
+            const { error } = await supabase.from('deals_tw').update(updatedDealData).eq('id', dealId);
             if (error) { showModal("Error", 'Error updating deal: ' + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`); }
             else { await refreshData(); hideModal(); showModal("Success", "Deal updated successfully!", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`); }
         }, true, `<button id="modal-confirm-btn" class="btn-primary">Save Deal</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
@@ -1430,7 +1430,7 @@ const recommendationText = flattenAIResponse(briefing.recommendation);
                         return false;
                     }
 
-                    const { error } = await supabase.from('deals').insert([newDeal]);
+                    const { error } = await supabase.from('deals_tw').insert([newDeal]);
                     if (error) {
                         showModal("Error", 'Error creating deal: ' + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
                         return false;
