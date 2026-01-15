@@ -166,7 +166,7 @@ body.theme-green {
 /* --- GLOBAL STYLES --- */
 body {
     margin: 0;
-    font-family: var(--font-main); /* Uses Inter */
+    font-family: 'Inter', 'Montserrat', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-light);
     overflow-x: hidden;
