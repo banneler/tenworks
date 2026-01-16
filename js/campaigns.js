@@ -176,16 +176,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     };
 
-    const renderCampaignListItem = (campaign, listElement) => {
+   const renderCampaignListItem = (campaign, listElement) => {
         const item = document.createElement("div");
         item.className = "list-item";
         item.dataset.id = campaign.id;
         if (campaign.id === state.selectedCampaignId) item.classList.add("selected");
 
+        // Applied Rajdhani font to Campaign Name and dimmed the type
         item.innerHTML = `
-            <div>
-                <div>${campaign.name}</div>
-                <small>${campaign.type} Campaign</small>
+            <div class="contact-info">
+                <div class="contact-name">${campaign.name}</div>
+                <small class="account-name">${campaign.type} Campaign</small>
             </div>
         `;
         listElement.appendChild(item);
@@ -239,11 +240,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (campaignDetailsContent) {
             campaignDetailsContent.innerHTML = `
-                <h4>${campaign.name}</h4>
+                <div class="contact-info">
+                    <h4 class="contact-name" style="font-size: 1.5rem; color: var(--primary-blue);">${campaign.name}</h4>
+                </div>
                 <p><strong>Type:</strong> ${campaign.type}</p>
-                <p><strong>Status:</strong> Active</p>
+                <p><strong>Status:</strong> <span style="color: var(--completed-color);">Active</span></p>
                 <hr>
-                <h4>Included Contacts (${members.length})</h4>
+                <h4 class="contact-name" style="font-size: 1.1rem;">Included Contacts (${members.length})</h4>
                 <ul class="summary-contact-list">${memberListHtml}</ul>
                 ${emailInfoHtml}
             `;
