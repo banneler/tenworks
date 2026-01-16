@@ -4350,3 +4350,25 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     font-family: "Font Awesome 6 Brands" !important;
     font-weight: 400;
 }
+/* Ensure the user name wraps correctly in the sidebar */
+.user-menu-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    /* Allows items to wrap if the sidebar is narrow or name is long */
+    flex-wrap: wrap; 
+}
+
+#user-name-display {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--text-bright);
+    /* Crucial bits for wrapping */
+    white-space: normal; 
+    word-break: break-word;
+    line-height: 1.2;
+    flex: 1; /* Allows the span to fill remaining space and wrap */
+    min-width: 0; /* Prevents flex items from overflowing */
+}
