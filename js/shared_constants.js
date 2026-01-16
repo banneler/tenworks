@@ -624,7 +624,7 @@ export async function checkAndSetNotifications(supabase) {
     if (!user) return;
 
     const pagesToCheck = [
-        { name: 'social_hub', table: 'social_hub_posts' },
+        { name: 'social_hub', table: 'social_hub_posts_tw' },
         { name: 'cognito', table: 'cognito_alerts' }
     ];
 
@@ -656,6 +656,7 @@ export async function checkAndSetNotifications(supabase) {
         }
     }
 }
+
 
 
 
