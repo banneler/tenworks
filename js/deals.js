@@ -260,63 +260,66 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    const renderDealsPage = () => {
-        if (!dealsTableBody) return;
+ const renderDealsPage = () => {
+    if (!dealsTableBody) return;
 
-        const dealsForList = getFunnelDeals();
-        
-        const dealsWithAccount = dealsForList.map((deal) => ({ ...deal, account_name: state.accounts.find((a) => a.id === deal.account_id)?.name || "N/A" }));
-        dealsWithAccount.sort((a, b) => {
-            const valA = a[state.dealsSortBy], valB = b[state.dealsSortBy];
-            let comparison = (typeof valA === "string") ? (valA || "").localeCompare(b[state.dealsSortBy] || "") : (valA > valB ? 1 : -1);
-            return state.dealsSortDir === "desc" ? comparison * -1 : comparison;
-        });
-        
-        dealsTableBody.innerHTML = "";
-        
-       dealsWithAccount.forEach((deal) => {
-    dealsWithAccount.forEach((deal) => {
-    const row = dealsTableBody.insertRow();
+    const dealsForList = getFunnelDeals();
     
-    // Applying the industrial styling to the Name, Account, and Project Value (MRC)
-    row.innerHTML = `
-        <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
-        <td>
-            <div class="contact-info">
-                <div class="contact-name deal-name-link" data-deal-id="${deal.id}" style="cursor: pointer;">
-                    ${deal.name}
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="contact-info">
-                <div class="contact-name" style="font-size: 0.95rem; color: var(--text-medium);">
-                    ${deal.account_name}
-                </div>
-            </div>
-        </td>
-        <td>${deal.stage}</td>
-        <td>
-            <div class="contact-info">
-                <div class="contact-name" style="color: var(--warning-yellow);">
-                    ${formatCurrency(deal.mrc || 0)}
-                </div>
-            </div>
-        </td>
-        <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
-        <td>${deal.products || ""}</td>
-        <td>
-            <div class="button-group-wrapper">
-                <button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button>
-            </div>
-        </td>`;
-});
+    const dealsWithAccount = dealsForList.map((deal) => ({ 
+        ...deal, 
+        account_name: state.accounts.find((a) => a.id === deal.account_id)?.name || "N/A" 
+    }));
 
-        document.querySelectorAll("#deals-table th.sortable").forEach((th) => {
-            th.classList.remove("asc", "desc");
-            if (th.dataset.sort === state.dealsSortBy) th.classList.add(state.dealsSortDir);
-        });
-    };
+    dealsWithAccount.sort((a, b) => {
+        const valA = a[state.dealsSortBy], valB = b[state.dealsSortBy];
+        let comparison = (typeof valA === "string") ? (valA || "").localeCompare(valB || "") : (valA > valB ? 1 : -1);
+        return state.dealsSortDir === "desc" ? comparison * -1 : comparison;
+    });
+    
+    dealsTableBody.innerHTML = "";
+    
+    dealsWithAccount.forEach((deal) => {
+        const row = dealsTableBody.insertRow();
+        
+        // Unified Industrial styling for key data columns
+        row.innerHTML = `
+            <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
+            <td>
+                <div class="contact-info">
+                    <div class="contact-name deal-name-link" data-deal-id="${deal.id}" style="cursor: pointer;">
+                        ${deal.name}
+                    </div>
+                </div>
+            </td>
+            <td>
+                <div class="contact-info">
+                    <div class="contact-name" style="font-size: 0.95rem; color: var(--text-medium);">
+                        ${deal.account_name}
+                    </div>
+                </div>
+            </td>
+            <td>${deal.stage}</td>
+            <td>
+                <div class="contact-info">
+                    <div class="contact-name" style="color: var(--warning-yellow);">
+                        ${formatCurrency(deal.mrc || 0)}
+                    </div>
+                </div>
+            </td>
+            <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
+            <td>${deal.products || ""}</td>
+            <td>
+                <div class="button-group-wrapper">
+                    <button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button>
+                </div>
+            </td>`;
+    });
+
+    document.querySelectorAll("#deals-table th.sortable").forEach((th) => {
+        th.classList.remove("asc", "desc");
+        if (th.dataset.sort === state.dealsSortBy) th.classList.add(state.dealsSortDir);
+    });
+};
 
     // Kanban Board Render Functions
     const renderKanbanBoard = () => {
