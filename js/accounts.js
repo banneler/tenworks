@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // --- Render Functions ---
-   const renderAccountList = () => {
+  const renderAccountList = () => {
     if (!accountList || !accountSearch || !accountStatusFilter) {
         console.error("Render failed: A required DOM element is missing.");
         return;
@@ -196,21 +196,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Identify "Hot" and "Deal" accounts for icons
     let hotAccountIds = new Set(
         state.activities
-            .filter(act => act.date && new Date(act.date) > thirtyDaysAgo)
-            .map(act => act.account_id || state.contacts.find(c => c.id === act.contact_id)?.account_id)
-            .filter(id => id)
+        .filter(act => act.date && new Date(act.date) > thirtyDaysAgo)
+        .map(act => {
+            if (act.account_id) return act.account_id;
+            const contact = state.contacts.find(c => c.id === act.contact_id);
+            return contact ? contact.account_id : null;
+        })
+        .filter(id => id)
     );
 
     let accountsWithOpenDealsIds = new Set(
         state.deals
-            .filter(deal => deal.stage && !['Closed Won', 'Closed Lost'].includes(deal.stage))
-            .map(deal => deal.account_id)
-            .filter(id => id)
+        .filter(deal => deal.stage && deal.stage !== 'Closed Won' && deal.stage !== 'Closed Lost')
+        .map(deal => deal.account_id)
+        .filter(id => id)
     );
 
     const filteredAccounts = state.accounts.filter(account => {
-        const matchesSearch = (account.name || "").toLowerCase().includes(searchTerm) || 
-                              (account.industry || "").toLowerCase().includes(searchTerm);
+        const matchesSearch = (account.name || "").toLowerCase().includes(searchTerm);
         if (!matchesSearch) return false;
 
         switch (statusFilter) {
@@ -228,26 +231,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         .forEach((account) => {
             const item = document.createElement("div");
             item.className = "list-item";
-            if (account.id === state.selectedAccountId) item.classList.add("selected");
             item.dataset.id = account.id;
 
             const hasOpenDeal = accountsWithOpenDealsIds.has(account.id);
             const isHot = hotAccountIds.has(account.id);
 
-            // Match the structure of Contacts.js for consistent CSS styling
+            const dealIcon = hasOpenDeal ? '<span class="deal-open-icon">$</span>' : '';
+            const hotIcon = isHot ? '<span class="hot-contact-icon">🔥</span>' : '';
+
+            // This structure mirrors Contacts.js but removes subtext 
+            // and places icons inside the name div for single-line alignment
             item.innerHTML = `
-                <div class="account-info">
-                    <div class="account-list-name-wrapper">
-                        <span class="account-list-name">${account.name}</span>
-                        <div class="list-item-icons">
-                            ${isHot ? '<span class="hot-contact-icon">🔥</span>' : ''}
-                            ${hasOpenDeal ? '<span class="deal-open-icon">$</span>' : ''}
-                        </div>
-                    </div>
-                    <small class="account-subtext">${account.industry || 'Industry Not Listed'}</small>
+                <div class="contact-info">
+                    <div class="contact-name">${account.name}${hotIcon}${dealIcon}</div>
                 </div>
             `;
 
+            if (account.id === state.selectedAccountId) {
+                item.classList.add("selected");
+            }
             accountList.appendChild(item);
         });
 };
