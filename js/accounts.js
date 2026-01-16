@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // --- Render Functions ---
-  const renderAccountList = () => {
+const renderAccountList = () => {
     if (!accountList || !accountSearch || !accountStatusFilter) {
         console.error("Render failed: A required DOM element is missing.");
         return;
@@ -193,24 +193,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Identify "Hot" and "Deal" accounts for icons
-    let hotAccountIds = new Set(
-        state.activities
-        .filter(act => act.date && new Date(act.date) > thirtyDaysAgo)
-        .map(act => {
-            if (act.account_id) return act.account_id;
-            const contact = state.contacts.find(c => c.id === act.contact_id);
-            return contact ? contact.account_id : null;
-        })
-        .filter(id => id)
-    );
+    let hotAccountIds = new Set();
+    let accountsWithOpenDealsIds = new Set();
 
-    let accountsWithOpenDealsIds = new Set(
-        state.deals
-        .filter(deal => deal.stage && deal.stage !== 'Closed Won' && deal.stage !== 'Closed Lost')
-        .map(deal => deal.account_id)
-        .filter(id => id)
-    );
+    try {
+        hotAccountIds = new Set(
+            state.activities
+            .filter(act => act.date && new Date(act.date) > thirtyDaysAgo)
+            .map(act => {
+                if (act.account_id) return act.account_id;
+                const contact = state.contacts.find(c => c.id === act.contact_id);
+                return contact ? contact.account_id : null;
+            })
+            .filter(id => id)
+        );
+    } catch (error) {
+        console.error("Error calculating hot accounts:", error);
+    }
+
+    try {
+        accountsWithOpenDealsIds = new Set(
+            state.deals
+            .filter(deal => deal.stage && deal.stage !== 'Closed Won' && deal.stage !== 'Closed Lost')
+            .map(deal => deal.account_id)
+            .filter(id => id)
+        );
+    } catch (error) {
+        console.error("Error calculating accounts with open deals:", error);
+    }
 
     const filteredAccounts = state.accounts.filter(account => {
         const matchesSearch = (account.name || "").toLowerCase().includes(searchTerm);
@@ -239,11 +249,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             const dealIcon = hasOpenDeal ? '<span class="deal-open-icon">$</span>' : '';
             const hotIcon = isHot ? '<span class="hot-contact-icon">🔥</span>' : '';
 
-            // This structure mirrors Contacts.js but removes subtext 
-            // and places icons inside the name div for single-line alignment
+            // Added &nbsp; for immediate spacing and a wrapper for the icons
             item.innerHTML = `
                 <div class="contact-info">
-                    <div class="contact-name">${account.name}${hotIcon}${dealIcon}</div>
+                    <div class="contact-name">
+                        ${account.name}&nbsp;
+                        <div class="list-item-icons-inline" style="display: inline-flex; gap: 4px;">
+                            ${hotIcon}${dealIcon}
+                        </div>
+                    </div>
                 </div>
             `;
 
