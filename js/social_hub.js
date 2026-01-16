@@ -19,13 +19,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     let state = {
         currentUser: null,
         allPosts: [],
-        products: [],
         userInteractions: new Set()
     };
     
     // --- DOM SELECTORS ---
     const aiContainer = document.getElementById('ai-articles-container');
-    const marketingContainer = document.getElementById('marketing-posts-container');
     const modalBackdrop = document.getElementById('modal-backdrop');
     const modalTitle = document.getElementById('modal-title');
     const modalArticleLink = document.getElementById('modal-article-link');
@@ -35,23 +33,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     const modalCloseBtn = document.getElementById('modal-close-btn');
     const customPromptInput = document.getElementById('custom-prompt-input');
     const generateCustomBtn = document.getElementById('generate-custom-btn');
-    const aiProductPostBtn = document.getElementById('ai-product-post-btn');
 
     // --- DATA FETCHING ---
     async function loadSocialContent() {
         if (!state.currentUser) return;
         try {
-            const { data: posts, error: postsError } = await supabase.from('social_hub_posts_tw').select('*').order('created_at', { ascending: false });
+            // Only fetching posts and user interactions now. Product knowledge fetch removed.
+            const { data: posts, error: postsError } = await supabase
+                .from('social_hub_posts_tw')
+                .select('*')
+                .eq('type', 'ai_article') // Optimization: Only fetch AI articles since marketing is removed
+                .order('created_at', { ascending: false });
+
             if (postsError) throw postsError;
             state.allPosts = posts || [];
 
-            const { data: interactions, error: interactionsError } = await supabase.from('user_post_interactions').select('post_id').eq('user_id', state.currentUser.id);
+            const { data: interactions, error: interactionsError } = await supabase
+                .from('user_post_interactions')
+                .select('post_id')
+                .eq('user_id', state.currentUser.id);
+
             if (interactionsError) throw interactionsError;
             state.userInteractions = new Set(interactions.map(i => i.post_id));
-
-            const { data: productData, error: productError } = await supabase.from('product_knowledge').select('product_name');
-            if (productError) throw productError;
-            state.products = [...new Set(productData.map(p => p.product_name))].sort();
 
             renderSocialContent();
         } catch (error) {
@@ -62,21 +65,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --- RENDER FUNCTIONS ---
     function renderSocialContent() {
         aiContainer.innerHTML = '';
-        marketingContainer.innerHTML = '';
+        
+        // Filter out dismissed posts and only show AI articles
         const visiblePosts = state.allPosts.filter(post => !state.userInteractions.has(post.id));
         const aiArticles = visiblePosts.filter(p => p.type === 'ai_article');
-        const marketingPosts = visiblePosts.filter(p => p.type === 'marketing_post');
         
         if (aiArticles.length === 0) { 
             aiContainer.innerHTML = `<p class="placeholder-text">Cognito is searching for relevant articles. Check back soon!</p>`; 
         } else { 
             aiArticles.forEach(item => aiContainer.appendChild(createSocialCard(item))); 
-        }
-
-        if (marketingPosts.length === 0) { 
-            marketingContainer.innerHTML = `<p class="placeholder-text">The marketing team is busy creating content. Stay tuned for new posts!</p>`; 
-        } else { 
-            marketingPosts.forEach(item => marketingContainer.appendChild(createSocialCard(item))); 
         }
     }
 
@@ -86,7 +83,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Logic: Use pre-generated copy for summary if available
         const summary = item.summary || item.approved_copy || "No summary available.";
         const sourceName = item.source_name || 'Industry News';
-        const triggerType = item.type === 'marketing_post' ? 'Campaign Asset' : 'News Article';
+        const triggerType = 'News Article';
         const dynamicLinkIndicator = item.is_dynamic_link ? `<span class="dynamic-link-indicator" title="This link will generate a rich preview on LinkedIn">✨</span>` : '';
 
         const card = document.createElement('div');
@@ -123,24 +120,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         postToLinkedInBtn.dataset.url = item.link;
         modalBackdrop.classList.remove('hidden');
 
-        // RE-GENERATED CHECK: If we have approved_copy from our Python script, use it instantly.
+        // IF we already have copy generated (saved in DB), use it.
         if (item.approved_copy && item.approved_copy.trim() !== "") {
             postTextArea.value = item.approved_copy;
             return;
         }
 
+        // Otherwise, generate it now.
         postTextArea.value = "Generating AI suggestion...";
 
-        if (item.type === 'marketing_post') {
-            postTextArea.value = item.approved_copy || "No marketing copy provided.";
+        const { data, error } = await supabase.functions.invoke('generate-social-post', { body: { article: item } });
+        if (error) {
+            postTextArea.value = "Error generating suggestion. Please write your own or try again.";
+            console.error("Edge function error:", error);
         } else {
-            const { data, error } = await supabase.functions.invoke('generate-social-post', { body: { article: item } });
-            if (error) {
-                postTextArea.value = "Error generating suggestion. Please write your own or try again.";
-                console.error("Edge function error:", error);
-            } else {
-                postTextArea.value = data.suggestion;
-            }
+            postTextArea.value = data.suggestion;
         }
     }
 
@@ -181,10 +175,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
         });
 
-        if (aiProductPostBtn) {
-            aiProductPostBtn.addEventListener('click', showAIProductPostModal);
-        }
-
         generateCustomBtn.addEventListener('click', async () => {
             const originalText = postTextArea.value;
             const customPrompt = customPromptInput.value.trim();
@@ -209,100 +199,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             generateCustomBtn.textContent = 'Regenerate';
             generateCustomBtn.disabled = false;
         });
-    }
-
-    // --- CUSTOM PRODUCT POST MODAL LOGIC ---
-    async function showAIProductPostModal() {
-        const productCheckboxes = state.products.map(product => `
-            <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                <input type="checkbox" id="social-prod-${product.replace(/\s+/g, '-')}" class="ai-product-checkbox" value="${product}" style="margin-right: 8px;">
-                <label for="social-prod-${product.replace(/\s+/g, '-')}">${product}</label>
-            </div>
-        `).join('');
-
-        const industries = ['General', 'Healthcare', 'Financial', 'Retail', 'Manufacturing', 'K-12 Education'];
-        const industryOptions = industries.map(ind => `<option value="${ind}">${ind}</option>`).join('');
-
-        const modalBodyContent = `
-            <div id="ai-custom-post-prompt-container">
-                <label style="font-weight: 600;">Post Goal/Topic:</label>
-                <textarea id="ai-post-prompt" rows="3" placeholder="e.g., 'Announce a new feature for Managed Wi-Fi'"></textarea>
-                <div style="margin-top: 1.5rem;">
-                    <p style="font-weight: 600; margin-bottom: 12px;">Include Product Info</p>
-                    ${productCheckboxes}
-                    <div style="margin-top: 20px;">
-                        <label for="ai-industry-select" style="font-weight: 600;">Target Industry</label>
-                        <select id="ai-industry-select">${industryOptions}</select>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        showModal(
-            `Create Custom Product Post`,
-            modalBodyContent,
-            generateProductPostWithAI,
-            true,
-            `<button id="modal-confirm-btn" class="btn-primary">Generate Post</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`
-        );
-    }
-
-    async function generateProductPostWithAI() {
-        const userPrompt = document.getElementById('ai-post-prompt').value;
-        if (!userPrompt) {
-            alert("Please enter a prompt.");
-            return false;
-        }
-
-        const selectedProducts = Array.from(document.querySelectorAll('.ai-product-checkbox:checked')).map(cb => cb.value);
-        const selectedIndustry = document.getElementById('ai-industry-select').value;
-        
-        const modalBody = document.getElementById('modal-body');
-        const modalActions = document.getElementById('modal-actions');
-        const mTitle = document.getElementById('modal-title');
-        
-        modalBody.innerHTML = `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">AI is drafting your post...</p>`;
-        modalActions.innerHTML = ''; 
-
-        try {
-            const { data, error } = await supabase.functions.invoke('custom-user-social-post', {
-                body: { userPrompt, product_names: selectedProducts, industry: selectedIndustry }
-            });
-            if (error) throw error;
-
-            const postContent = `${data.post_body}\n\n${data.hashtags}`;
-            const shareLink = "https://gpcom.com/business/#products-services";
-
-            mTitle.textContent = 'AI-Generated Custom Post';
-            modalBody.innerHTML = `
-                <p style="margin-bottom: 15px;"><strong>Sharing Link:</strong> <a href="${shareLink}" target="_blank">${shareLink}</a></p>
-                <label for="post-text-result">Generated Post Text:</label>
-                <textarea id="post-text-result" rows="8" style="width: 100%;">${postContent}</textarea>
-            `;
-            
-            modalActions.innerHTML = `
-                <button id="copy-text-btn-result" class="btn-secondary">Copy Text</button>
-                <button id="post-to-linkedin-btn-result" class="btn-primary">Post to LinkedIn</button>
-                <button id="modal-close-btn-result" class="btn-secondary">Close</button>
-            `;
-
-            document.getElementById('copy-text-btn-result').addEventListener('click', () => {
-                navigator.clipboard.writeText(document.getElementById('post-text-result').value).then(() => {
-                    document.getElementById('copy-text-btn-result').textContent = 'Copied!';
-                });
-            });
-
-            document.getElementById('post-to-linkedin-btn-result').addEventListener('click', () => {
-                 window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareLink)}`, '_blank');
-            });
-
-            document.getElementById('modal-close-btn-result').addEventListener('click', hideModal);
-
-        } catch (error) {
-            console.error("Error:", error);
-            hideModal();
-        }
-        return false;
     }
 
     // --- INITIALIZATION ---
