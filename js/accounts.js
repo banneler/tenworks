@@ -182,87 +182,75 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // --- Render Functions ---
-    const renderAccountList = () => {
-        if (!accountList || !accountSearch || !accountStatusFilter) {
-            console.error("Render failed: A required DOM element is missing.");
-            return;
+   const renderAccountList = () => {
+    if (!accountList || !accountSearch || !accountStatusFilter) {
+        console.error("Render failed: A required DOM element is missing.");
+        return;
+    }
+
+    const searchTerm = accountSearch.value.toLowerCase();
+    const statusFilter = accountStatusFilter.value;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Identify "Hot" and "Deal" accounts for icons
+    let hotAccountIds = new Set(
+        state.activities
+            .filter(act => act.date && new Date(act.date) > thirtyDaysAgo)
+            .map(act => act.account_id || state.contacts.find(c => c.id === act.contact_id)?.account_id)
+            .filter(id => id)
+    );
+
+    let accountsWithOpenDealsIds = new Set(
+        state.deals
+            .filter(deal => deal.stage && !['Closed Won', 'Closed Lost'].includes(deal.stage))
+            .map(deal => deal.account_id)
+            .filter(id => id)
+    );
+
+    const filteredAccounts = state.accounts.filter(account => {
+        const matchesSearch = (account.name || "").toLowerCase().includes(searchTerm) || 
+                              (account.industry || "").toLowerCase().includes(searchTerm);
+        if (!matchesSearch) return false;
+
+        switch (statusFilter) {
+            case 'hot': return hotAccountIds.has(account.id);
+            case 'with_deals': return accountsWithOpenDealsIds.has(account.id);
+            case 'customer': return account.is_customer === true;
+            case 'prospect': return account.is_customer !== true;
+            default: return true;
         }
+    });
 
-        const searchTerm = accountSearch.value.toLowerCase();
-        const statusFilter = accountStatusFilter.value;
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    accountList.innerHTML = "";
+    filteredAccounts
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+        .forEach((account) => {
+            const item = document.createElement("div");
+            item.className = "list-item";
+            if (account.id === state.selectedAccountId) item.classList.add("selected");
+            item.dataset.id = account.id;
 
-        let hotAccountIds = new Set();
-        let accountsWithOpenDealsIds = new Set();
+            const hasOpenDeal = accountsWithOpenDealsIds.has(account.id);
+            const isHot = hotAccountIds.has(account.id);
 
-        try {
-            hotAccountIds = new Set(
-                state.activities
-                .filter(act => act.date && new Date(act.date) > thirtyDaysAgo)
-                .map(act => {
-                    if (act.account_id) return act.account_id;
-                    const contact = state.contacts.find(c => c.id === act.contact_id);
-                    return contact ? contact.account_id : null;
-                })
-                .filter(id => id)
-            );
-        } catch (error) {
-            console.error("Error calculating hot accounts:", error);
-        }
+            // Match the structure of Contacts.js for consistent CSS styling
+            item.innerHTML = `
+                <div class="account-info">
+                    <div class="account-list-name-wrapper">
+                        <span class="account-list-name">${account.name}</span>
+                        <div class="list-item-icons">
+                            ${isHot ? '<span class="hot-contact-icon">🔥</span>' : ''}
+                            ${hasOpenDeal ? '<span class="deal-open-icon">$</span>' : ''}
+                        </div>
+                    </div>
+                    <small class="account-subtext">${account.industry || 'Industry Not Listed'}</small>
+                </div>
+            `;
 
-        try {
-            accountsWithOpenDealsIds = new Set(
-                state.deals
-                .filter(deal => deal.stage && deal.stage !== 'Closed Won' && deal.stage !== 'Closed Lost')
-                .map(deal => deal.account_id)
-                .filter(id => id)
-            );
-        } catch (error) {
-            console.error("Error calculating accounts with open deals:", error);
-        }
-
-        const filteredAccounts = state.accounts.filter(account => {
-            const matchesSearch = (account.name || "").toLowerCase().includes(searchTerm);
-            if (!matchesSearch) return false;
-
-            switch (statusFilter) {
-                case 'hot':
-                    return hotAccountIds.has(account.id);
-                case 'with_deals':
-                    return accountsWithOpenDealsIds.has(account.id);
-                case 'customer':
-                    return account.is_customer === true;
-                case 'prospect':
-                    return account.is_customer !== true;
-                case 'all':
-                default:
-                    return true;
-            }
+            accountList.appendChild(item);
         });
-
-        accountList.innerHTML = "";
-        filteredAccounts
-            .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-            .forEach((account) => {
-                const i = document.createElement("div");
-                i.className = "list-item";
-                i.dataset.id = account.id;
-
-                const hasOpenDeal = accountsWithOpenDealsIds.has(account.id);
-                const isHot = hotAccountIds.has(account.id);
-
-                const dealIcon = hasOpenDeal ? '<span class="deal-open-icon">$</span>' : '';
-                const hotIcon = isHot ? '<span class="hot-contact-icon">🔥</span>' : '';
-
-                i.innerHTML = `<div class="account-list-name">${account.name}</div> <div class="list-item-icons">${hotIcon}${dealIcon}</div>`;
-
-                if (account.id === state.selectedAccountId) {
-                    i.classList.add("selected");
-                }
-                accountList.appendChild(i);
-            });
-    };
+};
 
     const renderAccountDetails = () => {
         const { account, contacts, activities, deals, tasks, contact_sequences } = state.selectedAccountDetails;
