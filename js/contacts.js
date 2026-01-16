@@ -109,7 +109,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 supabase.from('activities').select('*').eq('user_id', globalState.effectiveUserId),
                 supabase.from('contact_sequences').select('*').eq('user_id', globalState.effectiveUserId),
                 supabase.from('sequences').select('*').eq('user_id', globalState.effectiveUserId),
-                supabase.from('deals').select('*').eq('user_id', globalState.effectiveUserId),
+                supabase.from('deals_tw').select('*').eq('user_id', globalState.effectiveUserId),
                 supabase.from('tasks').select('*').eq('user_id', globalState.effectiveUserId),
                 supabase.from('sequence_steps').select('*'),
                 supabase.from('email_log').select('*'),
