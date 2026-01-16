@@ -12,9 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         deals: [],
         tasks: [],
         sequence_steps: [],
-        email_log: [],
         activityTypes: [],
-        products: [],
         selectedContactId: null,
         isFormDirty: false,
         nameDisplayFormat: 'lastFirst'
@@ -41,14 +39,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const noSequenceText = document.getElementById("no-sequence-text");
     const sequenceStatusContent = document.getElementById("sequence-status-content");
     const ringChartText = document.getElementById("ring-chart-text");
-    const contactEmailsTableBody = document.getElementById("contact-emails-table-body");
-    const emailViewModalBackdrop = document.getElementById("email-view-modal-backdrop");
-    const emailViewCloseBtn = document.getElementById("email-view-close-btn");
-    const emailViewSubject = document.getElementById("email-view-subject");
-    const emailViewFrom = document.getElementById("email-view-from");
-    const emailViewTo = document.getElementById("email-view-to");
-    const emailViewDate = document.getElementById("email-view-date");
-    const emailViewBodyContent = document.getElementById("email-view-body-content");
     const contactPendingTaskReminder = document.getElementById("contact-pending-task-reminder");
     const importContactScreenshotBtn = document.getElementById("import-contact-screenshot-btn");
     const takePictureBtn = document.getElementById("take-picture-btn");
@@ -100,9 +90,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 dealsRes,
                 tasksRes,
                 sequenceStepsRes,
-                emailLogRes,
-                activityTypesRes,
-                productsRes
+                activityTypesRes
             ] = await Promise.all([
                 supabase.from('contacts').select('*').eq('user_id', globalState.effectiveUserId),
                 supabase.from('accounts').select('*').eq('user_id', globalState.effectiveUserId),
@@ -112,9 +100,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 supabase.from('deals_tw').select('*').eq('user_id', globalState.effectiveUserId),
                 supabase.from('tasks').select('*').eq('user_id', globalState.effectiveUserId),
                 supabase.from('sequence_steps').select('*'),
-                supabase.from('email_log').select('*'),
-                supabase.from('activity_types').select('*'),
-                supabase.from('product_knowledge').select('product_name')
+                supabase.from('activity_types').select('*')
             ]);
 
             const processResponse = (res, tableName) => {
@@ -129,12 +115,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             state.deals = processResponse(dealsRes, 'deals');
             state.tasks = processResponse(tasksRes, 'tasks');
             state.sequence_steps = processResponse(sequenceStepsRes, 'sequence_steps');
-            state.email_log = processResponse(emailLogRes, 'email_log');
             state.activityTypes = [...new Map(processResponse(activityTypesRes, 'activity_types').map(item => [item.type_name, item])).values()];
             state.sequences = processResponse(sequencesRes, 'sequences');
-
-            const productData = processResponse(productsRes, 'product_knowledge');
-            state.products = [...new Set(productData.map(p => p.product_name))].sort();
 
         } catch (error) {
             console.error("Critical error in loadAllData:", error);
@@ -276,8 +258,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     contactActivitiesList.appendChild(li);
                 });
             
-            renderContactEmails(contact.email);
-
             const activeSequence = state.contact_sequences.find(cs => cs.contact_id === contact.id && cs.status === "Active");
             if (sequenceStatusContent && noSequenceText && contactSequenceInfoText) {
                 if (activeSequence) {
@@ -310,138 +290,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     };
     
-    function renderContactEmails(contactEmail) {
-        if (!contactEmailsTableBody) return;
-        contactEmailsTableBody.innerHTML = ''; 
-
-        if (!contactEmail) {
-            contactEmailsTableBody.innerHTML = '<tr><td colspan="3" class="placeholder-text">Contact has no email address.</td></tr>';
-            return;
-        }
-
-        const loggedEmails = state.email_log
-            .filter(email => (email.recipient || '').toLowerCase() === (contactEmail || '').toLowerCase())
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        
-        if (loggedEmails.length === 0) {
-            contactEmailsTableBody.innerHTML = '<tr><td colspan="3" class="placeholder-text">No logged emails for this contact.</td></tr>';
-            return;
-        }
-        
-        loggedEmails.forEach(email => {
-            const row = contactEmailsTableBody.insertRow();
-            row.dataset.emailId = email.id;
-            const hasAttachment = email.attachments && email.attachments.length > 0;
-            const attachmentIndicator = hasAttachment ? ` <i class="fas fa-paperclip" title="${email.attachments.length} attachment(s)"></i>` : '';
-            
-            row.innerHTML = `
-                <td>${formatDate(email.created_at)}</td>
-                <td>${email.subject || '(No Subject)'}${attachmentIndicator}</td>
-                <td><button class="btn-secondary btn-view-email" data-email-id="${email.id}">View</button></td>
-            `;
-        });
-    }
-
-    function openEmailViewModal(email) {
-        if (!email) return;
-
-        emailViewSubject.textContent = email.subject || '(No Subject)';
-        emailViewFrom.textContent = email.sender || 'N/A';
-        emailViewTo.textContent = email.recipient || 'N/A';
-        emailViewDate.textContent = new Date(email.created_at).toLocaleString();
-        emailViewBodyContent.innerHTML = (email.body_text || '(Email body is empty)').replace(/\\n/g, '<br>');
-
-        const attachmentsContainer = document.getElementById('email-view-attachments-container');
-        if (attachmentsContainer) {
-            attachmentsContainer.innerHTML = ''; 
-            if (email.attachments && email.attachments.length > 0) {
-                attachmentsContainer.classList.remove('hidden');
-                const attachmentsTitle = document.createElement('h5');
-                attachmentsTitle.textContent = 'Attachments';
-                attachmentsContainer.appendChild(attachmentsTitle);
-
-                email.attachments.forEach(att => {
-                    if (typeof att === 'object' && att !== null && att.url) {
-                        const link = document.createElement('a');
-                        link.href = "#";
-
-                        const fileName = att.fileName || 'Unknown File';
-                        
-                        let downloadPath = '';
-                        try {
-                            const urlObject = new URL(att.url);
-                            const relevantPath = urlObject.pathname.split('/public/email-attachments/')[1];
-                            if (relevantPath) {
-                                downloadPath = relevantPath;
-                            }
-                        } catch (e) {
-                            console.error("Could not parse attachment URL:", att.url, e);
-                        }
-
-                        if (downloadPath) {
-                            console.log("Created download link. Path stored in data attribute:", downloadPath);
-
-                            link.textContent = fileName;
-                            link.className = "btn-secondary btn-sm attachment-link";
-                            link.dataset.filename = fileName;
-                            link.dataset.downloadpath = downloadPath;
-                            attachmentsContainer.appendChild(link);
-                        }
-                    }
-                });
-            } else {
-                attachmentsContainer.classList.add('hidden');
-            }
-        }
-
-        emailViewModalBackdrop.classList.remove('hidden');
-
-        document.querySelectorAll('.email-view-modal .attachment-link').forEach(link => {
-            link.addEventListener('click', handleAttachmentClick);
-        });
-    }
-
-    async function handleAttachmentClick(event) {
-        event.preventDefault();
-        const downloadPath = decodeURIComponent(event.target.dataset.downloadpath); 
-        const fileName = event.target.dataset.filename || 'downloaded-file';
-
-        console.log("Attempting to download from bucket 'email-attachments' with path:", downloadPath);
-
-        if (!downloadPath) {
-            console.error('File download path not found.', event.target.dataset);
-            showModal('Error', 'Failed to download attachment. Path is missing.', null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-            return;
-        }
-
-        try {
-            const { data, error } = await supabase.storage.from('email-attachments').download(downloadPath);
-
-            if (error) {
-                console.error('Error downloading attachment:', error);
-                showModal('Error', `Failed to download attachment: ${error.message}. Please try again.`, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                return;
-            }
-
-            const blob = new Blob([data], { type: data.type });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } catch (e) {
-            console.error('Error handling attachment download:', e);
-            showModal('Error', 'An unexpected error occurred.', null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-        }
-    }
-
-    function closeEmailViewModal() {
-        emailViewModalBackdrop.classList.add('hidden');
-    }
-
     const hideContactDetails = (hideForm = true, clearSelection = false) => {
         if (contactForm && hideForm) contactForm.classList.add('hidden');
         if (contactForm) {
@@ -459,7 +307,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         if(removeFromSequenceBtn) removeFromSequenceBtn.classList.add('hidden');
         if(completeSequenceBtn) completeSequenceBtn.classList.add('hidden');
-        if (contactEmailsTableBody) contactEmailsTableBody.innerHTML = '<tr><td colspan="3" class="placeholder-text">Select a contact to see logged emails.</td></tr>';
         if(contactPendingTaskReminder) contactPendingTaskReminder.classList.add('hidden');
 
         if (clearSelection) {
@@ -593,45 +440,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        const productCheckboxes = state.products.map(product => `
-        <div style="display: flex; align-items: center; margin-bottom: 12px; padding: 0;">
-            <input 
-                type="checkbox" 
-                id="prod-${product.replace(/\s+/g, '-')}" 
-                class="ai-product-checkbox" 
-                value="${product}" 
-                style="margin: 0 8px 0 0; width: auto; height: auto;"
-            >
-            <label 
-                for="prod-${product.replace(/\s+/g, '-')}" 
-                style="margin: 0; padding: 0; font-weight: normal;"
-            >
-                ${product}
-            </label>
-        </div>
-    `).join('');
-
-        const industries = ['General', 'Healthcare', 'Financial', 'Retail', 'Manufacturing', 'K-12 Education'];
-        const industryOptions = industries.map(ind => `<option value="${ind}">${ind}</option>`).join('');
-
         const initialModalBody = `
             <p><strong>To:</strong> ${contact.first_name} ${contact.last_name} &lt;${contact.email}&gt;</p>
             <div id="ai-prompt-container">
                 <label style="font-weight: 600;">Prompt:</label>
                 <textarea id="ai-email-prompt" rows="3" placeholder="e.g., 'Write a follow-up email about our meeting.'"></textarea>
-                
-                <div style="margin-top: 1.5rem;">
-                    <div style="border: none; padding: 0; margin: 0;">
-                        <p style="font-weight: 600; margin-bottom: 12px;">Include Product Info</p>
-                        ${productCheckboxes}
-                    </div>
-                    <div style="margin-top: 20px;">
-                        <label for="ai-industry-select" style="font-weight: 600; display: block; margin-bottom: 10px;">Target Industry</label>
-                        <select id="ai-industry-select">
-                            ${industryOptions}
-                        </select>
-                    </div>
-                </div>
             </div>
             <div class="email-response-container hidden">
                 <hr>
@@ -673,10 +486,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        // Gather selected products and industry
-        const selectedProducts = Array.from(document.querySelectorAll('.ai-product-checkbox:checked')).map(cb => cb.value);
-        const selectedIndustry = document.getElementById('ai-industry-select').value;
-
         const originalButtonText = generateButton.textContent;
         generateButton.disabled = true;
         generateButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generating...`;
@@ -689,9 +498,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 body: {
                     userPrompt: userPrompt,
                     contactName: contactName,
-                    accountName: accountName,
-                    product_names: selectedProducts,
-                    industry: selectedIndustry
+                    accountName: accountName
                 }
             });
 
@@ -966,20 +773,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
 
-        const contactDetailsPanel = document.getElementById('contact-details');
-        if (contactDetailsPanel) {
-            contactDetailsPanel.addEventListener('click', (e) => {
-                const viewButton = e.target.closest('.btn-view-email');
-                if (viewButton) {
-                    const emailId = Number(viewButton.dataset.emailId);
-                    const emailToView = state.email_log.find(e => e.id === emailId);
-                    openEmailViewModal(emailToView);
-                }
-            });
-        }
-        
-        if(emailViewCloseBtn) emailViewCloseBtn.addEventListener('click', closeEmailViewModal);
-    
         contactForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             const id = contactForm.querySelector("#contact-id").value ? Number(contactForm.querySelector("#contact-id").value) : null;
