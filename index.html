@@ -7,9 +7,24 @@
     <title>TenWorks CRM</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Synchronous theme initialization to prevent light-mode flash
+        (function() {
+            const savedTheme = localStorage.getItem('crm-theme');
+            const themeToApply = savedTheme ? savedTheme : 'dark';
+            
+            // Apply to document element for immediate CSS variable activation
+            document.documentElement.className = `theme-${themeToApply}`;
+            
+            // Safety: Initialize storage if empty
+            if (!savedTheme) {
+                localStorage.setItem('crm-theme', 'dark');
+            }
+        })();
+    </script>
 </head>
 
 <body>
@@ -22,7 +37,7 @@
                 <input type="email" id="auth-email" placeholder="Email" required>
                 <input type="password" id="auth-password" placeholder="Password" required>
                 <div id="signup-fields" class="hidden">
-                    <input type="password" id="auth-confirm-password" placeholder="Confirm Password" >
+                    <input type="password" id="auth-confirm-password" placeholder="Confirm Password">
                 </div>
                 <button type="submit" id="auth-submit-btn" class="btn-primary full-width">Login</button>
             </form>
@@ -38,25 +53,22 @@
         </div>
     </div>
 
-   <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div id="modal-backdrop" class="modal-backdrop hidden">
         <div class="modal-content">
             <h3 id="modal-title"></h3>
             <div id="modal-body"></div>
-            <div id="modal-actions" class="modal-actions">
-                </div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
 
     <script>
-    // This script runs synchronously to apply the theme before the page renders
-    (function() {
-        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
-        document.body.className = `theme-${savedTheme}`;
-    })();
+        // Apply theme to body now that it exists
+        (function() {
+            const theme = localStorage.getItem('crm-theme') || 'dark';
+            document.body.className = `theme-${theme}`;
+        })();
     </script>
     <script type="module" src="js/auth.js"></script>
 </body>
 
 </html>
-
-
