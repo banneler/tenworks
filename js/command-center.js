@@ -296,31 +296,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Only show tasks that belong to the logged-in user in "My Tasks"
         const pendingTasks = state.tasks.filter(task => task.user_id === state.currentUser.id && task.status === 'Pending').sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
         if (pendingTasks.length > 0) {
-            pendingTasks.forEach(task => {
-                const row = myTasksTable.insertRow();
-                if (task.due_date) {
-                    const taskDueDate = new Date(task.due_date);
-                    if (taskDueDate.setHours(0,0,0,0) < startOfToday.getTime()) {
-                        row.classList.add('past-due');
-                    }
-                }
-                let linkedEntity = 'N/A';
-                if (task.contact_id) {
-                    const contact = state.contacts.find(c => c.id === task.contact_id);
-                    if (contact) linkedEntity = `<a href="contacts.html?contactId=${contact.id}" class="contact-name-link">${contact.first_name} ${contact.last_name}</a> (Contact)`;
-                } else if (task.account_id) {
-                    const account = state.accounts.find(a => a.id === task.account_id);
-                    if (account) linkedEntity = `<a href="accounts.html?accountId=${account.id}" class="contact-name-link">${account.name}</a> (Account)`;
-                }
-                row.innerHTML = `<td>${formatSimpleDate(task.due_date)}</td><td>${task.description}</td><td>${linkedEntity}</td>
-                    <td>
-                        <div class="button-group-wrapper">
-                            <button class="btn-primary mark-task-complete-btn" data-task-id="${task.id}">Complete</button>
-                            <button class="btn-secondary edit-task-btn" data-task-id="${task.id}">Edit</button>
-                            <button class="btn-danger delete-task-btn" data-task-id="${task.id}">Delete</button>
-                        </div>
-                    </td>`;
-            });
+     pendingTasks.forEach(task => {
+    const row = myTasksTable.insertRow();
+    if (task.due_date) {
+        const taskDueDate = new Date(task.due_date);
+        if (taskDueDate.setHours(0,0,0,0) < startOfToday.getTime()) {
+            row.classList.add('past-due');
+        }
+    }
+    let linkedEntity = 'N/A';
+    if (task.contact_id) {
+        const contact = state.contacts.find(c => c.id === task.contact_id);
+        if (contact) linkedEntity = `<a href="contacts.html?contactId=${contact.id}" class="contact-name-link">${contact.first_name} ${contact.last_name}</a>`;
+    } else if (task.account_id) {
+        const account = state.accounts.find(a => a.id === task.account_id);
+        if (account) linkedEntity = `<a href="accounts.html?accountId=${account.id}" class="contact-name-link">${account.name}</a>`;
+    }
+    row.innerHTML = `
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.due_date)}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name">${task.description}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${linkedEntity}</div></div></td>
+        <td>
+            <div class="button-group-wrapper">
+                <button class="btn-primary mark-task-complete-btn" data-task-id="${task.id}">Complete</button>
+                <button class="btn-secondary edit-task-btn" data-task-id="${task.id}">Edit</button>
+                <button class="btn-danger delete-task-btn" data-task-id="${task.id}">Delete</button>
+            </div>
+        </td>`;
+});
         } else {
             myTasksTable.innerHTML = '<tr><td colspan="4">No pending tasks. Great job!</td></tr>';
         }
