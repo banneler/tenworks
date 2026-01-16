@@ -4372,3 +4372,22 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     flex: 1; /* Allows the span to fill remaining space and wrap */
     min-width: 0; /* Prevents flex items from overflowing */
 }
+/* Unified font fix for Accounts, Contacts, and AI Sequence sections */
+.details-panel, 
+.ai-generation-section, 
+.ai-generated-preview,
+.summary-contact-list {
+    font-family: 'Inter', sans-serif !important;
+}
+
+/* Ensure all labels and inputs within those sections follow suit */
+.details-panel label,
+.ai-generation-section label,
+.details-panel input,
+.details-panel textarea,
+.ai-generation-section input,
+.ai-generation-section textarea {
+    font-family: 'Inter', sans-serif !important;
+    text-transform: none !important; /* Prevents industrial uppercase on body text */
+    letter-spacing: normal !important;
+}
