@@ -154,7 +154,7 @@ function renderProductCheckboxes() {
         </div>
     `).join('');
 }
-    const renderSequenceSteps = () => {
+ const renderSequenceSteps = () => {
         if (!sequenceStepsTableBody) return;
         sequenceStepsTableBody.innerHTML = "";
         if (!state.selectedSequenceId) return;
@@ -169,9 +169,8 @@ function renderProductCheckboxes() {
             const isEditingThisStep = state.editingStepId === step.id;
             const isFirstStep = index === 0;
             const isLastStep = index === steps.length - 1;
-            const isReadOnly = false; 
 
-            const actionsHtml = isReadOnly ? '<td>Read-Only</td>' : `
+            const actionsHtml = `
                 <td>
                     <div class="actions-cell-content">
                         ${isEditingThisStep ?
@@ -189,23 +188,15 @@ function renderProductCheckboxes() {
                     </div>
                 </td>`;
 
-            const assignedToHtml = isEditingThisStep ? `
-    <select class="form-control edit-step-assigned-to">
-        <option value="Sales" ${ (step.assigned_to || 'Sales') === 'Sales' ? 'selected' : '' }>Sales</option>
-        <option value="Sales Manager" ${ (step.assigned_to === 'Sales Manager') ? 'selected' : '' }>Sales Manager</option>
-        <option value="Marketing" ${ (step.assigned_to === 'Marketing') ? 'selected' : '' }>Marketing</option>
-    </select>
-` : (step.assigned_to || 'Sales');
-            
-          row.innerHTML = `
-    <td>${step.step_number}</td>
-    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--primary-blue);">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
-    <td>${isEditingThisStep ? `<input type="number" class="edit-step-delay" value="${step.delay_days || 0}">` : (step.delay_days || 0)}</td>
-    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem;">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
-    <td><div class="contact-info"><div class="contact-name" style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 400; text-transform: none; letter-spacing: normal;">${isEditingThisStep ? `<textarea class="edit-step-message">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
-    <td>${assignedToHtml}</td> 
-    ${actionsHtml}
-`;
+            // Note: Assigned To column has been removed from the row template
+            row.innerHTML = `
+                <td>${step.step_number}</td>
+                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--primary-blue);">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
+                <td>${isEditingThisStep ? `<input type="number" class="edit-step-delay" value="${step.delay_days || 0}">` : (step.delay_days || 0)}</td>
+                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem;">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
+                <td><div class="contact-info"><div class="contact-name" style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 400; text-transform: none; letter-spacing: normal;">${isEditingThisStep ? `<textarea class="edit-step-message" style="width: 100%; min-height: 60px;">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
+                ${actionsHtml}
+            `;
         });
     };
     
