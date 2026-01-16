@@ -278,42 +278,59 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     dealsTableBody.innerHTML = "";
     
-    dealsWithAccount.forEach((deal) => {
-        const row = dealsTableBody.insertRow();
-        
-        // Unified Industrial styling for key data columns
-        row.innerHTML = `
-            <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
-            <td>
-                <div class="contact-info">
-                    <div class="contact-name deal-name-link" data-deal-id="${deal.id}" style="cursor: pointer;">
-                        ${deal.name}
-                    </div>
+   dealsWithAccount.forEach((deal) => {
+    const row = dealsTableBody.insertRow();
+    
+    row.innerHTML = `
+        <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name deal-name-link" data-deal-id="${deal.id}" style="cursor: pointer;">
+                    ${deal.name}
                 </div>
-            </td>
-            <td>
-                <div class="contact-info">
-                    <div class="contact-name" style="font-size: 0.95rem; color: var(--text-medium);">
-                        ${deal.account_name}
-                    </div>
+            </div>
+        </td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name" style="font-size: 0.95rem; color: var(--text-medium);">
+                    ${deal.account_name}
                 </div>
-            </td>
-            <td>${deal.stage}</td>
-            <td>
-                <div class="contact-info">
-                    <div class="contact-name" style="color: var(--warning-yellow);">
-                        ${formatCurrency(deal.mrc || 0)}
-                    </div>
+            </div>
+        </td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name" style="font-size: 0.95rem;">
+                    ${deal.stage}
                 </div>
-            </td>
-            <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
-            <td>${deal.products || ""}</td>
-            <td>
-                <div class="button-group-wrapper">
-                    <button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button>
+            </div>
+        </td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name" style="color: var(--warning-yellow);">
+                    ${formatCurrency(deal.mrc || 0)}
                 </div>
-            </td>`;
-    });
+            </div>
+        </td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">
+                    ${deal.close_month ? formatMonthYear(deal.close_month) : ""}
+                </div>
+            </div>
+        </td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif; color: var(--text-medium); white-space: normal; line-height: 1.2;">
+                    ${deal.products || ""}
+                </div>
+            </div>
+        </td>
+        <td>
+            <div class="button-group-wrapper">
+                <button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button>
+            </div>
+        </td>`;
+});
 
     document.querySelectorAll("#deals-table th.sortable").forEach((th) => {
         th.classList.remove("asc", "desc");
