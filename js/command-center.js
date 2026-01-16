@@ -373,19 +373,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
         
         upcomingSalesTasks.forEach(task => {
-            const row = allTasksTable.insertRow();
-            row.innerHTML = `<td>${formatSimpleDate(task.next_step_due_date)}</td><td>${task.contact.first_name} ${task.contact.last_name}</td><td>${task.account ? task.account.name : "N/A"}</td><td><div class="button-group-wrapper"><button class="btn-secondary revisit-step-btn" data-cs-id="${task.id}">Revisit Last Step</button></div></td>`;
-        });
-        
-        state.activities
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
-            .slice(0, 20)
-            .forEach(act => {
-                const contact = state.contacts.find(c => c.id === act.contact_id);
-                const account = contact ? state.accounts.find(a => a.id === contact.account_id) : null;
-                const row = recentActivitiesTable.insertRow();
-                row.innerHTML = `<td>${formatDate(act.date)}</td><td>${account ? account.name : "N/A"}</td><td>${contact ? `${contact.first_name} ${contact.last_name}` : "N/A"}</td><td>${act.type}: ${act.description}</td>`;
-            });
+    const row = allTasksTable.insertRow();
+    row.innerHTML = `
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name">${task.contact.first_name} ${task.contact.last_name}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.account ? task.account.name : "N/A"}</div></div></td>
+        <td><div class="button-group-wrapper"><button class="btn-secondary revisit-step-btn" data-cs-id="${task.id}">Revisit Last Step</button></div></td>
+    `;
+});
     }
 
     // --- EVENT LISTENER SETUP ---
