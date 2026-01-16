@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const tableMap = {
             "contacts": "contacts", "accounts": "accounts", "sequences": "sequences",
             "activities": "activities", "contact_sequences": "contact_sequences",
-            "deals": "deals", "tasks": "tasks", "cognito_alerts": "cognitoAlerts"
+            "deals_tw": "deals", "tasks": "tasks", "cognito_alerts": "cognitoAlerts"
         };
         const userSpecificTables = Object.keys(tableMap);
         const publicTables = ["sequence_steps"];
