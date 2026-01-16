@@ -3806,15 +3806,65 @@ div.briefing-pre {
 
 /* Print-specific styles for the briefing PDF */
 @media print {
-    body { 
-        background-color: #ffffff !important; /* NEW: Forces a white background for the whole page */
-        color: #000000 !important;             /* Forces all text to be black */
+    /* --- 1. SETUP PAGE & LOGO --- */
+    body {
+        background-color: #fff !important;
+        color: #1a1a1a !important;
+        font-family: 'Inter', sans-serif !important;
     }
-    
-    /* This ensures our section styles are still applied correctly on top of the body style */
-    .briefing-section, div.briefing-pre {
-        background-color: #f9f9f9 !important; 
-        color: #000000 !important;
+
+    /* Inject Ten Works Logo via pseudo-element */
+    #briefing-modal-content::before {
+        content: "";
+        display: block;
+        width: 180px;
+        height: 60px;
+        margin-bottom: 20px;
+        background-image: url('../assets/logo.svg'); /* Path to your logo */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: left;
+    }
+
+    /* --- 2. HEADER & ACCENT COLORS --- */
+    h2, h3, h4 {
+        color: #b38c62 !important; /* Ten Works Gold/Brass */
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 2px solid #b38c62;
+        padding-bottom: 5px;
+    }
+
+    /* --- 3. LAYOUT & GRID --- */
+    .briefing-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .briefing-card {
+        border: 1px solid #e0e0e0 !important;
+        padding: 15px;
+        page-break-inside: avoid;
+    }
+
+    .briefing-card h4 {
+        margin-top: 0;
+        border-bottom: 1px solid #eee;
+        font-size: 1rem;
+    }
+
+    /* Highlight Section (e.g., Recommendation) */
+    .recommendation-box {
+        background-color: #f9f6f2 !important; /* Light Gold Tint */
+        border-left: 5px solid #b38c62 !important;
+        padding: 15px;
+        margin-top: 20px;
+    }
+
+    /* Hide UI elements like buttons during print */
+    .modal-actions, .btn-primary, .btn-secondary, .nav-sidebar, #modal-close-btn {
+        display: none !important;
     }
 }
 /* --- Command Center Header Styles --- */
