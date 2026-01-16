@@ -328,44 +328,41 @@ document.addEventListener("DOMContentLoaded", async () => {
         salesSequenceTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
         
         if (salesSequenceTasks.length > 0) {
-            salesSequenceTasks.forEach(task => {
-                const row = dashboardTable.insertRow();
-                const dueDate = new Date(task.next_step_due_date);
-                if (dueDate < startOfToday) {
-                    row.classList.add('past-due');
-                }
-                
-                const contactName = `${task.contact.first_name || ''} ${task.contact.last_name || ''}`;
-                
-                // --- THIS IS THE FIX ---
-                const rawDescription = task.step.subject || task.step.message || '';
-                const description = replacePlaceholders(rawDescription, task.contact, task.account);
-                // --- END FIX ---
+           salesSequenceTasks.forEach(task => {
+    const row = dashboardTable.insertRow();
+    const dueDate = new Date(task.next_step_due_date);
+    if (dueDate < startOfToday) {
+        row.classList.add('past-due');
+    }
+    
+    const contactName = `${task.contact.first_name || ''} ${task.contact.last_name || ''}`;
+    const rawDescription = task.step.subject || task.step.message || '';
+    const description = replacePlaceholders(rawDescription, task.contact, task.account);
 
-                let btnHtml;
-                const stepTypeLower = task.step.type.toLowerCase();
-                
-                if (stepTypeLower === "linkedin message") {
-                    btnHtml = `<button class="btn-primary send-linkedin-message-btn" data-cs-id="${task.id}">Send Message</button>`;
-                } else if (stepTypeLower.includes("linkedin")) { 
-                    btnHtml = `<button class="btn-primary open-linkedin-btn" data-cs-id="${task.id}">Open LinkedIn</button>`;
-                } else if (stepTypeLower.includes("email") && task.contact.email) {
-                    btnHtml = `<button class="btn-primary send-email-btn" data-cs-id="${task.id}">Send Email</button>`;
-                } else if (stepTypeLower === "call") {
-                    btnHtml = `<button class="btn-primary dial-call-btn" data-cs-id="${task.id}">Dial</button>`;
-                } else {
-                    btnHtml = `<button class="btn-primary complete-step-btn" data-cs-id="${task.id}">Complete</button>`;
-                }
+    let btnHtml;
+    const stepTypeLower = task.step.type.toLowerCase();
+    
+    if (stepTypeLower === "linkedin message") {
+        btnHtml = `<button class="btn-primary send-linkedin-message-btn" data-cs-id="${task.id}">Send Message</button>`;
+    } else if (stepTypeLower.includes("linkedin")) { 
+        btnHtml = `<button class="btn-primary open-linkedin-btn" data-cs-id="${task.id}">Open LinkedIn</button>`;
+    } else if (stepTypeLower.includes("email") && task.contact.email) {
+        btnHtml = `<button class="btn-primary send-email-btn" data-cs-id="${task.id}">Send Email</button>`;
+    } else if (stepTypeLower === "call") {
+        btnHtml = `<button class="btn-primary dial-call-btn" data-cs-id="${task.id}">Dial</button>`;
+    } else {
+        btnHtml = `<button class="btn-primary complete-step-btn" data-cs-id="${task.id}">Complete</button>`;
+    }
 
-                row.innerHTML = `
-                    <td>${formatSimpleDate(task.next_step_due_date)}</td>
-                    <td>${contactName}</td>
-                    <td>${task.sequence.name}</td>
-                    <td>${task.step.type}</td>
-                    <td>${description}</td>
-                    <td><div class="button-group-wrapper">${btnHtml}</div></td>
-                `;
-            });
+    row.innerHTML = `
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name">${contactName}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.sequence.name}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--warning-yellow);">${task.step.type}</div></div></td>
+        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif; white-space: normal; line-height: 1.2;">${description}</div></div></td>
+        <td><div class="button-group-wrapper">${btnHtml}</div></td>
+    `;
+});
         } else {
             dashboardTable.innerHTML = '<tr><td colspan="6">No sequence steps due today.</td></tr>';
         }
