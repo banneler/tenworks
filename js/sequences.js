@@ -188,15 +188,27 @@ function renderProductCheckboxes() {
                     </div>
                 </td>`;
 
-            // Note: Assigned To column has been removed from the row template
-            row.innerHTML = `
-                <td>${step.step_number}</td>
-                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--primary-blue);">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
-                <td>${isEditingThisStep ? `<input type="number" class="edit-step-delay" value="${step.delay_days || 0}">` : (step.delay_days || 0)}</td>
-                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem;">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
-                <td><div class="contact-info"><div class="contact-name" style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 400; text-transform: none; letter-spacing: normal;">${isEditingThisStep ? `<textarea class="edit-step-message" style="width: 100%; min-height: 60px;">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
-                ${actionsHtml}
-            `;
+       // Replace the corresponding cell logic in your loop with this:
+row.innerHTML = `
+    <td>
+        <div class="contact-info">
+            <div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim); justify-content: center;">
+                ${step.step_number}
+            </div>
+        </div>
+    </td>
+    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--primary-blue);">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
+    <td>
+        <div class="contact-info">
+            <div class="contact-name" style="font-size: 0.9rem; justify-content: center;">
+                ${isEditingThisStep ? `<input type="number" class="edit-step-delay" value="${step.delay_days || 0}">` : (step.delay_days || 0)}
+            </div>
+        </div>
+    </td>
+    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem;">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
+    <td><div class="contact-info"><div class="contact-name" style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 400; text-transform: none; letter-spacing: normal;">${isEditingThisStep ? `<textarea class="edit-step-message" style="width: 100%; min-height: 60px;">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
+    ${actionsHtml}
+`;
         });
     };
     
