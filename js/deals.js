@@ -275,9 +275,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         dealsTableBody.innerHTML = "";
         
        dealsWithAccount.forEach((deal) => {
+    dealsWithAccount.forEach((deal) => {
     const row = dealsTableBody.insertRow();
     
-    // We use the 'contact-name' class here to inherit the hecka cool Rajdhani font styling
+    // Applying the industrial styling to the Name, Account, and Project Value (MRC)
     row.innerHTML = `
         <td><input type="checkbox" class="commit-deal-checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td>
         <td>
@@ -287,9 +288,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </div>
             </div>
         </td>
-        <td>${deal.account_name}</td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name" style="font-size: 0.95rem; color: var(--text-medium);">
+                    ${deal.account_name}
+                </div>
+            </div>
+        </td>
         <td>${deal.stage}</td>
-        <td>${formatCurrency(deal.mrc || 0)}</td>
+        <td>
+            <div class="contact-info">
+                <div class="contact-name" style="color: var(--warning-yellow);">
+                    ${formatCurrency(deal.mrc || 0)}
+                </div>
+            </div>
+        </td>
         <td>${deal.close_month ? formatMonthYear(deal.close_month) : ""}</td>
         <td>${deal.products || ""}</td>
         <td>
