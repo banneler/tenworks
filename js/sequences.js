@@ -936,7 +936,7 @@ async function importMarketingSequence() {
         if (error) throw error;
 
         // Map the results back to the state
-        state.aiGeneratedSteps = data.map((step, index) => ({
+        state.aiGeneratedSteps = data.steps.map((step, index) => ({
             id: `ai-temp-${index}`,
             step_number: index + 1,
             type: step.type,
