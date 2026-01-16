@@ -5,30 +5,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks CRM</title>
+    
+    <script>
+        (function() {
+            // Check for saved theme, default to 'dark' for virgin browsers
+            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+            
+            // Apply to <html> to activate CSS variables immediately
+            document.documentElement.className = 'theme-' + savedTheme;
+            
+            // Force save 'dark' if it's a first-time visit
+            if (!localStorage.getItem('crm-theme')) {
+                localStorage.setItem('crm-theme', 'dark');
+            }
+        })();
+    </script>
+
+    <style>
+        /* Define the base dark variables to match your logo palette */
+        :root {
+            --bg-dark: #1F2329; 
+            --bg-medium: #23272e; 
+            --text-light: #ffffff;
+            --primary-blue: #b38c62; /* Gold Brand Color */
+        }
+
+        /* The 'Bully' rule: Force the background dark immediately */
+        html, body {
+            background-color: #1F2329 !important;
+            color: #ffffff !important;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Light theme overrides if ever needed */
+        .theme-light, .theme-light body {
+            background-color: #f0f2f5 !important;
+            color: #1F2329 !important;
+        }
+    </style>
+
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        // Synchronous theme initialization to prevent light-mode flash
-        (function() {
-            const savedTheme = localStorage.getItem('crm-theme');
-            const themeToApply = savedTheme ? savedTheme : 'dark';
-            
-            // Apply to document element for immediate CSS variable activation
-            document.documentElement.className = `theme-${themeToApply}`;
-            
-            // Safety: Initialize storage if empty
-            if (!savedTheme) {
-                localStorage.setItem('crm-theme', 'dark');
-            }
-        })();
-    </script>
 </head>
 
-<body>
-    <div id="auth-container" class="auth-container">
+<body class="theme-dark"> <div id="auth-container" class="auth-container">
         <div class="auth-box">
             <div data-svg-loader="assets/logo.svg"></div>
             <p id="auth-error" class="auth-error"></p>
@@ -61,13 +87,6 @@
         </div>
     </div>
 
-    <script>
-        // Apply theme to body now that it exists
-        (function() {
-            const theme = localStorage.getItem('crm-theme') || 'dark';
-            document.body.className = `theme-${theme}`;
-        })();
-    </script>
     <script type="module" src="js/auth.js"></script>
 </body>
 
