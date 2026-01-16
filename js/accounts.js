@@ -695,43 +695,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         const printClone = briefingContainer.cloneNode(true);
-        const chartElement = printClone.querySelector('.org-chart-print-container');
-        const sourceChartElement = briefingContainer.querySelector('#org-chart-render-target'); 
-        let originalStyle = null; 
-
-        if (chartElement && sourceChartElement && sourceChartElement.innerHTML.trim() !== "" && !sourceChartElement.querySelector('.placeholder-text')) {
-            try {
-                originalStyle = sourceChartElement.getAttribute('style');
-                sourceChartElement.setAttribute('style', 'transform-origin: top left; zoom: 1; background: var(--bg-dark, #2d3748); padding: 10px;');
-                
-                const canvas = await html2canvas(sourceChartElement, {
-                    backgroundColor: '#2d3748', 
-                    useCORS: true,
-                    scale: 1.5 
-                });
-                
-                if (originalStyle) sourceChartElement.setAttribute('style', originalStyle);
-
-                const imgDataUrl = canvas.toDataURL('image/png');
-                const orgChartImageHtml = `
-                    <div class="briefing-section" style="page-break-inside: auto !important;">
-                        <img src="${imgDataUrl}" style="width: 100%; max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;">
-                    </div>
-                `;
-                
-                chartElement.parentNode.replaceChild(
-                    document.createRange().createContextualFragment(orgChartImageHtml),
-                    chartElement
-                );
-                
-            } catch (err) {
-                console.error("html2canvas failed:", err);
-                if (sourceChartElement && originalStyle) {
-                    sourceChartElement.setAttribute('style', originalStyle);
-                }
-            }
-        }
-        
         const briefingHtml = printClone.innerHTML;
         
         const printFrame = document.createElement('iframe');
@@ -747,103 +710,128 @@ document.addEventListener("DOMContentLoaded", async () => {
         frameDoc.write(`
             <html>
                 <head>
-                    <title>AI Briefing: ${accountName || 'Account'}</title>
+                    <title>Ten Works Briefing: ${accountName || 'Account'}</title>
                     <link rel="stylesheet" href="css/style.css">
-                    
-          <style>
-    @media print {
-        body, p, li, h1, h2, h3, h4, h5, h6, strong, div {
-            font-family: system-ui, -apple-system, sans-serif !important;
-            color: #1a202c !important;
-        }
+                    <style>
+                        @media print {
+                            body {
+                                margin: 15mm;
+                                background-color: #ffffff !important;
+                                font-family: 'Inter', system-ui, sans-serif !important;
+                                color: #1a1a1a !important;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                            }
 
-        body {
-            margin: 10mm; 
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
+                            /* --- TEN WORKS HEADER & LOGO --- */
+                            .report-header {
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                border-bottom: 3px solid #d6ad81 !important; /* Gold Accent */
+                                padding-bottom: 20px !important;
+                                margin-bottom: 30px !important;
+                            }
 
-        .report-header {
-            background-color: #3b82f6 !important;
-            color: #ffffff !important;
-            padding: 10px 15px !important;
-            border-radius: 6px;
-            margin-bottom: 10px !important;
-            page-break-inside: avoid;
-        }
+                            .logo-container {
+                                height: 60px;
+                            }
 
-        .report-header h3 {
-            font-size: 1.25rem !important;
-            margin: 0 !important;
-            color: #ffffff !important;
-        }
+                            .logo-container img {
+                                height: 100%;
+                                width: auto;
+                            }
 
-    h4 {
-    font-size: 1.05rem;
-    color: #3b82f6 !important;
-    border-bottom: 2px solid #3b82f6 !important;
-    padding-bottom: 4px;
-    margin-top: 20px !important;
-    margin-bottom: 10px !important;
-    
-    display: block;
-    break-after: avoid !important;
-    page-break-after: avoid !important;
-}
+                            .header-title-group {
+                                text-align: right;
+                            }
 
-.briefing-section {
-    background-color: #f9f9f9 !important;
-    border: 1px solid #eee !important;
-    padding: 12px !important;
-    border-radius: 8px;
-    margin-bottom: 12px !important;
-    
-    break-before: avoid !important;
-    page-break-before: avoid !important;
-    page-break-inside: auto !important; 
-}
+                            .report-header h3 {
+                                font-size: 1.5rem !important;
+                                margin: 0 !important;
+                                color: #1a1a1a !important;
+                                text-transform: uppercase;
+                                letter-spacing: 1px;
+                            }
 
-        .briefing-pre {
-            background-color: #fff !important;
-            border: 1px solid #ddd !important;
-            white-space: pre-wrap !important;
-            padding: 8px !important;
-            border-radius: 4px;
-            font-size: 0.85rem !important;
-            margin-top: 5px;
-        }
+                            .report-header p {
+                                margin: 5px 0 0 0 !important;
+                                color: #d6ad81 !important; /* Gold accent */
+                                font-weight: 600;
+                            }
 
-        .briefing-section.recommendation {
-            background-color: #eef5ff !important;
-            border-color: #b0cfff !important;
-        }
-        .briefing-bullet-list {
-            margin: 8px 0;
-            padding-left: 20px !important;
-            list-style-type: disc !important;
-        }
+                            /* --- SECTION STYLING --- */
+                            h4 {
+                                font-size: 1.1rem;
+                                color: #d6ad81 !important; /* Gold Headings */
+                                margin-top: 25px !important;
+                                margin-bottom: 10px !important;
+                                text-transform: uppercase;
+                                display: flex;
+                                align-items: center;
+                            }
 
-        .briefing-bullet-list li {
-            margin-bottom: 6px;
-            line-height: 1.4;
-            page-break-inside: avoid; 
-        }
-    }
-</style>
+                            /* Remove icons for print to keep it clean, or keep them if fonts are loaded */
+                            h4 i { display: none; } 
+
+                            .briefing-section {
+                                background-color: #ffffff !important;
+                                border: 1px solid #e2e8f0 !important;
+                                padding: 15px !important;
+                                border-radius: 4px;
+                                margin-bottom: 15px !important;
+                                page-break-inside: avoid;
+                            }
+
+                            .briefing-pre {
+                                background-color: #f8fafc !important;
+                                border: 1px solid #e2e8f0 !important;
+                                white-space: pre-wrap !important;
+                                padding: 10px !important;
+                                font-size: 0.9rem !important;
+                                color: #4a5568 !important;
+                            }
+
+                            /* --- RECOMMENDATION BOX --- */
+                            .briefing-section.recommendation {
+                                background-color: #fdfaf6 !important; /* Very light gold tint */
+                                border: 1px solid #d6ad81 !important;
+                                border-left: 8px solid #d6ad81 !important;
+                            }
+
+                            .briefing-bullet-list {
+                                margin: 10px 0;
+                                padding-left: 25px !important;
+                            }
+
+                            .briefing-bullet-list li {
+                                margin-bottom: 8px;
+                                line-height: 1.5;
+                            }
+                        }
+                    </style>
                 </head>
-               <body>
-    <div class="report-header">
-        <h3>AI Account Briefing: ${accountName || 'Selected Account'}</h3>
-    </div>
-    
-    <div class="ai-briefing-container">${briefingHtml}</div>
-</body>
+                <body>
+                    <div class="report-header">
+                        <div class="logo-container">
+                            <img src="assets/logo.svg" alt="Ten Works Logo">
+                        </div>
+                        <div class="header-title-group">
+                            <h3>Account Briefing</h3>
+                            <p>${accountName || 'Selected Account'}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-briefing-container">
+                        ${briefingHtml}
+                    </div>
+                </body>
             </html>
         `);
         frameDoc.close();
 
         const originalTitle = document.title;
-        document.title = `AI Briefing: ${accountName || 'Account'}`;
+        document.title = `Briefing_${accountName || 'Account'}`;
 
         setTimeout(() => {
             try {
@@ -851,14 +839,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 printFrame.contentWindow.print();
             } catch (e) {
                 console.error("Print failed:", e);
-                alert("Could not open print dialog. Please check your browser's popup settings.");
             } finally {
                 if (document.body.contains(printFrame)) {
                     document.body.removeChild(printFrame);
                 }
                 document.title = originalTitle;
             }
-        }, 250); 
+        }, 500); // Increased timeout to ensure logo loads
     }
 
     async function handleGenerateBriefing() {
