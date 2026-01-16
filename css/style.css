@@ -199,8 +199,7 @@ th {
 }
 
 /* 3. HARD OVERRIDE FOR TABLE DATA */
-/* This specifically targets the "system default" text you are seeing */
-td, input, select, textarea, .list-item, p, span, div {
+td, input, select, textarea, .list-item, p {
     font-family: 'Inter', sans-serif !important;
 }
 
