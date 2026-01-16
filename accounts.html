@@ -67,22 +67,25 @@
                 <h2>Accounts</h2>
                 <div class="split-view">
                     <div class="item-list-container">
-                        <button id="add-account-btn" class="btn-primary full-width">Add New Account</button>
-                        <button id="bulk-import-accounts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
-                        <button id="bulk-export-accounts-btn" class="btn-secondary full-width">Bulk Export to CSV</button>
-                        <input type="file" id="account-csv-input" accept=".csv" class="hidden">
-                        <input type="text" id="account-search" placeholder="Search Accounts..." class="item-search-input">
-                        <div class="filter-bar">
-                            <select id="account-status-filter">
-                                <option value="all">All Accounts</option>
-                                <option value="hot">🔥 Hot Accounts</option>
-                                <option value="with_deals">💰 With Open Deals</option>
-                                <option value="customer">Customers</option>
-                                <option value="prospect">Prospects</option>
-                            </select>
-                        </div>
-                        <div id="account-list" class="item-list"></div>
-                    </div>
+    <button id="add-account-btn" class="btn-primary full-width">Add New Account</button>
+    <button id="bulk-import-accounts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
+    <button id="bulk-export-accounts-btn" class="btn-secondary full-width">Download Accounts CSV</button>
+    <input type="file" id="account-csv-input" accept=".csv" class="hidden">
+    
+    <input type="text" id="account-search" placeholder="Search accounts by name or industry...">
+    
+    <div class="filter-bar">
+        <select id="account-status-filter">
+            <option value="all">All Accounts</option>
+            <option value="hot">🔥 Hot Accounts</option>
+            <option value="with_deals">💰 With Open Deals</option>
+            <option value="customer">Customers</option>
+            <option value="prospect">Prospects</option>
+        </select>
+    </div>
+    
+    <div id="account-list" class="item-list"></div>
+</div>
                     <div id="account-details" class="details-panel">
                         <div id="account-pending-task-reminder" class="pending-task-reminder hidden"></div>
                         <h3>Account Details</h3>
