@@ -248,7 +248,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // --- Render Function ---
-    function renderDashboard() {
+function renderDashboard() {
         if (!myTasksTable || !dashboardTable || !allTasksTable || !recentActivitiesTable) return;
         myTasksTable.innerHTML = "";
         dashboardTable.innerHTML = "";
@@ -260,13 +260,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const salesSequenceTasks = [];
         const upcomingSalesTasks = [];
-        
         const isManager = state.isManager === true;
 
         for (const cs of state.contact_sequences) {
-            if (cs.status !== 'Active' || !cs.current_step_number) {
-                continue;
-            }
+            if (cs.status !== 'Active' || !cs.current_step_number) continue;
 
             const currentStep = state.sequence_steps.find(
                 s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number
@@ -293,94 +290,91 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
 
-        // Only show tasks that belong to the logged-in user in "My Tasks"
+        // --- 1. My Tasks Table (Styled) ---
         const pendingTasks = state.tasks.filter(task => task.user_id === state.currentUser.id && task.status === 'Pending').sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
         if (pendingTasks.length > 0) {
-     pendingTasks.forEach(task => {
-    const row = myTasksTable.insertRow();
-    if (task.due_date) {
-        const taskDueDate = new Date(task.due_date);
-        if (taskDueDate.setHours(0,0,0,0) < startOfToday.getTime()) {
-            row.classList.add('past-due');
-        }
-    }
-    let linkedEntity = 'N/A';
-    if (task.contact_id) {
-        const contact = state.contacts.find(c => c.id === task.contact_id);
-        if (contact) linkedEntity = `<a href="contacts.html?contactId=${contact.id}" class="contact-name-link">${contact.first_name} ${contact.last_name}</a>`;
-    } else if (task.account_id) {
-        const account = state.accounts.find(a => a.id === task.account_id);
-        if (account) linkedEntity = `<a href="accounts.html?accountId=${account.id}" class="contact-name-link">${account.name}</a>`;
-    }
-    row.innerHTML = `
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.due_date)}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name">${task.description}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${linkedEntity}</div></div></td>
-        <td>
-            <div class="button-group-wrapper">
-                <button class="btn-primary mark-task-complete-btn" data-task-id="${task.id}">Complete</button>
-                <button class="btn-secondary edit-task-btn" data-task-id="${task.id}">Edit</button>
-                <button class="btn-danger delete-task-btn" data-task-id="${task.id}">Delete</button>
-            </div>
-        </td>`;
-});
+            pendingTasks.forEach(task => {
+                const row = myTasksTable.insertRow();
+                if (task.due_date && new Date(task.due_date).setHours(0,0,0,0) < startOfToday.getTime()) {
+                    row.classList.add('past-due');
+                }
+                let linkedEntity = 'N/A';
+                if (task.contact_id) {
+                    const contact = state.contacts.find(c => c.id === task.contact_id);
+                    if (contact) linkedEntity = `<a href="contacts.html?contactId=${contact.id}" class="contact-name-link">${contact.first_name} ${contact.last_name}</a>`;
+                } else if (task.account_id) {
+                    const account = state.accounts.find(a => a.id === task.account_id);
+                    if (account) linkedEntity = `<a href="accounts.html?accountId=${account.id}" class="contact-name-link">${account.name}</a>`;
+                }
+                row.innerHTML = `
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.due_date)}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name">${task.description}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${linkedEntity}</div></div></td>
+                    <td>
+                        <div class="button-group-wrapper">
+                            <button class="btn-primary mark-task-complete-btn" data-task-id="${task.id}">Complete</button>
+                            <button class="btn-secondary edit-task-btn" data-task-id="${task.id}">Edit</button>
+                            <button class="btn-danger delete-task-btn" data-task-id="${task.id}">Delete</button>
+                        </div>
+                    </td>`;
+            });
         } else {
-            myTasksTable.innerHTML = '<tr><td colspan="4">No pending tasks. Great job!</td></tr>';
+            myTasksTable.innerHTML = '<tr><td colspan="4" class="placeholder-text">No pending tasks. Great job!</td></tr>';
         }
 
+        // --- 2. Sequence Actions Due Today (Styled) ---
         salesSequenceTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
-        
         if (salesSequenceTasks.length > 0) {
-           salesSequenceTasks.forEach(task => {
-    const row = dashboardTable.insertRow();
-    const dueDate = new Date(task.next_step_due_date);
-    if (dueDate < startOfToday) {
-        row.classList.add('past-due');
-    }
-    
-    const contactName = `${task.contact.first_name || ''} ${task.contact.last_name || ''}`;
-    const rawDescription = task.step.subject || task.step.message || '';
-    const description = replacePlaceholders(rawDescription, task.contact, task.account);
+            salesSequenceTasks.forEach(task => {
+                const row = dashboardTable.insertRow();
+                if (new Date(task.next_step_due_date) < startOfToday) row.classList.add('past-due');
+                
+                const description = replacePlaceholders(task.step.subject || task.step.message || '', task.contact, task.account);
 
-    let btnHtml;
-    const stepTypeLower = task.step.type.toLowerCase();
-    
-    if (stepTypeLower === "linkedin message") {
-        btnHtml = `<button class="btn-primary send-linkedin-message-btn" data-cs-id="${task.id}">Send Message</button>`;
-    } else if (stepTypeLower.includes("linkedin")) { 
-        btnHtml = `<button class="btn-primary open-linkedin-btn" data-cs-id="${task.id}">Open LinkedIn</button>`;
-    } else if (stepTypeLower.includes("email") && task.contact.email) {
-        btnHtml = `<button class="btn-primary send-email-btn" data-cs-id="${task.id}">Send Email</button>`;
-    } else if (stepTypeLower === "call") {
-        btnHtml = `<button class="btn-primary dial-call-btn" data-cs-id="${task.id}">Dial</button>`;
-    } else {
-        btnHtml = `<button class="btn-primary complete-step-btn" data-cs-id="${task.id}">Complete</button>`;
-    }
+                let btnHtml;
+                const typeLower = task.step.type.toLowerCase();
+                if (typeLower === "linkedin message") btnHtml = `<button class="btn-primary send-linkedin-message-btn" data-cs-id="${task.id}">Send Message</button>`;
+                else if (typeLower.includes("linkedin")) btnHtml = `<button class="btn-primary open-linkedin-btn" data-cs-id="${task.id}">Open LinkedIn</button>`;
+                else if (typeLower.includes("email") && task.contact.email) btnHtml = `<button class="btn-primary send-email-btn" data-cs-id="${task.id}">Send Email</button>`;
+                else if (typeLower === "call") btnHtml = `<button class="btn-primary dial-call-btn" data-cs-id="${task.id}">Dial</button>`;
+                else btnHtml = `<button class="btn-primary complete-step-btn" data-cs-id="${task.id}">Complete</button>`;
 
-    row.innerHTML = `
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name">${contactName}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.sequence.name}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--warning-yellow);">${task.step.type}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif; white-space: normal; line-height: 1.2;">${description}</div></div></td>
-        <td><div class="button-group-wrapper">${btnHtml}</div></td>
-    `;
-});
+                row.innerHTML = `
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name">${task.contact.first_name} ${task.contact.last_name}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.sequence.name}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--warning-yellow);">${task.step.type}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif; white-space: normal; line-height: 1.2;">${description}</div></div></td>
+                    <td><div class="button-group-wrapper">${btnHtml}</div></td>`;
+            });
         } else {
-            dashboardTable.innerHTML = '<tr><td colspan="6">No sequence steps due today.</td></tr>';
+            dashboardTable.innerHTML = '<tr><td colspan="6" class="placeholder-text">No sequence steps due today.</td></tr>';
         }
 
-        upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
-        
-        upcomingSalesTasks.forEach(task => {
-    const row = allTasksTable.insertRow();
-    row.innerHTML = `
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name">${task.contact.first_name} ${task.contact.last_name}</div></div></td>
-        <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.account ? task.account.name : "N/A"}</div></div></td>
-        <td><div class="button-group-wrapper"><button class="btn-secondary revisit-step-btn" data-cs-id="${task.id}">Revisit Last Step</button></div></td>
-    `;
-});
+        // --- 3. Upcoming Sales Tasks (Styled) ---
+        upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date)).forEach(task => {
+            const row = allTasksTable.insertRow();
+            row.innerHTML = `
+                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
+                <td><div class="contact-info"><div class="contact-name">${task.contact.first_name} ${task.contact.last_name}</div></div></td>
+                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.account ? task.account.name : "N/A"}</div></div></td>
+                <td><div class="button-group-wrapper"><button class="btn-secondary revisit-step-btn" data-cs-id="${task.id}">Revisit Last Step</button></div></td>`;
+        });
+
+        // --- 4. Recent Activities Table (Styled & UUID-Resilient) ---
+        state.activities.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20).forEach(act => {
+            // Check if activity belongs to user OR if manager view is active
+            if (isManager || act.user_id === state.currentUser.id) {
+                const contact = state.contacts.find(c => c.id === act.contact_id);
+                const account = contact ? state.accounts.find(a => a.id === contact.account_id) : null;
+                const row = recentActivitiesTable.insertRow();
+                row.innerHTML = `
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.8rem; color: var(--text-dim);">${formatDate(act.date)}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem;">${account ? account.name : "N/A"}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem;">${contact ? `${contact.first_name} ${contact.last_name}` : "N/A"}</div></div></td>
+                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif;">${act.type}: ${act.description}</div></div></td>`;
+            }
+        });
     }
 
     // --- EVENT LISTENER SETUP ---
