@@ -2,14 +2,14 @@
 <html lang="en">
 
 <head>
-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, outreach, and deals.">
+    <meta name="description" content="TenWorks CRM: A powerful and intuitive tool for managing your fabrication pipeline, contacts, and deals.">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Accounts</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -29,9 +29,10 @@
             <a href="deals.html" class="nav-button">Deals</a>
             <a href="contacts.html" class="nav-button">Contacts</a>
             <a href="accounts.html" class="nav-button active">Accounts</a>
-                       <a href="campaigns.html" class="nav-button">Campaigns</a>
+            <a href="campaigns.html" class="nav-button">Campaigns</a>
             <a href="sequences.html" class="nav-button">Sequences</a>
             <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+            
             <div class="nav-bottom-section">
                 <div style="position: relative;">
                     <a href="cognito.html" class="nav-button cognito-nav-link">
@@ -39,7 +40,7 @@
                             C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
                                 <defs>
                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" style="stop-color:#d6ad81;"></stop> <stop offset="100%" style="stop-color:#b38c62;"></stop> </linearGradient>
+                                    <stop offset="0%" style="stop-color:#d6ad81;"></stop> <stop offset="100%" style="stop-color:#b38c62;"></stop> </linearGradient>
                                 </defs>
                                 <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
                                     <path d="M32.2,32.2 L45,45"></path>
@@ -56,36 +57,37 @@
                         <span id="user-name-display">Loading...</span>
                     </div>
                     <div id="user-menu-popup" class="user-menu-popup">
-                        
                         <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
                     </div>
                 </div>
             </div>
         </nav>
+
         <main class="content-area">
             <div id="accounts" class="content-view active-view">
                 <h2>Accounts</h2>
                 <div class="split-view">
                     <div class="item-list-container">
-    <button id="add-account-btn" class="btn-primary full-width">Add New Account</button>
-    <button id="bulk-import-accounts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
-    <button id="bulk-export-accounts-btn" class="btn-secondary full-width">Download Accounts CSV</button>
-    <input type="file" id="account-csv-input" accept=".csv" class="hidden">
-    
-    <input type="text" id="account-search" placeholder="Search accounts by name or industry...">
-    
-    <div class="filter-bar">
-        <select id="account-status-filter">
-            <option value="all">All Accounts</option>
-            <option value="hot">🔥 Hot Accounts</option>
-            <option value="with_deals">💰 With Open Deals</option>
-            <option value="customer">Customers</option>
-            <option value="prospect">Prospects</option>
-        </select>
-    </div>
-    
-    <div id="account-list" class="item-list"></div>
-</div>
+                        <button id="add-account-btn" class="btn-primary full-width">Add New Account</button>
+                        <button id="bulk-import-accounts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
+                        <button id="bulk-export-accounts-btn" class="btn-secondary full-width">Download Accounts CSV</button>
+                        <input type="file" id="account-csv-input" accept=".csv" class="hidden">
+                        
+                        <input type="text" id="account-search" placeholder="Search accounts by name or industry...">
+                        
+                        <div class="filter-bar">
+                            <select id="account-status-filter">
+                                <option value="all">All Accounts</option>
+                                <option value="hot">🔥 Hot Accounts</option>
+                                <option value="with_deals">💰 With Open Deals</option>
+                                <option value="customer">Customers</option>
+                                <option value="prospect">Prospects</option>
+                            </select>
+                        </div>
+                        
+                        <div id="account-list" class="item-list"></div>
+                    </div>
+
                     <div id="account-details" class="details-panel">
                         <div id="account-pending-task-reminder" class="pending-task-reminder hidden"></div>
                         <h3>Account Details</h3>
@@ -112,16 +114,23 @@
                                 <label for="account-is-customer">Is this a Customer?</label>
                                 <input type="checkbox" id="account-is-customer">
                             </div>
-                            <div class="notes-section"><label for="account-notes">Notes</label><textarea id="account-notes"></textarea><small id="account-last-saved" class="last-saved-text"></small></div>
-                            <div class="form-buttons"><button type="submit" class="btn-primary">Save Changes</button><button type="button" id="delete-account-btn" class="btn-danger">Delete Account</button></div>
+                            <div class="notes-section">
+                                <label for="account-notes">Notes</label>
+                                <textarea id="account-notes"></textarea>
+                                <small id="account-last-saved" class="last-saved-text"></small>
+                            </div>
+                            <div class="form-buttons">
+                                <button type="submit" class="btn-primary">Save Changes</button>
+                                <button type="button" id="delete-account-btn" class="btn-danger">Delete Account</button>
+                            </div>
                         </form>
                         <hr>
                         <div class="action-buttons">
                             <button id="add-deal-btn" class="btn-secondary">New Deal</button>
                             <button id="add-task-account-btn" class="btn-secondary">Add Task</button>
-                            <!-- MODIFIED: Replaced old AI button with the new Briefing button -->
                             <button id="ai-briefing-btn" class="btn-primary cognito-style-btn"><i class="fas fa-bolt-lightning"></i> &nbsp;Generate AI Briefing</button>
                         </div>
+
                         <div class="related-info">
                             <h4>Current Deals</h4>
                             <div class="table-container">
@@ -130,20 +139,16 @@
                                         <tr>
                                             <th>Committed</th>
                                             <th>Deal Name</th>
-                                            <th>Term</th>
                                             <th>Stage</th>
-                                            <th>MRC</th>
-                                            <th>Close Month</th>
-                                            <th>Products</th>
-                                            <th>Actions</th>
+                                            <th>Project Value</th> <th>Est. Close Month</th> <th>Job Details</th> <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
                                 </table>
                             </div>
                         </div>
+
                         <div class="related-info">
-                            <!-- NEW: Header for the contact view toggle -->
                             <div class="contact-view-header">
                                 <h4>Associated Contacts</h4>
                                 <div class="view-mode-toggle">
@@ -151,20 +156,13 @@
                                     <button id="contact-org-chart-btn" class="view-mode-btn" title="Org Chart View"><i class="fas fa-sitemap"></i></button>
                                 </div>
                             </div>
-
-                            <!-- NEW: Container for the list view (default) -->
                             <div id="contact-list-view">
                                 <ul id="account-contacts-list"></ul>
                             </div>
+                            <div id="contact-org-chart-view" class="kanban-board-container hidden"></div>
+                            <div id="unassigned-contacts-container" class="hidden"></div>
+                        </div>
 
-                            <!-- NEW: Container for the org chart view (hidden) -->
-                            <!-- We'll reuse the kanban-board-container style for its horizontal scrolling properties -->
-                            <div id="contact-org-chart-view" class="kanban-board-container hidden">
-                            </div>
-
-                        <div id="unassigned-contacts-container" class="hidden">
-                            </div>
-                    </div>
                         <div class="related-info">
                             <h4>Related Activities</h4>
                             <ul id="account-activities-list"></ul>
@@ -174,14 +172,15 @@
             </div>
         </main>
     </div>
+
     <div id="modal-backdrop" class="modal-backdrop hidden">
         <div class="modal-content">
             <h3 id="modal-title"></h3>
             <div id="modal-body"></div>
-            <div id="modal-actions" class="modal-actions">
-            </div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
+
     <div id="email-view-modal-backdrop" class="modal-backdrop hidden">
         <div class="email-view-modal">
             <div class="email-view-header">
@@ -198,6 +197,7 @@
             </div>
         </div>
     </div>
+
     <script>
         (function() {
             const savedTheme = localStorage.getItem('crm-theme') || 'dark';
@@ -206,4 +206,5 @@
     </script>
     <script type="module" src="js/accounts.js"></script>
 </body>
+
 </html>
