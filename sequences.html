@@ -2,14 +2,14 @@
 <html lang="en">
 
 <head>
-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+    <meta name="description" content="TenWorks CRM: A powerful and intuitive tool for managing your fabrication pipeline, contacts, and deals.">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Sequences</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
@@ -25,11 +25,11 @@
                 <div id="global-search-results" class="global-search-results hidden"></div>
             </div>
 
-            <a href="command-center.html" class="nav-button">Fabrication Shope</a>
+            <a href="command-center.html" class="nav-button">Fabrication Shop</a>
             <a href="deals.html" class="nav-button">Deals</a>
             <a href="contacts.html" class="nav-button">Contacts</a>
             <a href="accounts.html" class="nav-button">Accounts</a>
-           
+            
             <a href="campaigns.html" class="nav-button">Campaigns</a>
             <a href="sequences.html" class="nav-button active">Sequences</a>
             <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
@@ -41,7 +41,7 @@
                             C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
                                 <defs>
                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" style="stop-color:#d6ad81;"></stop> <stop offset="100%" style="stop-color:#b38c62;"></stop> </linearGradient>
+                                    <stop offset="0%" style="stop-color:#d6ad81;"></stop> <stop offset="100%" style="stop-color:#b38c62;"></stop> </linearGradient>
                                 </defs>
                                 <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
                                     <path d="M32.2,32.2 L45,45"></path>
@@ -59,7 +59,6 @@
                         <span id="user-name-display">Loading...</span>
                     </div>
                     <div id="user-menu-popup" class="user-menu-popup">
-                     
                         <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
                     </div>
                 </div>
@@ -71,13 +70,13 @@
                 <h2>Sequences</h2>
                 <div class="split-view">
                    <div class="item-list-container">
-    <button id="add-sequence-btn" class="btn-primary full-width">Add New Sequence</button>
-    <button id="import-marketing-sequence-btn" class="btn-secondary full-width">Import Marketing Sequence</button>
-    <button id="bulk-import-sequence-steps-btn" class="btn-secondary full-width">Bulk Import Steps from CSV</button>
-    <input type="file" id="sequence-steps-csv-input" accept=".csv" class="hidden">
-    <input type="text" id="sequence-search" placeholder="Search Sequences...">
-    <div id="sequence-list" class="item-list"></div>
-</div>
+                        <button id="add-sequence-btn" class="btn-primary full-width">Add New Sequence</button>
+                        <button id="import-marketing-sequence-btn" class="btn-secondary full-width">Import Marketing Sequence</button>
+                        <button id="bulk-import-sequence-steps-btn" class="btn-secondary full-width">Bulk Import Steps from CSV</button>
+                        <input type="file" id="sequence-steps-csv-input" accept=".csv" class="hidden">
+                        <input type="text" id="sequence-search" placeholder="Search Sequences...">
+                        <div id="sequence-list" class="item-list"></div>
+                    </div>
                     <div id="sequence-details" class="details-panel">
                         <h3>Sequence Details</h3>
                         <form id="sequence-form">
@@ -109,8 +108,7 @@
                                         </tr>
                                     </thead>
                                     <tbody id="sequence-steps-table-body">
-                                        <!-- Steps will be loaded here -->
-                                    </tbody>
+                                        </tbody>
                                 </table>
                             </div>
                             <button id="add-step-btn" class="btn-secondary">Add New Step</button>
@@ -118,22 +116,19 @@
                     </div>
                 </div>
 
-                <hr> <!-- Separator for AI Generation section -->
+                <hr>
 
-                <!-- AI Sequence Generation Section -->
                 <div class="ai-generation-section">
                     <h3>AI Generate New Sequence</h3>
                     <div class="form-grid">
-                        <!-- NEW: Sequence Goal/Topic -->
                         <div class="full-span-grid-item">
-                            <label for="ai-sequence-goal">Sequence Goal/Topic (e.g., "Cold outreach for cloud solutions", "Follow-up after webinar", "Customer onboarding")</label>
+                            <label for="ai-sequence-goal">Sequence Goal/Topic (e.g., "Follow-up after lobby design meeting", "Architect outreach for bespoke stairs", "Post-install check-in")</label>
                             <textarea id="ai-sequence-goal" rows="2" placeholder="What is the main purpose or topic of this sequence?"></textarea>
                         </div>
                         <div>
                             <label for="ai-num-steps">Number of Steps</label>
                             <input type="number" id="ai-num-steps" min="1" value="5">
                         </div>
-                        <!-- NEW: Total Sequence Duration -->
                         <div>
                             <label for="ai-total-duration">Total Sequence Duration (Days)</label>
                             <input type="number" id="ai-total-duration" min="1" value="14">
@@ -147,33 +142,12 @@
                                 <div><input type="checkbox" id="ai-step-type-task" value="Task"> <label for="ai-step-type-task">Task</label></div>
                                 <div class="other-step-type-group">
                                     <input type="checkbox" id="ai-step-type-other" value="Other"> <label for="ai-step-type-other">Other:</label>
-                                    <input type="text" id="ai-step-type-other-input" placeholder="e.g., Gift, Door Pull" disabled>
+                                    <input type="text" id="ai-step-type-other-input" placeholder="e.g., Shop Tour, Material Samples" disabled>
                                 </div>
                             </div>
                         </div>
                         <div class="full-span-grid-item">
-    <div class="ai-options-container">
-        <div class="ai-product-selection">
-            <p class="section-label">Include Product Info (Optional)</p>
-            <div id="ai-product-list" class="product-list-container">
-                <p class="placeholder-text">Loading products...</p>
-            </div>
-        </div>
-        <div class="ai-industry-selection">
-            <label for="ai-industry-select" class="section-label">Target Industry</label>
-            <select id="ai-industry-select">
-                <option value="General">General</option>
-                <option value="Healthcare">Healthcare</option>
-                <option value="Financial">Financial</option>
-                <option value="Retail">Retail</option>
-                <option value="Manufacturing">Manufacturing</option>
-                <option value="K-12 Education">K-12 Education</option>
-            </select>
-        </div>
-    </div>
-</div>
-                        <div class="full-span-grid-item">
-                            <label for="ai-persona-prompt">Persona & Voice Prompt (e.g., "Friendly, expert, B2B SaaS sales rep specializing in cloud infrastructure.")</label>
+                            <label for="ai-persona-prompt">Persona & Voice Prompt (e.g., "Chad, a relationship-led project developer focusing on tenacious problem solving and 'Wild Ideas'.")</label>
                             <textarea id="ai-persona-prompt" rows="3" placeholder="Define the persona and tone for the AI-generated content."></textarea>
                         </div>
                     </div>
@@ -185,16 +159,13 @@
                         <h4>AI Generated Sequence Preview:</h4>
                         <p class="placeholder-text">Review the generated steps below. You can edit them before saving.</p>
                         <form id="ai-generated-sequence-form">
-                            <!-- AI generated steps will be dynamically inserted here -->
-                        </form>
+                            </form>
                         <div class="form-buttons">
                             <button id="save-ai-sequence-btn" class="btn-primary">Save AI Generated Sequence</button>
                             <button id="cancel-ai-sequence-btn" class="btn-secondary">Cancel AI Generation</button>
                         </div>
                     </div>
                 </div>
-                <!-- END AI Sequence Generation Section -->
-
             </div>
         </main>
     </div>
@@ -203,8 +174,7 @@
         <div class="modal-content">
             <h3 id="modal-title"></h3>
             <div id="modal-body"></div>
-            <div id="modal-actions" class="modal-actions">
-                </div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
 
