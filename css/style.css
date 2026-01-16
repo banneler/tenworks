@@ -198,11 +198,6 @@ th {
     letter-spacing: 0.05em;
 }
 
-/* 3. HARD OVERRIDE FOR TABLE DATA */
-td, input, select, textarea, .list-item, p {
-    font-family: 'Inter', sans-serif !important;
-}
-
 /* Table specific clean-up */
 td {
     font-size: 0.95rem;
@@ -4287,22 +4282,6 @@ button.btn-primary:hover {
     letter-spacing: 0.5px;
     text-transform: uppercase;
 }
-/* --- FONT AWESOME PROTECTION SQUAD --- */
-/* This ensures icons effectively ignore the "Hard Override" rule above */
-
-.fa, .fas, .fa-solid, .fa-regular, .far, .fa-brands, .fab {
-    font-family: "Font Awesome 6 Free" !important;
-}
-
-.fa-brands, .fab {
-    font-family: "Font Awesome 6 Brands" !important;
-}
-
-/* Ensure proper weights (Solid needs 900, Regular needs 400) */
-.fa-solid, .fas {
-    font-weight: 900 !important;
-}
-
-.fa-regular, .far, .fa-brands, .fab {
-    font-weight: 400 !important;
+input, select, textarea, button, table, td, th {
+    font-family: inherit;
 }
