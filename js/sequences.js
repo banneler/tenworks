@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 }
     // --- Render Functions ---
-    const renderSequenceList = () => {
+const renderSequenceList = () => {
         if (!sequenceList) return;
         sequenceList.innerHTML = "";
         state.sequences
@@ -117,12 +117,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const completedCount = finishedSequences.filter(cs => cs.status === 'Completed').length;
                 const successRate = finishedSequences.length > 0 ? Math.round((completedCount / finishedSequences.length) * 100) : 0;
 
+                // Unified Rajdhani styling with gold success rates
                 item.innerHTML = `
-                    <div class="sequence-info">
-                        <div class="sequence-name">${indicatorHtml} ${seq.name}</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${indicatorHtml} ${seq.name}</div>
                         <div class="sequence-list-stats"> 
-                            <span>Active: ${activeContacts}</span>
-                            <span class="success-rate">Success: ${successRate}%</span>
+                            <span class="account-name">Active: ${activeContacts}</span>
+                            <span class="contact-name" style="color: var(--primary-blue); font-size: 0.85rem;">Success: ${successRate}%</span>
                         </div>
                     </div>
                 `;
@@ -196,12 +197,12 @@ function renderProductCheckboxes() {
     </select>
 ` : (step.assigned_to || 'Sales');
             
-           row.innerHTML = `
+          row.innerHTML = `
     <td>${step.step_number}</td>
-    <td>${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</td>
+    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--primary-blue);">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
     <td>${isEditingThisStep ? `<input type="number" class="edit-step-delay" value="${step.delay_days || 0}">` : (step.delay_days || 0)}</td>
-    <td>${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</td>
-    <td>${isEditingThisStep ? `<textarea class="edit-step-message">${step.message || ''}</textarea>` : (step.message || '')}</td>
+    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem;">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
+    <td><div class="contact-info"><div class="contact-name" style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 400; text-transform: none; letter-spacing: normal;">${isEditingThisStep ? `<textarea class="edit-step-message">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
     <td>${assignedToHtml}</td> 
     ${actionsHtml}
 `;
