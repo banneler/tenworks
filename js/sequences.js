@@ -899,50 +899,44 @@ async function importMarketingSequence() {
     const sequenceGoal = aiSequenceGoalTextarea.value.trim();
     const totalDuration = parseInt(aiTotalDurationInput.value, 10);
     const numSteps = parseInt(aiNumStepsInput.value, 10);
+    
     const selectedStepTypes = [];
     if (aiStepTypeEmailCheckbox.checked) selectedStepTypes.push(aiStepTypeEmailCheckbox.value);
     if (aiStepTypeLinkedinCheckbox.checked) selectedStepTypes.push(aiStepTypeLinkedinCheckbox.value);
     if (aiStepTypeCallCheckbox.checked) selectedStepTypes.push(aiStepTypeCallCheckbox.value);
     if (aiStepTypeTaskCheckbox.checked) selectedStepTypes.push(aiStepTypeTaskCheckbox.value);
+    
     if (aiStepTypeOtherCheckbox.checked) {
         const customType = aiStepTypeOtherInput.value.trim();
-        if (customType) {
-            selectedStepTypes.push(customType);
-        } else {
-            showModal("Error", "Please provide a name for the 'Other' step type.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-            return;
-        }
+        if (customType) selectedStepTypes.push(customType);
     }
+
     const personaPrompt = aiPersonaPromptTextarea.value.trim();
 
-    // --- NEW: Gather product and industry info ---
-    const selectedProducts = Array.from(document.querySelectorAll('#ai-product-list .ai-product-checkbox:checked')).map(cb => cb.value);
-    const selectedIndustry = document.getElementById('ai-industry-select').value;
-
+    // VALIDATION: Removed industry and product checks
     if (!sequenceGoal || isNaN(totalDuration) || totalDuration < 1 || numSteps < 1 || selectedStepTypes.length === 0 || !personaPrompt) {
-        showModal("Error", "Please fill out all AI generation fields correctly.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+        showModal("Error", "Please fill out all AI generation fields.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
         return;
     }
 
     showModal("Generating Sequence", `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">AI is drafting your sequence steps...</p>`, null, false, `<button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
 
     try {
-        // --- UPDATED: Call function with new data ---
-        const { data, error } = await supabase.functions.invoke('generate-sequence-steps', {
+        // PAYLOAD: We send only what the TenWorks Edge Function now expects
+        const { data, error } = await supabase.functions.invoke('generate-sequence', {
             body: { 
-                sequenceGoal, 
+                goal: sequenceGoal, 
                 numSteps, 
                 totalDuration, 
                 stepTypes: selectedStepTypes, 
-                personaPrompt,
-                product_names: selectedProducts,
-                industry: selectedIndustry
+                personaPrompt 
             }
         });
 
         if (error) throw error;
 
-        state.aiGeneratedSteps = data.steps.map((step, index) => ({
+        // Map the results back to the state
+        state.aiGeneratedSteps = data.map((step, index) => ({
             id: `ai-temp-${index}`,
             step_number: index + 1,
             type: step.type,
@@ -955,11 +949,10 @@ async function importMarketingSequence() {
         renderAiGeneratedStepsPreview();
         hideModal();
         aiGeneratedSequencePreview.classList.remove('hidden');
-        showModal("Success", "AI sequence generated! Review and save below.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
 
     } catch (error) {
         console.error("Error generating AI sequence:", error);
-        showModal("Error", `Failed to generate AI sequence: ${error.message}. Please try again.`, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+        showModal("Error", `Failed to generate AI sequence: ${error.message}`, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
     }
 }
     function renderAiGeneratedStepsPreview() {
