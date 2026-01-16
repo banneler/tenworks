@@ -2225,7 +2225,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .cognito-nav-link h1 {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Orbitron', sans-serif !important;
     font-size: 1.5rem; /* Scaled down for the nav bar */
     font-weight: 700;
     color: var(--text-medium);
@@ -4282,4 +4282,21 @@ button.btn-primary:hover {
 }
 input, select, textarea, button, table, td, th {
     font-family: inherit;
+}
+/* --- SAFE FONT OVERRIDE FOR DATA --- */
+/* Forces 'Inter' on specific text elements without breaking icons */
+input, select, textarea, button, table, td, th, p, .list-item {
+    font-family: 'Inter', sans-serif !important;
+}
+
+/* Extra protection: Ensure icons inside these elements keep their own font */
+i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900; /* Default for Solid icons */
+}
+
+/* Fix for Brand icons specifically */
+.fa-brands, .fab {
+    font-family: "Font Awesome 6 Brands" !important;
+    font-weight: 400;
 }
