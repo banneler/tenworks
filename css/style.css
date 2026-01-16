@@ -168,8 +168,6 @@ body.theme-green {
 
 *, *::before, *::after {
     box-sizing: border-box;
-    /* This ensures form inputs and tables don't go rogue */
-    font-family: 'Inter', sans-serif; 
 }
 
 body {
