@@ -130,12 +130,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
         const activeAccountIds = new Set(
             state.activities
-            .filter(act => act.date && new Date(act.date) > sixtyDaysAgo)
-            .map(act => {
-                if (act.account_id) return act.account_id;
-                const contact = state.contacts.find(c => c.id === act.contact_id);
-                return contact ? contact.account_id : null;
-            })
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 20)
+    .forEach(act => {
+        const contact = state.contacts.find(c => c.id === act.contact_id);
+        const account = contact ? state.accounts.find(a => a.id === contact.account_id) : null;
+        const row = recentActivitiesTable.insertRow();
+        row.innerHTML = `
+            <td><div class="contact-info"><div class="contact-name" style="font-size: 0.8rem; color: var(--text-dim);">${formatDate(act.date)}</div></div></td>
+            <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem;">${account ? account.name : "N/A"}</div></div></td>
+            <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem;">${contact ? `${contact.first_name} ${contact.last_name}` : "N/A"}</div></div></td>
+            <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif;">${act.type}: ${act.description}</div></div></td>
+        `;
+    });
             .filter(id => id)
         );
         state.nurtureAccounts = state.accounts.filter(account => !activeAccountIds.has(account.id));
