@@ -339,13 +339,14 @@ function renderDashboard() {
                 else if (typeLower === "call") btnHtml = `<button class="btn-primary dial-call-btn" data-cs-id="${task.id}">Dial</button>`;
                 else btnHtml = `<button class="btn-primary complete-step-btn" data-cs-id="${task.id}">Complete</button>`;
 
-                row.innerHTML = `
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name">${task.contact.first_name} ${task.contact.last_name}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.sequence.name}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--warning-yellow);">${task.step.type}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif; white-space: normal; line-height: 1.2;">${description}</div></div></td>
-                    <td><div class="button-group-wrapper">${btnHtml}</div></td>`;
+                // Sequence Actions Table
+row.innerHTML = `
+    <td class="inter-data" style="color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</td>
+    <td class="inter-data" style="font-weight: 500;">${contactName}</td>
+    <td class="inter-data" style="color: var(--text-medium);">${task.sequence.name}</td>
+    <td class="inter-data" style="color: var(--warning-yellow); font-weight: 600;">${task.step.type}</td>
+    <td class="inter-data" style="font-size: 0.85rem;">${description}</td>
+    <td><div class="button-group-wrapper">${btnHtml}</div></td>`;
             });
         } else {
             dashboardTable.innerHTML = '<tr><td colspan="6" class="placeholder-text">No sequence steps due today.</td></tr>';
