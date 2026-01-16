@@ -923,7 +923,7 @@ async function importMarketingSequence() {
 
     try {
         // PAYLOAD: We send only what the TenWorks Edge Function now expects
-        const { data, error } = await supabase.functions.invoke('generate-sequence', {
+        const { data, error } = await supabase.functions.invoke('generate-sequence-steps', {
             body: { 
                 goal: sequenceGoal, 
                 numSteps, 
