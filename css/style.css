@@ -253,7 +253,7 @@ body.theme-green::before {
 
 /* Correct, specific width for the smaller logo in the sidebar */
 .nav-logo {
-    width: 180px; /* This is the correct width for the sidebar */
+    width: 150px; /* This is the correct width for the sidebar */
     margin: 0 auto 0.625rem auto;
     display: block;
 }
