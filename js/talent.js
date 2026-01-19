@@ -12,27 +12,36 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
-    // --- 1. INITIALIZATION ---
+    // ------------------------------------------------------------------------
+    // 1. INITIALIZATION & AUTH
+    // ------------------------------------------------------------------------
     await loadSVGs(); 
+    
+    // Auth Check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = 'index.html'; return; }
+    
     await setupUserMenuAndAuth(supabase, { currentUser: user });
     await setupGlobalSearch(supabase, user);
 
-    // --- 2. GLOBAL STATE ---
+    // ------------------------------------------------------------------------
+    // 2. GLOBAL STATE
+    // ------------------------------------------------------------------------
     let state = {
         talent: [],         
-        trades: [],         // New: List of all skills
-        skills: [],         // New: Junction table (who has what skill)
+        trades: [],         
+        skills: [],         
         availability: [],   
         assignments: [],    
         activeTasks: [],    
         viewDate: dayjs(),  
         daysToShow: 30,
-        filterTradeId: null // New: Current Filter
+        filterTradeId: null 
     };
 
-    // --- 3. LISTENERS ---
+    // ------------------------------------------------------------------------
+    // 3. LISTENERS & SYNC
+    // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
     const filterEl = document.getElementById('trade-filter');
@@ -40,11 +49,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (prevBtn) prevBtn.addEventListener('click', () => { state.viewDate = state.viewDate.subtract(7, 'day'); renderMatrix(); });
     if (nextBtn) nextBtn.addEventListener('click', () => { state.viewDate = state.viewDate.add(7, 'day'); renderMatrix(); });
     
-    // Filter Listener
     if (filterEl) {
         filterEl.addEventListener('change', (e) => {
             state.filterTradeId = e.target.value ? parseInt(e.target.value) : null;
-            renderMatrix(); // Re-render with filter
+            renderMatrix(); 
         });
     }
 
@@ -52,6 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
     const dateHeader = document.getElementById('matrix-date-header');
+    
     if (gridCanvas && sidebarList && dateHeader) {
         gridCanvas.addEventListener('scroll', () => {
             dateHeader.scrollLeft = gridCanvas.scrollLeft;
@@ -59,14 +68,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // --- 4. DATA FETCHING ---
+    // ------------------------------------------------------------------------
+    // 4. DATA FETCHING
+    // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
         
         const [talentRes, tradeRes, skillRes, availRes, assignRes, activeRes] = await Promise.all([
             supabase.from('shop_talent').select('*').eq('active', true).order('name'),
-            supabase.from('shop_trades').select('*').order('name'), // Load Trades
-            supabase.from('talent_skills').select('*'),             // Load Skills Junction
+            supabase.from('shop_trades').select('*').order('name'),
+            supabase.from('talent_skills').select('*'),
             supabase.from('talent_availability').select('*'),
             supabase.from('project_tasks').select('*, projects(name)').not('assigned_talent_id', 'is', null),
             supabase.from('project_tasks').select('*, projects(name)').in('status', ['Pending', 'In Progress'])
@@ -86,7 +97,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function populateFilterDropdown() {
         const sel = document.getElementById('trade-filter');
         if(!sel) return;
-        // Keep "All" as first option
         const currentVal = sel.value;
         sel.innerHTML = '<option value="">ALL FUNCTIONS</option>';
         state.trades.forEach(trade => {
@@ -95,20 +105,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(currentVal) sel.value = currentVal;
     }
 
-    // --- 5. RENDER ENGINE ---
+    // ------------------------------------------------------------------------
+    // 5. RENDER ENGINE
+    // ------------------------------------------------------------------------
     function renderMatrix() {
         // A. FILTER LOGIC
-        // Determine which rows (people) to show
         let visibleTalent = state.talent;
         if (state.filterTradeId) {
-            // Only show people who have this skill
             const skilledTalentIds = state.skills
                 .filter(s => s.trade_id === state.filterTradeId)
                 .map(s => s.talent_id);
             visibleTalent = state.talent.filter(t => skilledTalentIds.includes(t.id));
         }
 
-        // B. Header Update
+        // B. Header Date
         const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
         document.getElementById('current-week-label').textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
 
@@ -120,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (calculatedHeight < 50) calculatedHeight = 50; 
         const rowHeightStyle = `${calculatedHeight}px`;
 
-        // D. Render Columns (Header)
+        // D. Render Header Columns
         const dateHeaderEl = document.getElementById('matrix-date-header');
         let headerHtml = '';
         const colWidth = 120; 
@@ -131,28 +141,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            // --- FUNCTIONAL SHORTAGE MATH ---
-            // 1. Calculate DEMAND (REQ)
+            // Metric Calculations
             let dailyDemand = 0;
             if (state.filterTradeId) {
-                // If filtered, count only tasks for this specific trade
                 dailyDemand = state.activeTasks.filter(t => {
                     const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
                                    (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
                     return active && t.trade_id === state.filterTradeId;
                 }).length;
             } else {
-                // If ALL, count ALL active tasks
                 dailyDemand = state.activeTasks.filter(t => {
                     return (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
                            (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
                 }).length;
             }
 
-            // 2. Calculate CAPACITY (CAP)
-            // Count visible staff (already filtered by trade above) minus PTO
-            const ptoCount = state.availability.filter(a => a.date === dateStr && a.status === 'PTO').length;
-            // Note: We need to filter PTO only for the *visible* talent
             const visibleIds = visibleTalent.map(t => t.id);
             const effectivePto = state.availability.filter(a => 
                 a.date === dateStr && 
@@ -161,9 +164,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             ).length;
 
             const capacity = visibleTalent.length - effectivePto;
-
             const isShort = dailyDemand > capacity;
-            let metricColor = isShort ? '#ff4444' : (dailyDemand === capacity ? 'var(--warning-yellow)' : '#4CAF50');
+            
+            let metricColor = 'var(--text-dim)';
+            if (isShort) metricColor = '#ff4444'; 
+            else if (dailyDemand === capacity) metricColor = 'var(--warning-yellow)'; 
+            else if (dailyDemand < capacity) metricColor = '#4CAF50';
+
             const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : '';
             const borderStyle = isShort ? 'border-bottom: 3px solid #ff4444;' : (isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '');
             const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
@@ -187,9 +194,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         gridCanvas.innerHTML = '';
 
         visibleTalent.forEach((person) => {
-            const rowBg = 'rgba(255,255,255,0.02)'; // Uniform BG
+            const rowBg = 'rgba(255,255,255,0.02)';
 
-            // Sidebar (Clickable Name)
+            // Sidebar (Name)
             const sidebarItem = document.createElement('div');
             sidebarItem.style.height = rowHeightStyle;
             sidebarItem.style.backgroundColor = rowBg;
@@ -198,7 +205,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             sidebarItem.style.padding = '0 15px';
             sidebarItem.style.borderBottom = '1px solid var(--border-color)';
             
-            // Generate Tags for Skills
             const personSkills = state.skills
                 .filter(s => s.talent_id === person.id)
                 .map(s => {
@@ -210,13 +216,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div style="width:30px; height:30px; min-width:30px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
                     ${getInitials(person.name)}
                 </div>
-                <div style="overflow:hidden;">
-                    <div class="talent-name-clickable" style="font-weight:600; font-size:0.9rem; color:var(--text-bright); white-space:nowrap;">${person.name}</div>
+                <div style="overflow:hidden; width:100%;">
+                    <div class="talent-name-clickable" style="font-weight:600; font-size:0.9rem; color:var(--text-bright); white-space:nowrap; cursor:pointer;">${person.name}</div>
                     <div style="font-size:0.7rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${personSkills || 'No Skills'}</div>
                 </div>
             `;
             
-            // Name Click -> Open Skills Modal
             sidebarItem.querySelector('.talent-name-clickable').addEventListener('click', () => openSkillsModal(person));
             resList.appendChild(sidebarItem);
 
@@ -249,22 +254,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.style.alignItems = 'center';
                 cell.style.justifyContent = 'center';
                 cell.style.fontSize = '0.75rem';
-                cell.style.transition = 'background 0.2s';
                 
                 if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
                 if (avail && avail.status === 'PTO') {
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
-                    cell.style.color = 'var(--text-dim)';
-                    cell.innerHTML = '<i class="fas fa-plane" style="margin-right:5px;"></i>';
+                    cell.innerHTML = '<i class="fas fa-plane" style="color:var(--text-dim);"></i>';
                 } else if (task) {
                     cell.style.backgroundColor = 'rgba(33, 150, 243, 0.15)'; 
                     cell.style.borderLeft = '3px solid var(--primary-blue)';
                     cell.style.color = 'white';
-                    cell.innerHTML = `
-                        <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 5px; max-width:100%;">
-                            ${task.projects?.name || 'Project'}
-                        </div>`;
+                    cell.innerHTML = `<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 5px;">${task.projects?.name}</div>`;
                     cell.title = `${task.name} (${task.projects?.name})`;
                 }
 
@@ -279,29 +279,30 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
 
-    // --- 6. SKILLS MANAGER MODAL (NEW) ---
+    // ------------------------------------------------------------------------
+    // 6. SKILLS MODAL (FIXED LAYOUT)
+    // ------------------------------------------------------------------------
     function openSkillsModal(person) {
-        // Get current skills
         const currentSkillIds = state.skills
             .filter(s => s.talent_id === person.id)
             .map(s => s.trade_id);
 
-        // Build Checkboxes
         const checkboxes = state.trades.map(trade => {
             const isChecked = currentSkillIds.includes(trade.id);
+            // Explicit sizing and flex behavior
             return `
-                <div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
+                <div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color); box-sizing:border-box; width:100%;">
                     <input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} style="margin-right:10px; transform:scale(1.2);">
-                    <label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer; flex:1;">${trade.name}</label>
+                    <label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${trade.name}</label>
                 </div>
             `;
         }).join('');
 
         showModal(`Manage Skills: ${person.name}`, `
             <div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">
-                Select the functional capabilities for this staff member. This affects the "Capacity" calculation in the matrix.
+                Select functional capabilities. This updates "Capacity" calculations.
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto; width:100%; box-sizing:border-box;">
                 ${checkboxes}
             </div>
             <button id="btn-save-skills" class="btn-primary" style="width:100%; margin-top:20px;">Save Changes</button>
@@ -313,34 +314,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                 saveBtn.onclick = async () => {
                     const selectedTradeIds = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
                     
-                    // 1. Delete all existing skills for this person
                     await supabase.from('talent_skills').delete().eq('talent_id', person.id);
                     
-                    // 2. Insert new selections
                     if(selectedTradeIds.length > 0) {
                         const insertData = selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid }));
                         await supabase.from('talent_skills').insert(insertData);
                     }
                     
                     hideModal();
-                    loadTalentData(); // Refresh grid
+                    loadTalentData();
                 };
             }
         }, 100);
     }
 
-    // --- 7. ASSIGNMENT MODAL ---
+    // ------------------------------------------------------------------------
+    // 7. ASSIGNMENT MODAL
+    // ------------------------------------------------------------------------
     function handleCellClick(person, dateStr, avail, currentTask) {
         const d = dayjs(dateStr);
-        // Filter tasks by selected trade (if filter active) AND date
+        
         const viableTasks = state.activeTasks.filter(t => {
             const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
                            (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
-            
-            // If filter is active, only show tasks matching that filter
-            if(state.filterTradeId) {
-                return active && t.trade_id === state.filterTradeId;
-            }
+            if(state.filterTradeId) return active && t.trade_id === state.filterTradeId;
             return active;
         });
 
@@ -362,7 +359,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                             <option value="">-- No Assignment --</option>${taskOptions}
                         </select>
                         <button id="btn-save-assign" class="btn-primary" style="width:100%;">Save</button>
-                    ` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No active tasks found for this day/trade.</div>`}
+                    ` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found for this trade/date.</div>`}
                 </div>
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
                     <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">PTO Range</label>
@@ -397,8 +394,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             if(ptoBtn) ptoBtn.onclick = async () => {
                 const start = dayjs(document.getElementById('pto-start-date').value);
                 const end = dayjs(document.getElementById('pto-end-date').value);
+                const diff = end.diff(start, 'day');
+                if (diff < 0) { alert("Invalid date range"); return; }
                 const upsertData = [];
-                for(let i=0; i<=end.diff(start, 'day'); i++) upsertData.push({ talent_id: person.id, date: start.add(i, 'day').format('YYYY-MM-DD'), status: 'PTO' });
+                for(let i=0; i<=diff; i++) upsertData.push({ talent_id: person.id, date: start.add(i, 'day').format('YYYY-MM-DD'), status: 'PTO' });
                 await supabase.from('talent_availability').upsert(upsertData, { onConflict: 'talent_id, date' });
                 hideModal(); loadTalentData();
             };
