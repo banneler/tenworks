@@ -28,11 +28,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         assignments: [],    // Tasks currently assigned
         activeTasks: [],    // All pending work (for demand calculation)
         viewDate: dayjs(),  // Start date of the sliding window
-        daysToShow: 30      // UPDATED: 30-Day Rolling Window
+        daysToShow: 30      // 30-Day Rolling Window
     };
 
     // --- 3. EVENT LISTENERS ---
-    // Navigation Buttons (Shift by 7 days still feels natural for navigation)
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
     
@@ -45,6 +44,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.viewDate = state.viewDate.add(7, 'day'); 
         renderMatrix(); 
     });
+
+    // --- SCROLL SYNC (CRITICAL FIX) ---
+    // This locks the sidebar scroll to the grid scroll so names always match rows
+    const gridCanvas = document.getElementById('matrix-grid-canvas');
+    const sidebarList = document.getElementById('matrix-resource-list');
+    
+    if (gridCanvas && sidebarList) {
+        gridCanvas.addEventListener('scroll', () => {
+            sidebarList.scrollTop = gridCanvas.scrollTop;
+        });
+    }
 
     // --- 4. DATA FETCHING ---
     async function loadTalentData() {
@@ -102,7 +112,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isToday = d.isSame(dayjs(), 'day');
 
             // --- SHORTAGE MATH ---
-            // Capacity = Total Staff - People on PTO today
             const ptoToday = state.availability.filter(a => a.date === dateStr && a.status === 'PTO').length;
             const capacity = state.talent.length - ptoToday;
 
@@ -121,10 +130,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             else if (demand === capacity) metricColor = 'var(--warning-yellow)'; 
             else if (demand < capacity) metricColor = '#4CAF50';
 
-            // Styling - UPDATED: Weekend Red Tint
-            // Slight red background for weekends to indicate "No Fly Zone"
+            // Styles (Red Weekend Tint)
             const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : ''; 
-            
             const borderStyle = isShort ? 'border-bottom: 3px solid #ff4444;' : (isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '');
             const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
 
@@ -132,7 +139,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div style="min-width:${colWidth}px; width:${colWidth}px; border-right:1px solid var(--border-color); padding:10px; text-align:center; display:flex; flex-direction:column; justify-content:center; ${bgStyle} ${borderStyle}">
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
                     <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
-                    
                     <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
                         REQ: ${demand} / CAP: ${capacity}
                     </div>
@@ -152,32 +158,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         state.talent.forEach((person, index) => {
             const rowBg = index % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)';
+            
+            // UPDATED: Compressed Row Height
+            const rowHeight = '40px'; 
 
             // 1. Sidebar Card
             const sidebarItem = document.createElement('div');
-            sidebarItem.className = 'talent-row'; // Ensure CSS matches height
+            sidebarItem.className = 'talent-row'; 
             sidebarItem.style.backgroundColor = rowBg;
-            sidebarItem.style.height = '60px'; // Forced height for alignment
+            sidebarItem.style.height = rowHeight; // Applied 40px
             sidebarItem.style.display = 'flex';
             sidebarItem.style.alignItems = 'center';
             sidebarItem.style.padding = '0 15px';
             sidebarItem.style.borderBottom = '1px solid var(--border-color)';
             
             sidebarItem.innerHTML = `
-                <div style="width:32px; height:32px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
+                <div style="width:24px; height:24px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
                     ${getInitials(person.name)}
                 </div>
-                <div>
-                    <div style="font-weight:600; font-size:0.9rem; color:var(--text-bright);">${person.name}</div>
-                    <div style="font-size:0.75rem; color:var(--text-dim);">${person.role || 'Staff'}</div>
+                <div style="overflow:hidden;">
+                    <div style="font-weight:600; font-size:0.85rem; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${person.name}</div>
                 </div>
             `;
             resList.appendChild(sidebarItem);
 
             // 2. Grid Row
             const gridRow = document.createElement('div');
-            gridRow.style.display = 'flex';
-            gridRow.style.height = '60px'; 
+            gridRow.className = 'matrix-grid-row';
+            gridRow.style.display = 'flex'; // Ensure flex layout
+            gridRow.style.height = rowHeight; // Applied 40px
             gridRow.style.backgroundColor = rowBg;
             gridRow.style.borderBottom = '1px solid var(--border-color)';
 
@@ -187,10 +196,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
                 // DATA LOOKUP
-                // a. Check Availability
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
-                
-                // b. Check Assignment (Does an assigned task overlap this specific day?)
                 const task = state.assignments.find(t => 
                     t.assigned_talent_id === person.id && 
                     (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
@@ -209,18 +215,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.style.fontSize = '0.75rem';
                 cell.style.transition = 'background 0.2s';
                 
-                // UPDATED: Weekend "No Fly Zone" Dimming (Matches Header)
+                // Weekend Tint
                 if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
                 // Cell Content Logic
                 if (avail && avail.status === 'PTO') {
-                    // PTO Visuals
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
                     cell.style.color = 'var(--text-dim)';
                     cell.innerHTML = '<i class="fas fa-plane" style="margin-right:5px;"></i> PTO';
                 } else if (task) {
-                    // Assigned Visuals
-                    cell.style.backgroundColor = 'rgba(33, 150, 243, 0.15)'; // Blue tint
+                    cell.style.backgroundColor = 'rgba(33, 150, 243, 0.15)'; 
                     cell.style.borderLeft = '3px solid var(--primary-blue)';
                     cell.style.color = 'white';
                     cell.innerHTML = `
@@ -322,13 +326,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>
         `, async () => {}); 
 
-        // Bind Events (Delay to ensure DOM is ready)
         setTimeout(() => {
             const assignBtn = document.getElementById('btn-save-assign');
             const ptoBtn = document.getElementById('btn-mark-pto');
             const availBtn = document.getElementById('btn-mark-avail');
 
-            // A. SAVE ASSIGNMENT
             if(assignBtn) {
                 assignBtn.onclick = async () => {
                     const taskId = document.getElementById('assign-task-select').value;
@@ -355,7 +357,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 };
             }
 
-            // B. MARK PTO (BULK)
             if(ptoBtn) {
                 ptoBtn.onclick = async () => {
                     const startVal = document.getElementById('pto-start-date').value;
@@ -384,7 +385,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 };
             }
 
-            // C. MARK AVAILABLE (Clear PTO Range)
             if(availBtn) {
                 availBtn.onclick = async () => {
                      const startVal = document.getElementById('pto-start-date').value;
