@@ -40,7 +40,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // ------------------------------------------------------------------------
-    // 3. LISTENERS & SYNC
+    // 3. COLOR PALETTES (MATCHING PROJECTS PAGE)
+    // ------------------------------------------------------------------------
+    const TRADE_COLORS = {
+        1: '#546E7A', // Kickoff (Blue Grey)
+        2: '#1E88E5', // Design (Engineering Blue)
+        3: '#D4AF37', // Fabrication (Metallic Gold/Bronze)
+        4: '#8D6E63', // Woodworking (Walnut)
+        5: '#66BB6A', // Installation (Green)
+        6: '#7E57C2'  // Finishing (Purple)
+    };
+
+    function getTradeColor(id) {
+        return TRADE_COLORS[id] || 'var(--primary-gold)'; 
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. LISTENERS & SYNC
     // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
@@ -69,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 4. DATA FETCHING
+    // 5. DATA FETCHING
     // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
@@ -106,7 +122,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. RENDER ENGINE
+    // 6. RENDER ENGINE
     // ------------------------------------------------------------------------
     function renderMatrix() {
         // A. FILTER LOGIC
@@ -260,11 +276,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 if (avail && avail.status === 'PTO') {
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
-                    cell.innerHTML = '<i class="fas fa-plane" style="color:var(--text-dim);"></i>';
+                    cell.style.color = 'var(--text-dim)';
+                    cell.innerHTML = '<i class="fas fa-plane" style="margin-right:5px;"></i>';
                 } else if (task) {
-                    cell.style.backgroundColor = 'rgba(33, 150, 243, 0.15)'; 
-                    cell.style.borderLeft = '3px solid var(--primary-blue)';
+                    // NEW COLOR LOGIC HERE
+                    const tradeColor = getTradeColor(task.trade_id);
+                    
+                    cell.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; // Neutral dark background to let text pop
+                    cell.style.borderLeft = `4px solid ${tradeColor}`; // The specific trade color
                     cell.style.color = 'white';
+                    
                     cell.innerHTML = `<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 5px;">${task.projects?.name}</div>`;
                     cell.title = `${task.name} (${task.projects?.name})`;
                 }
@@ -281,7 +302,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
 
     // ------------------------------------------------------------------------
-    // 6. SKILLS MODAL (UPDATED)
+    // 7. SKILLS MODAL
     // ------------------------------------------------------------------------
     function openSkillsModal(person) {
         const currentSkillIds = state.skills
@@ -327,7 +348,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. ASSIGNMENT MODAL
+    // 8. ASSIGNMENT MODAL
     // ------------------------------------------------------------------------
     function handleCellClick(person, dateStr, avail, currentTask) {
         const d = dayjs(dateStr);
