@@ -13,7 +13,7 @@ const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
-    // 1. INITIALIZATION & AUTH
+    // 1. INITIALIZATION
     // ------------------------------------------------------------------------
     await loadSVGs(); 
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setupGlobalSearch(supabase, user);
 
     // ------------------------------------------------------------------------
-    // 2. GLOBAL STATE
+    // 2. STATE
     // ------------------------------------------------------------------------
     let state = {
         talent: [],         
@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
 
     // ------------------------------------------------------------------------
-    // 3. LISTENERS & SYNC
+    // 3. LISTENERS
     // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 4. DATA FETCHING (BURN DOWN LOGIC)
+    // 4. DATA FETCHING
     // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.assignments = assignRes.data || [];
         state.activeTasks = activeRes.data || [];
 
-        recalcStagingLane(); // Separated for re-use in optimistic UI
+        recalcStagingLane(); 
         populateFilterDropdown();
         renderMatrix();
     }
@@ -164,7 +164,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="font-weight:700; color:var(--text-bright); line-height:1.2; font-size:0.95rem;">${task.name}</div>
                     <div style="font-size:0.75rem; color:var(--text-dim); margin-top:3px;">${task.projects?.name}</div>
                 </div>
-                
                 <div style="margin-top:auto;">
                     <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; margin-bottom:8px;">
                         <div style="width:${percent}%; height:100%; background:${color};"></div>
@@ -175,16 +174,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                     </div>
                 </div>
             `;
-
             card.addEventListener('dragstart', (e) => handleDragStart(e, task));
             card.addEventListener('dragend', handleDragEnd);
-
             list.appendChild(card);
         });
     }
 
     // ------------------------------------------------------------------------
-    // 6. RENDER MATRIX (SEGMENTED DAY CHIPS)
+    // 6. RENDER MATRIX (HORIZONTAL TIME BLOCKS)
     // ------------------------------------------------------------------------
     function renderMatrix() {
         let visibleTalent = state.talent;
@@ -200,13 +197,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const containerHeight = containerEl ? containerEl.clientHeight : 600;
         const totalRows = visibleTalent.length || 1;
         let calculatedHeight = Math.floor((containerHeight - 20) / totalRows); 
-        if (calculatedHeight < 60) calculatedHeight = 60; // Slightly taller for stacked chips
+        if (calculatedHeight < 60) calculatedHeight = 60; 
         const rowHeightStyle = `${calculatedHeight}px`;
 
-        // HEADER
         const dateHeaderEl = document.getElementById('matrix-date-header');
         let headerHtml = '';
-        const colWidth = 120; 
+        const colWidth = 140; // Wider columns for horizontal stacking
 
         for(let i = 0; i < state.daysToShow; i++) {
             const d = state.viewDate.add(i, 'day');
@@ -214,15 +210,35 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            const bookings = state.assignments.filter(a => a.assigned_date === dateStr).length;
+            // Find Booked Hours based on chip size logic
+            // Assuming 1 chip = min(est_hours, 8)
+            let bookedHours = 0;
+            state.assignments.forEach(a => {
+                if (a.assigned_date === dateStr) {
+                    const t = state.activeTasks.find(task => task.id === a.task_id);
+                    if(t) bookedHours += Math.min(t.estimated_hours || 8, 8);
+                }
+            });
+
+            // This is "Total Shop Load" for that day across ALL visible people
+            // But we want "Load vs Capacity" for the header
+            // Let's sum up individual capacities
             const visibleIds = visibleTalent.map(t => t.id);
             const ptoCount = state.availability.filter(a => a.date === dateStr && a.status === 'PTO' && visibleIds.includes(a.talent_id)).length;
-            const capacity = visibleTalent.length - ptoCount;
+            const totalCapacityHours = (visibleTalent.length - ptoCount) * 8;
+            
+            // Filter bookings to ONLY visible people
+            const visibleBookings = state.assignments.filter(a => a.assigned_date === dateStr && visibleIds.includes(a.talent_id));
+            let visibleLoadHours = 0;
+            visibleBookings.forEach(a => {
+                const t = a.project_tasks || state.activeTasks.find(task => task.id === a.task_id);
+                if(t) visibleLoadHours += Math.min(t.estimated_hours || 8, 8);
+            });
 
             let metricColor = 'var(--text-dim)';
-            if (bookings > capacity) metricColor = '#ff4444'; 
-            else if (bookings === capacity && capacity > 0) metricColor = 'var(--warning-yellow)'; 
-            else if (bookings < capacity) metricColor = '#4CAF50';
+            if (visibleLoadHours > totalCapacityHours) metricColor = '#ff4444'; 
+            else if (visibleLoadHours > 0 && visibleLoadHours >= totalCapacityHours * 0.9) metricColor = 'var(--warning-yellow)'; 
+            else if (visibleLoadHours > 0) metricColor = '#4CAF50';
 
             const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : '';
             const borderStyle = isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '';
@@ -233,13 +249,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
                     <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
                     <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
-                        BOOKED: ${bookings} / ${capacity}
+                        ${visibleLoadHours}h / ${totalCapacityHours}h
                     </div>
                 </div>`;
         }
         dateHeaderEl.innerHTML = headerHtml;
 
-        // GRID
         const resList = document.getElementById('matrix-resource-list');
         const gridCanvas = document.getElementById('matrix-grid-canvas');
         resList.innerHTML = '';
@@ -247,8 +262,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         visibleTalent.forEach((person) => {
             const rowBg = 'rgba(255,255,255,0.02)';
-            
-            // SIDEBAR
             const sidebarItem = document.createElement('div');
             sidebarItem.className = 'talent-row-item'; 
             sidebarItem.dataset.talentId = person.id;
@@ -273,7 +286,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             sidebarItem.querySelector('.talent-name-clickable').addEventListener('click', () => openSkillsModal(person));
             resList.appendChild(sidebarItem);
 
-            // GRID ROW
             const gridRow = document.createElement('div');
             gridRow.className = 'matrix-grid-row';
             gridRow.dataset.talentId = person.id;
@@ -288,8 +300,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
-                
-                // --- SEGMENTED LOGIC: Find ALL assignments for this day ---
                 const dailyAssignments = state.assignments.filter(a => a.talent_id === person.id && a.assigned_date === dateStr);
 
                 const cell = document.createElement('div');
@@ -303,47 +313,57 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.style.borderRight = '1px solid var(--border-color)';
                 cell.style.cursor = 'pointer';
                 cell.style.display = 'flex';
-                cell.style.flexDirection = 'column'; // Vertical Stacking
-                cell.style.padding = '2px'; // Gap for chips
+                cell.style.flexDirection = 'row'; // HORIZONTAL STACKING
+                cell.style.alignItems = 'center'; // Center vertically
+                cell.style.padding = '4px'; 
                 cell.style.gap = '2px';
                 cell.style.transition = 'background 0.2s';
                 
                 if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
                 if (avail && avail.status === 'PTO') {
-                    // PTO takes over whole cell
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
-                    cell.style.alignItems = 'center';
                     cell.style.justifyContent = 'center';
                     cell.innerHTML = '<i class="fas fa-plane" style="color:var(--text-dim);"></i>';
                 } else if (dailyAssignments.length > 0) {
-                    // RENDER CHIPS
+                    
+                    // Render Chips horizontally based on hours
                     dailyAssignments.forEach(assign => {
                         const task = assign.project_tasks;
                         const tradeColor = getTradeColor(task.trade_id);
                         
+                        // Calculate width based on hours (Cap at 8)
+                        const hours = Math.min(task.estimated_hours || 8, 8);
+                        const widthPercent = (hours / 8) * 100;
+
                         const chip = document.createElement('div');
-                        chip.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                        chip.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                         chip.style.borderLeft = `3px solid ${tradeColor}`;
                         chip.style.color = 'white';
                         chip.style.fontSize = '0.65rem';
-                        chip.style.padding = '2px 4px';
-                        chip.style.borderRadius = '0 2px 2px 0';
-                        chip.style.whiteSpace = 'nowrap';
+                        chip.style.height = '80%'; // Takes up most of the row height
+                        chip.style.width = `${widthPercent}%`; // Proportional Width
+                        chip.style.flexShrink = '0'; // Don't shrink below width
+                        chip.style.borderRadius = '2px';
                         chip.style.overflow = 'hidden';
-                        chip.style.textOverflow = 'ellipsis';
-                        chip.style.flex = '1'; // Share height equally
-                        chip.innerText = task.name;
-                        chip.title = `${task.projects?.name} - ${task.name}`;
+                        chip.style.display = 'flex';
+                        chip.style.flexDirection = 'column';
+                        chip.style.justifyContent = 'center';
+                        chip.style.padding = '0 4px';
+                        
+                        // Inner Content
+                        chip.innerHTML = `
+                            <div style="font-weight:700; font-size:0.6rem; color:${tradeColor}; line-height:1;">${hours}h</div>
+                            <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${task.name}</div>
+                        `;
+                        chip.title = `${task.projects?.name} - ${task.name} (${hours} hrs)`;
                         
                         cell.appendChild(chip);
                     });
                 }
 
-                // Interactions
                 cell.addEventListener('mouseenter', () => { if(dailyAssignments.length === 0 && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
                 cell.addEventListener('mouseleave', () => { if(dailyAssignments.length === 0 && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
-                // Pass the FIRST assignment for modal context, or null
                 cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, dailyAssignments[0]));
                 cell.addEventListener('dragover', handleDragOver);
                 cell.addEventListener('dragenter', handleDragEnter);
@@ -357,7 +377,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. DRAG AND DROP (OPTIMISTIC UI UPDATE)
+    // 7. DRAG AND DROP (OPTIMIZED & OPTIMISTIC)
     // ------------------------------------------------------------------------
     let draggingTask = null;
 
@@ -365,7 +385,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         draggingTask = task;
         e.dataTransfer.setData('text/plain', JSON.stringify(task));
         e.dataTransfer.effectAllowed = 'copy';
-        
         const matchingTalentIds = state.skills.filter(s => s.trade_id === task.trade_id).map(s => s.talent_id);
         document.querySelectorAll('.talent-row-item').forEach(item => {
             const tId = parseInt(item.dataset.talentId);
@@ -392,7 +411,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
         if (!hasSkill && !confirm(`${person.name} is not tagged for this trade. Assign anyway?`)) return;
 
-        // 1. DATABASE WRITE
+        // --- OPTIMISTIC UI UPDATE START ---
+        // 1. Create a fake assignment object mimicking DB structure
+        const optimisticAssignment = {
+            task_id: draggingTask.id,
+            talent_id: person.id,
+            assigned_date: dateStr,
+            project_tasks: draggingTask // Nested object for renderer
+        };
+
+        // 2. Push to local state
+        state.assignments.push(optimisticAssignment);
+
+        // 3. Remove from pool (visually) if it was the last chunk (simple logic: just refresh pool)
+        // We trigger re-renders immediately
+        renderMatrix();
+        recalcStagingLane(); // Updates pool visuals
+        // --- OPTIMISTIC UI UPDATE END ---
+
+        // 4. PERFORM DATABASE OPERATIONS
         const { error } = await supabase.from('task_assignments').upsert({
             task_id: draggingTask.id,
             talent_id: person.id,
@@ -400,31 +437,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, { onConflict: 'task_id, talent_id, assigned_date' });
 
         if (!error) {
-            // 2. OPTIMISTIC UPDATE (INSTANT VISUALS)
-            // Push to local state immediately
-            state.assignments.push({
-                task_id: draggingTask.id,
-                talent_id: person.id,
-                assigned_date: dateStr,
-                project_tasks: draggingTask // Attach metadata for renderer
-            });
-
-            // Update local pool logic
-            // Note: This is purely visual until the background reload confirms it
-            recalcStagingLane(); // Updates bottom pool
-            renderMatrix(); // Updates grid chips
-
-            // 3. CLEANUP & SYNC
             await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
             if (!draggingTask.assigned_talent_id) {
                 await supabase.from('project_tasks').update({ assigned_talent_id: person.id }).eq('id', draggingTask.id);
             }
-            
-            // Background reload to ensure consistency
+            // Background sync to ensure consistency (DB is source of truth)
             setTimeout(() => loadTalentData(), 500); 
         } else {
             console.error("Drop Error:", error);
-            alert("Could not schedule task. It may already be assigned for this person/day.");
+            alert("Could not schedule task.");
+            // Rollback optimistic update
+            state.assignments = state.assignments.filter(a => !(a.task_id === draggingTask.id && a.assigned_date === dateStr));
+            renderMatrix();
         }
     }
 
@@ -453,9 +477,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const tradeId = document.getElementById('int-task-trade').value;
                 const start = document.getElementById('int-task-start').value;
                 const hours = parseInt(document.getElementById('int-task-hours').value) || 8;
-
                 if (!name) return;
-
                 await supabase.from('project_tasks').insert({
                     project_id: state.internalProjectID,
                     trade_id: tradeId,
@@ -505,7 +527,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div style="text-align:center; margin-bottom:20px;"><h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4></div>
             <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
-                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task</label>
+                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task (Range)</label>
                     <div style="display:flex; gap:10px; margin-bottom:10px;"><input type="date" id="assign-start" class="form-control" value="${dateStr}" style="flex:1;"><input type="date" id="assign-end" class="form-control" value="${dateStr}" style="flex:1;"></div>
                     ${viableTasks.length > 0 ? `<select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found.</div>`}
                 </div>
