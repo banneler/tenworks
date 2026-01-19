@@ -1,0 +1,35 @@
+<div class="projects-container">
+    <header class="project-metrics-bar">
+        <div class="metric-card">
+            <span class="label">Shop Load</span>
+            <div class="progress-bar"><div id="shop-load-fill" style="width: 75%;"></div></div>
+            <span class="value">75% Capacity</span>
+        </div>
+        <div class="metric-card">
+            <span class="label">Revenue Realization (MTD)</span>
+            <span class="value text-warning" id="mtd-revenue">$0.00</span>
+        </div>
+        <div class="metric-card">
+            <span class="label">Efficiency Rating</span>
+            <span class="value" id="efficiency-score">92%</span>
+        </div>
+    </header>
+
+    <div class="project-controls">
+        <div class="view-toggle">
+            <button id="gantt-view-btn" class="active">Resource Gantt</button>
+            <button id="active-list-btn">Project List</button>
+        </div>
+        <button id="launch-new-project-btn" class="btn-primary">+ Launch Project from Deal</button>
+    </div>
+
+    <div id="project-canvas" class="gantt-wrapper">
+        <div class="gantt-sidebar" id="resource-sidebar">
+            </div>
+        <div class="gantt-timeline" id="gantt-timeline">
+            <div class="timeline-header" id="timeline-dates"></div>
+            <div class="timeline-grid" id="gantt-grid">
+                </div>
+        </div>
+    </div>
+</div>
