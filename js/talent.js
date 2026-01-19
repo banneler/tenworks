@@ -13,7 +13,7 @@ const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
-    // 1. INITIALIZATION
+    // 1. INITIALIZATION & AUTH
     // ------------------------------------------------------------------------
     await loadSVGs(); 
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setupGlobalSearch(supabase, user);
 
     // ------------------------------------------------------------------------
-    // 2. STATE
+    // 2. GLOBAL STATE
     // ------------------------------------------------------------------------
     let state = {
         talent: [],         
@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         assignments: [],    
         activeTasks: [],    
         unassignedTasks: [], 
-        internalProjectID: null, // Store ID for "Shop Infrastructure"
+        internalProjectID: null, 
         viewDate: dayjs(),  
         daysToShow: 30,
         filterTradeId: null 
@@ -42,17 +42,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
 
     // ------------------------------------------------------------------------
-    // 3. LISTENERS
+    // 3. LISTENERS & SYNC
     // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
     const filterEl = document.getElementById('trade-filter');
-    const internalBtn = document.getElementById('btn-internal-task'); // NEW
+    const internalBtn = document.getElementById('btn-internal-task');
 
     if (prevBtn) prevBtn.addEventListener('click', () => { state.viewDate = state.viewDate.subtract(7, 'day'); renderMatrix(); });
     if (nextBtn) nextBtn.addEventListener('click', () => { state.viewDate = state.viewDate.add(7, 'day'); renderMatrix(); });
     if (filterEl) filterEl.addEventListener('change', (e) => { state.filterTradeId = e.target.value ? parseInt(e.target.value) : null; renderMatrix(); });
-    if (internalBtn) internalBtn.addEventListener('click', openInternalTaskModal); // NEW
+    if (internalBtn) internalBtn.addEventListener('click', openInternalTaskModal);
 
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
@@ -71,10 +71,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
         
-        // 1. Ensure "Shop Infrastructure" Project Exists
         let { data: internalProj } = await supabase.from('projects').select('id').eq('name', 'Shop Infrastructure').single();
         if (!internalProj) {
-            // Auto-create if missing
             const { data: newProj } = await supabase.from('projects').insert({ name: 'Shop Infrastructure', status: 'Internal', project_value: 0 }).select().single();
             state.internalProjectID = newProj?.id;
         } else {
@@ -87,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             supabase.from('talent_skills').select('*'),
             supabase.from('talent_availability').select('*'),
             supabase.from('task_assignments').select(`*, project_tasks (id, name, trade_id, estimated_hours, projects(name))`),
-            supabase.from('project_tasks').select('*, projects(name), shop_trades(name)').neq('status', 'Completed') // Fetch ALL active tasks
+            supabase.from('project_tasks').select('*, projects(name), shop_trades(name)').neq('status', 'Completed') 
         ]);
 
         state.talent = talentRes.data || [];
@@ -97,24 +95,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.assignments = assignRes.data || [];
         state.activeTasks = activeRes.data || [];
 
-        // --- BURN DOWN CALCULATION ---
-        // We filter for tasks that still have "hours remaining"
+        recalcStagingLane(); // Separated for re-use in optimistic UI
+        populateFilterDropdown();
+        renderMatrix();
+    }
+
+    function recalcStagingLane() {
         state.unassignedTasks = state.activeTasks.filter(task => {
-            // How many days have been booked for this task?
             const daysBooked = state.assignments.filter(a => a.task_id === task.id).length;
-            const hoursBooked = daysBooked * 8; // Standard 8hr day assumption
+            const hoursBooked = daysBooked * 8; 
             const remaining = (task.estimated_hours || 0) - hoursBooked;
             
-            // Attach temporary property for UI
             task.remaining_hours = remaining > 0 ? remaining : 0;
             task.hours_booked = hoursBooked;
 
-            // Keep in pool if hours remain
             return remaining > 0;
         }).sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date)));
-
-        populateFilterDropdown();
-        renderMatrix();
+        
         renderStagingLane();
     }
 
@@ -130,7 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. RENDER STAGING LANE (WITH BURN DOWN)
+    // 5. RENDER STAGING LANE
     // ------------------------------------------------------------------------
     function renderStagingLane() {
         const list = document.getElementById('unassigned-pool-list');
@@ -148,13 +145,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             const color = getTradeColor(task.trade_id);
             card.style.borderTopColor = color; 
 
-            // Calculate Progress
             const total = task.estimated_hours || 8;
             const booked = task.hours_booked || 0;
             const remaining = task.remaining_hours;
             const percent = Math.min((booked / total) * 100, 100);
-
-            // Date Formatting
             const s = dayjs(task.start_date).format('MMM D');
             
             card.innerHTML = `
@@ -190,7 +184,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. RENDER MATRIX
+    // 6. RENDER MATRIX (SEGMENTED DAY CHIPS)
     // ------------------------------------------------------------------------
     function renderMatrix() {
         let visibleTalent = state.talent;
@@ -206,7 +200,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const containerHeight = containerEl ? containerEl.clientHeight : 600;
         const totalRows = visibleTalent.length || 1;
         let calculatedHeight = Math.floor((containerHeight - 20) / totalRows); 
-        if (calculatedHeight < 50) calculatedHeight = 50; 
+        if (calculatedHeight < 60) calculatedHeight = 60; // Slightly taller for stacked chips
         const rowHeightStyle = `${calculatedHeight}px`;
 
         // HEADER
@@ -253,6 +247,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         visibleTalent.forEach((person) => {
             const rowBg = 'rgba(255,255,255,0.02)';
+            
+            // SIDEBAR
             const sidebarItem = document.createElement('div');
             sidebarItem.className = 'talent-row-item'; 
             sidebarItem.dataset.talentId = person.id;
@@ -277,6 +273,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             sidebarItem.querySelector('.talent-name-clickable').addEventListener('click', () => openSkillsModal(person));
             resList.appendChild(sidebarItem);
 
+            // GRID ROW
             const gridRow = document.createElement('div');
             gridRow.className = 'matrix-grid-row';
             gridRow.dataset.talentId = person.id;
@@ -291,7 +288,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
-                const assignment = state.assignments.find(a => a.talent_id === person.id && a.assigned_date === dateStr);
+                
+                // --- SEGMENTED LOGIC: Find ALL assignments for this day ---
+                const dailyAssignments = state.assignments.filter(a => a.talent_id === person.id && a.assigned_date === dateStr);
 
                 const cell = document.createElement('div');
                 cell.className = 'grid-cell';
@@ -304,29 +303,48 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.style.borderRight = '1px solid var(--border-color)';
                 cell.style.cursor = 'pointer';
                 cell.style.display = 'flex';
-                cell.style.alignItems = 'center';
-                cell.style.justifyContent = 'center';
-                cell.style.fontSize = '0.75rem';
+                cell.style.flexDirection = 'column'; // Vertical Stacking
+                cell.style.padding = '2px'; // Gap for chips
+                cell.style.gap = '2px';
                 cell.style.transition = 'background 0.2s';
                 
                 if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
                 if (avail && avail.status === 'PTO') {
+                    // PTO takes over whole cell
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
+                    cell.style.alignItems = 'center';
+                    cell.style.justifyContent = 'center';
                     cell.innerHTML = '<i class="fas fa-plane" style="color:var(--text-dim);"></i>';
-                } else if (assignment && assignment.project_tasks) {
-                    const task = assignment.project_tasks;
-                    const tradeColor = getTradeColor(task.trade_id);
-                    cell.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; 
-                    cell.style.borderLeft = `4px solid ${tradeColor}`; 
-                    cell.style.color = 'white';
-                    cell.innerHTML = `<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 5px;">${task.projects?.name}</div>`;
-                    cell.title = `${task.name} (${task.projects?.name})`;
+                } else if (dailyAssignments.length > 0) {
+                    // RENDER CHIPS
+                    dailyAssignments.forEach(assign => {
+                        const task = assign.project_tasks;
+                        const tradeColor = getTradeColor(task.trade_id);
+                        
+                        const chip = document.createElement('div');
+                        chip.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                        chip.style.borderLeft = `3px solid ${tradeColor}`;
+                        chip.style.color = 'white';
+                        chip.style.fontSize = '0.65rem';
+                        chip.style.padding = '2px 4px';
+                        chip.style.borderRadius = '0 2px 2px 0';
+                        chip.style.whiteSpace = 'nowrap';
+                        chip.style.overflow = 'hidden';
+                        chip.style.textOverflow = 'ellipsis';
+                        chip.style.flex = '1'; // Share height equally
+                        chip.innerText = task.name;
+                        chip.title = `${task.projects?.name} - ${task.name}`;
+                        
+                        cell.appendChild(chip);
+                    });
                 }
 
-                cell.addEventListener('mouseenter', () => { if(!assignment && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
-                cell.addEventListener('mouseleave', () => { if(!assignment && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
-                cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, assignment));
+                // Interactions
+                cell.addEventListener('mouseenter', () => { if(dailyAssignments.length === 0 && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
+                cell.addEventListener('mouseleave', () => { if(dailyAssignments.length === 0 && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
+                // Pass the FIRST assignment for modal context, or null
+                cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, dailyAssignments[0]));
                 cell.addEventListener('dragover', handleDragOver);
                 cell.addEventListener('dragenter', handleDragEnter);
                 cell.addEventListener('dragleave', handleDragLeave);
@@ -339,7 +357,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. DRAG AND DROP (WITH BURN DOWN LOGIC)
+    // 7. DRAG AND DROP (OPTIMISTIC UI UPDATE)
     // ------------------------------------------------------------------------
     let draggingTask = null;
 
@@ -374,7 +392,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
         if (!hasSkill && !confirm(`${person.name} is not tagged for this trade. Assign anyway?`)) return;
 
-        // 1. Assign Daily Allocation
+        // 1. DATABASE WRITE
         const { error } = await supabase.from('task_assignments').upsert({
             task_id: draggingTask.id,
             talent_id: person.id,
@@ -382,23 +400,36 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, { onConflict: 'task_id, talent_id, assigned_date' });
 
         if (!error) {
-            // 2. Clear PTO if exists
+            // 2. OPTIMISTIC UPDATE (INSTANT VISUALS)
+            // Push to local state immediately
+            state.assignments.push({
+                task_id: draggingTask.id,
+                talent_id: person.id,
+                assigned_date: dateStr,
+                project_tasks: draggingTask // Attach metadata for renderer
+            });
+
+            // Update local pool logic
+            // Note: This is purely visual until the background reload confirms it
+            recalcStagingLane(); // Updates bottom pool
+            renderMatrix(); // Updates grid chips
+
+            // 3. CLEANUP & SYNC
             await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
-            
-            // 3. Mark Task Owner (If first time)
             if (!draggingTask.assigned_talent_id) {
                 await supabase.from('project_tasks').update({ assigned_talent_id: person.id }).eq('id', draggingTask.id);
             }
+            
+            // Background reload to ensure consistency
+            setTimeout(() => loadTalentData(), 500); 
         } else {
             console.error("Drop Error:", error);
+            alert("Could not schedule task. It may already be assigned for this person/day.");
         }
-
-        // 4. FORCE RELOAD (Wait for DB to settle)
-        setTimeout(() => loadTalentData(), 100);
     }
 
     // ------------------------------------------------------------------------
-    // 8. INTERNAL TASK MODAL (NEW)
+    // 8. INTERNAL TASK MODAL
     // ------------------------------------------------------------------------
     function openInternalTaskModal() {
         const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
@@ -430,7 +461,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     trade_id: tradeId,
                     name: name,
                     start_date: start,
-                    end_date: start, // Default to single day, extensible
+                    end_date: start,
                     estimated_hours: hours,
                     status: 'Pending'
                 });
@@ -444,7 +475,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
     
-    function openSkillsModal(person) { /* Same as before, omitted for brevity but included in full file */ 
+    function openSkillsModal(person) { 
         const currentSkillIds = state.skills.filter(s => s.talent_id === person.id).map(s => s.trade_id);
         const checkboxes = state.trades.map(trade => {
             const isChecked = currentSkillIds.includes(trade.id);
