@@ -48,22 +48,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             .filter(p => p.name.toLowerCase().includes(filter))
             .forEach(p => {
                 const el = document.createElement('div');
-                el.className = 'project-list-item'; // New class matches Account style
+                el.className = 'project-list-item';
                 if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
                 
-                const initial = p.name.charAt(0).toUpperCase();
                 let statusColor = '#888';
                 if (p.status === 'In Progress') statusColor = 'var(--primary-blue)';
                 if (p.status === 'Completed') statusColor = '#4CAF50';
 
+                // CLEAN LAYOUT (No Icon)
                 el.innerHTML = `
-                    <div class="project-icon">${initial}</div>
-                    <div style="flex:1; overflow:hidden;">
-                        <div style="font-weight:600; color:var(--text-bright); font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
-                        <div style="display:flex; justify-content:space-between; margin-top:2px; font-size:0.8rem;">
-                            <span style="color:${statusColor}; text-transform:uppercase;">${p.status}</span>
-                            <span style="color:var(--text-dim); font-family:'Rajdhani';">${formatCurrency(p.project_value)}</span>
-                        </div>
+                    <div class="item-main">${p.name}</div>
+                    <div class="item-sub">
+                        <span style="color:${statusColor};">${p.status}</span>
+                        <span>${formatCurrency(p.project_value)}</span>
                     </div>
                 `;
                 el.onclick = () => loadDetail(p.id);
@@ -84,24 +81,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (deal) state.currentProject.deal_name = deal.deal_name;
         }
 
-        // Parallel Fetch
-        const [taskRes, logRes, contactRes] = await Promise.all([
+        const [taskRes, logRes, contactRes, fileRes] = await Promise.all([
             supabase.from('project_tasks').select('*, shop_talent(name)').eq('project_id', id),
             supabase.from('project_notes').select('*').eq('project_id', id).order('created_at', { ascending: false }),
-            supabase.from('project_contacts').select('*, contacts(first_name, last_name, email)').eq('project_id', id)
+            supabase.from('project_contacts').select('*, contacts(first_name, last_name, email)').eq('project_id', id),
+            supabase.storage.from('project_files').list(`${id}`)
         ]);
 
         state.tasks = taskRes.data || [];
         state.logs = logRes.data || [];
         state.projectContacts = contactRes.data || [];
         
-        // FILES: Handle missing bucket gracefully
-        const { data: fileData, error: fileError } = await supabase.storage.from('project_files').list(`${id}`);
-        if (fileError) {
-            console.warn("Storage Error (Bucket likely missing):", fileError.message);
+        // Handle File Error Gracefully
+        if (fileRes.error && fileRes.error.message.includes('not found')) {
             state.files = [];
+            console.warn("Storage Bucket missing.");
         } else {
-            state.files = fileData || [];
+            state.files = fileRes.data || [];
         }
 
         renderDetail();
@@ -117,7 +113,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('detail-name').value = p.name;
         document.getElementById('detail-status').textContent = p.status;
         document.getElementById('detail-dates').textContent = `${dayjs(p.start_date).format('MMM D')} - ${dayjs(p.end_date).format('MMM D')}`;
-        document.getElementById('detail-value').textContent = formatCurrency(p.project_value);
         document.getElementById('detail-scope').value = p.description || '';
         document.getElementById('detail-due-date').value = p.end_date || '';
 
@@ -130,13 +125,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('kpi-act-hours').textContent = totalAct;
         document.getElementById('kpi-progress').textContent = `${progress}%`;
 
-        // COUNTDOWN WIDGET
+        // COUNTDOWN
         const countdownEl = document.getElementById('countdown-widget');
         if (p.end_date) {
             const diff = dayjs(p.end_date).diff(dayjs(), 'day');
-            let color = '#4CAF50'; // Safe
-            if (diff < 0) color = '#F44336'; // Overdue
-            else if (diff <= 7) color = '#FFC107'; // Warn
+            let color = '#4CAF50'; 
+            if (diff < 0) color = '#F44336'; 
+            else if (diff <= 7) color = '#FFC107'; 
             countdownEl.innerHTML = `<span style="background:${color}20; color:${color}; padding:5px 12px; border-radius:20px; font-weight:700; font-size:0.85rem; border:1px solid ${color}40;">${diff < 0 ? Math.abs(diff) + ' Days Overdue' : diff + ' Days Left'}</span>`;
         } else {
             countdownEl.innerHTML = '';
@@ -146,15 +141,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderLogs();
         renderFiles();
         
-        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
-        if(activeTab === 'timeline') renderMiniGantt();
+        // Render Timeline if active
+        if(document.querySelector('.tab-btn.active').dataset.tab === 'timeline') renderMiniGantt();
     }
 
     // 3. RENDERERS
     function renderContacts() {
         const list = document.getElementById('project-contacts-list');
         list.innerHTML = state.projectContacts.map(c => `
-            <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); margin-bottom:5px;">
+            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); margin-bottom:5px; border-radius:4px;">
                 <div>
                     <div style="font-weight:600; color:var(--text-bright);">${c.contacts.first_name} ${c.contacts.last_name}</div>
                     <div style="font-size:0.8rem; color:var(--text-dim);">${c.role || 'Stakeholder'}</div>
@@ -182,34 +177,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderFiles() {
         const list = document.getElementById('file-list');
         if(state.files.length === 0) { list.innerHTML = ''; return; }
-        
         list.innerHTML = state.files.map(f => {
+            const url = supabase.storage.from('project_files').getPublicUrl(`${state.currentProject.id}/${f.name}`).data.publicUrl;
             return `
                 <div class="file-item-card">
                     <div class="file-icon-box"><i class="fas fa-file-alt"></i></div>
-                    <div style="flex:1; cursor:pointer;" onclick="previewFile('${f.name}')">
+                    <div style="flex:1;">
                         <div style="color:var(--text-bright); font-weight:600;">${f.name}</div>
                         <div style="color:var(--text-dim); font-size:0.75rem;">${(f.metadata.size / 1024).toFixed(1)} KB</div>
                     </div>
-                    <button onclick="previewFile('${f.name}')" class="btn-text" style="color:var(--primary-blue); margin-right:10px;"><i class="fas fa-eye"></i></button>
+                    <a href="${url}" target="_blank" class="btn-text" style="color:var(--primary-blue);"><i class="fas fa-download"></i></a>
                 </div>
             `;
         }).join('');
     }
-
-    // EXPOSE TO GLOBAL SCOPE FOR HTML ONCLICK
-    window.previewFile = async (fileName) => {
-        const { data } = supabase.storage.from('project_files').getPublicUrl(`${state.currentProject.id}/${fileName}`);
-        if(data) {
-            document.getElementById('file-preview-container').classList.remove('hidden');
-            document.getElementById('file-preview-frame').src = data.publicUrl;
-        }
-    };
-
-    document.getElementById('close-preview').addEventListener('click', () => {
-        document.getElementById('file-preview-container').classList.add('hidden');
-        document.getElementById('file-preview-frame').src = '';
-    });
 
     function renderMiniGantt() {
         const scrollArea = document.getElementById('gantt-scroll-area');
@@ -227,6 +208,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dayWidth = 50; 
         const totalWidth = totalDays * dayWidth;
 
+        // Force container width
         scrollArea.style.width = `${totalWidth}px`;
         header.style.minWidth = `${totalWidth}px`; 
         body.style.minWidth = `${totalWidth}px`;
@@ -234,8 +216,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         header.innerHTML = '';
         body.innerHTML = '';
 
+        // HEADER & GRID
         for(let i=0; i<totalDays; i++) {
             const d = start.add(i, 'day');
+            
             const cell = document.createElement('div');
             cell.style.width = `${dayWidth}px`;
             cell.style.borderRight = '1px solid var(--border-color)';
@@ -252,6 +236,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             body.appendChild(line);
         }
 
+        // TASKS
         state.tasks.forEach((t, index) => {
             const tStart = dayjs(t.start_date);
             const tEnd = dayjs(t.end_date);
@@ -274,7 +259,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 assigneeHtml = `<div class="gantt-assignee" title="${t.shop_talent.name}">${initials}</div>`;
             }
 
-            // BURN LINE LOGIC
+            // BURN LINE
             const est = t.estimated_hours || 1;
             const act = t.actual_hours || 0;
             const pct = Math.min((act/est)*100, 100);
@@ -291,11 +276,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // TABS
-    document.querySelectorAll('.tab-button').forEach(btn => {
+    // INTERACTION HANDLERS
+    document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
             if(btn.dataset.tab === 'timeline') renderMiniGantt();
@@ -326,12 +311,31 @@ document.addEventListener("DOMContentLoaded", async () => {
             const filePath = `${state.currentProject.id}/${file.name}`;
             const { error } = await supabase.storage.from('project_files').upload(filePath, file);
             if(error) {
-                if(error.message.includes('not found')) alert("Error: Storage bucket 'project_files' not found. Please create it in Supabase.");
+                if(error.message.includes('not found')) alert("Error: Storage Bucket 'project_files' missing.");
                 else alert("Upload failed: " + error.message);
             }
         }
         loadDetail(state.currentProject.id);
     }
+
+    // ADD CONTACT (Missing from previous response)
+    document.getElementById('btn-add-contact').addEventListener('click', async () => {
+        const { data: contacts } = await supabase.from('contacts').select('*').order('last_name');
+        const options = contacts.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
+        showModal('Add Project Contact', `
+            <div class="form-group"><label>Select Contact</label><select id="new-contact-select" class="form-control" style="background:var(--bg-dark); color:white; padding:10px;">${options}</select></div>
+            <div class="form-group"><label>Role</label><input type="text" id="new-contact-role" class="form-control" placeholder="e.g. Architect"></div>
+            <button id="btn-save-contact" class="btn-primary" style="width:100%; margin-top:15px;">Add</button>
+        `, async () => {});
+        setTimeout(() => {
+            document.getElementById('btn-save-contact').onclick = async () => {
+                const contactId = document.getElementById('new-contact-select').value;
+                const role = document.getElementById('new-contact-role').value;
+                await supabase.from('project_contacts').insert({ project_id: state.currentProject.id, contact_id: contactId, role });
+                hideModal(); loadDetail(state.currentProject.id);
+            };
+        }, 100);
+    });
 
     loadProjects();
 });
