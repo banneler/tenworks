@@ -39,63 +39,60 @@ export function setEffectiveUser(userId, fullName) {
 }
 
 /**
- * Initializes the global state on application startup.
- * @param {SupabaseClient} supabase The Supabase client.
- * @returns {Promise<object>} The fully initialized state object.
- */
+ * Initializes the global state on application startup.
+ * @param {SupabaseClient} supabase The Supabase client.
+ * @returns {Promise<object>} The fully initialized state object.
+ */
 export async function initializeAppState(supabase) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        window.location.href = "index.html";
-        return;
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        window.location.href = "index.html";
+        return;
+    }
 
-    appState.currentUser = user;
-    appState.effectiveUserId = user.id;
+    appState.currentUser = user;
+    appState.effectiveUserId = user.id;
 
-    // Fetch user's full name for the default state
-    const { data: currentUserQuota, error: quotaError } = await supabase
-        .from('user_quotas')
-        .select('full_name')
-        .eq('user_id', user.id)
-        .single();
+    // Fetch user's full name for the default state
+    const { data: currentUserQuota, error: quotaError } = await supabase
+        .from('user_quotas')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
 
-    if (quotaError && quotaError.code !== 'PGRST116') console.error("Error fetching current user's name:", quotaError);
-    appState.effectiveUserFullName = currentUserQuota?.full_name || 'User';
+    if (quotaError && quotaError.code !== 'PGRST116') console.error("Error fetching current user's name:", quotaError);
+    appState.effectiveUserFullName = currentUserQuota?.full_name || 'User';
 
-    // --- THIS IS THE FIX ---
-    // Check for manager status using the metadata, as hinted by deals.js
-    appState.isManager = user.user_metadata?.is_manager === true;
+    // Check for manager status using the metadata
+    appState.isManager = user.user_metadata?.is_manager === true;
 
-    if (appState.isManager) {
+    if (appState.isManager) {
         // If they are a manager, fetch all users from user_quotas for the dropdown
-        const { data: allUsers, error } = await supabase
-            .from('user_quotas')
-            .select('user_id, full_name')
+        const { data: allUsers, error } = await supabase
+            .from('user_quotas')
+            .select('user_id, full_name')
             .neq('user_id', user.id) // Don't include the manager in their own list
             .order('full_name'); 
 
-        if (error) {
-            console.error("Error fetching managed users from user_quotas:", error);
-        } else {
+        if (error) {
+            console.error("Error fetching managed users from user_quotas:", error);
+        } else {
             // Map directly to the format our dropdown function expects
-            appState.managedUsers = allUsers.map(u => ({
-                id: u.user_id,
-                full_name: u.full_name
-            }));
-        }
-    }
-    // --- END FIX ---
-    
-    return appState;
+            appState.managedUsers = allUsers.map(u => ({
+                id: u.user_id,
+                full_name: u.full_name
+            }));
+        }
+    }
+    
+    return appState;
 }
-// --- END NEW SECTION ---
+
 /**
  * Renders the impersonation dropdown in the user menu if the user is a manager.
  */
 function renderImpersonationDropdown() {
     if (!appState.isManager || appState.managedUsers.length === 0) {
-        // Not a manager or has no one to manage, so do nothing.
         return;
     }
 
@@ -107,7 +104,6 @@ function renderImpersonationDropdown() {
     container.className = 'impersonation-container';
 
     // 2. Create the "My View" option
-    // We add the current user's info to the list for the "My View" option
     const currentUserOption = {
         id: appState.currentUser.id,
         full_name: appState.effectiveUserFullName.includes('(Viewing As)') 
@@ -138,8 +134,8 @@ function renderImpersonationDropdown() {
     const impersonationSelect = document.getElementById('impersonation-select');
     if (impersonationSelect) {
         impersonationSelect.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
+            e.stopPropagation();
+        });
         impersonationSelect.addEventListener('change', (e) => {
             const selectedOption = e.target.options[e.target.selectedIndex];
             const userId = selectedOption.value;
@@ -162,6 +158,7 @@ function renderImpersonationDropdown() {
 }
 
 // --- THEME MANAGEMENT ---
+export const themesList = themes; // Backward compatibility
 let currentThemeIndex = 0;
 
 function applyTheme(themeName) {
@@ -186,8 +183,7 @@ async function saveThemePreference(supabase, userId, themeName) {
 
 export async function setupTheme(supabase, user) {
     const themeToggleBtn = document.getElementById("theme-toggle-btn");
-    if (!themeToggleBtn) return;
-
+    
     const { data, error } = await supabase
         .from('user_preferences')
         .select('theme')
@@ -208,7 +204,7 @@ export async function setupTheme(supabase, user) {
     applyTheme(themes[currentThemeIndex]);
     localStorage.setItem('crm-theme', themes[currentThemeIndex]);
 
-    if (themeToggleBtn.dataset.listenerAttached !== 'true') {
+    if (themeToggleBtn && themeToggleBtn.dataset.listenerAttached !== 'true') {
         themeToggleBtn.addEventListener("click", () => {
             currentThemeIndex = (currentThemeIndex + 1) % themes.length;
             const newTheme = themes[currentThemeIndex];
@@ -290,19 +286,22 @@ export function updateActiveNavLink() {
     });
 }
 
-// --- MODAL FUNCTIONS ---
-const modalBackdrop = document.getElementById("modal-backdrop");
-const modalTitle = document.getElementById("modal-title");
-const modalBody = document.getElementById("modal-body");
-const modalActions = document.getElementById("modal-actions");
+// --- MODAL FUNCTIONS (FIXED) ---
+
+// We do NOT store modal elements in top-level constants to avoid null errors.
 let currentModalCallbacks = { onConfirm: null, onCancel: null };
 
 export function getCurrentModalCallbacks() { return { ...currentModalCallbacks }; }
 export function setCurrentModalCallbacks(callbacks) { currentModalCallbacks = { ...callbacks }; }
 
 export function showModal(title, bodyHtml, onConfirm = null, showCancel = true, customActionsHtml = null, onCancel = null) {
+    const modalBackdrop = document.getElementById("modal-backdrop");
+    const modalTitle = document.getElementById("modal-title");
+    const modalBody = document.getElementById("modal-body");
+    const modalActions = document.getElementById("modal-actions");
+
     if (!modalBackdrop || !modalTitle || !modalBody || !modalActions) {
-        console.error("Modal elements are missing from the DOM.");
+        console.error("Modal elements are missing from the DOM. Ensure #modal-backdrop is in your HTML.");
         return;
     }
     
@@ -347,19 +346,23 @@ export function showModal(title, bodyHtml, onConfirm = null, showCancel = true, 
     }
 
     modalBackdrop.classList.remove("hidden");
-    return modalBody; // Return the modal body for use in contacts.js
+    // Re-attach backdrop click listener dynamically
+    modalBackdrop.onclick = (e) => { if (e.target === modalBackdrop) hideModal(); };
+
+    return modalBody; 
 }
 
 export function hideModal() {
+    const modalBackdrop = document.getElementById("modal-backdrop");
     if (modalBackdrop) modalBackdrop.classList.add("hidden");
 }
 
-function handleBackdropClick(e) { if (e.target === modalBackdrop) hideModal(); }
 function handleEscapeKey(e) { if (e.key === "Escape") hideModal(); }
 
 export function setupModalListeners() {
     window.addEventListener("keydown", handleEscapeKey);
 }
+
 
 // --- TOAST NOTIFICATIONS ---
 export function showToast(message, type = 'success') {
@@ -378,7 +381,7 @@ export function showToast(message, type = 'success') {
 }
 
 
-// --- USER MENU & AUTH LOGIC (CORRECTED) ---
+// --- USER MENU & AUTH LOGIC ---
 export async function setupUserMenuAndAuth(supabase, state) {
     const userMenuHeader = document.querySelector('.user-menu-header');
     if (!userMenuHeader) return;
@@ -527,7 +530,7 @@ export async function setupGlobalSearch(supabase) {
     let searchTimeout;
 
     if (!searchInput || !searchResultsContainer) {
-        console.warn("Global search elements not found on this page.");
+        // console.warn("Global search elements not found on this page."); // Suppress warn
         return;
     }
 
@@ -592,12 +595,6 @@ export async function setupGlobalSearch(supabase) {
 
 // --- NOTIFICATION FUNCTIONS (FINAL) ---
 
-/**
- * Updates the visit timestamp for a page in the background.
- * This is a "fire and forget" operation.
- * @param {SupabaseClient} supabase The Supabase client instance.
- * @param {string} pageName The name of the page being visited.
- */
 export function updateLastVisited(supabase, pageName) {
     supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
@@ -613,12 +610,6 @@ export function updateLastVisited(supabase, pageName) {
     });
 }
 
-
-/**
- * Checks for new content on all pages and updates the bells.
- * This is now an async function that can be awaited for predictable execution.
- * @param {SupabaseClient} supabase The Supabase client instance.
- */
 export async function checkAndSetNotifications(supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -656,8 +647,3 @@ export async function checkAndSetNotifications(supabase) {
         }
     }
 }
-
-
-
-
-
