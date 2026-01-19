@@ -13,11 +13,9 @@ const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
-    // 1. INITIALIZATION & AUTH
+    // 1. INITIALIZATION
     // ------------------------------------------------------------------------
     await loadSVGs(); 
-    
-    // Auth Check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = 'index.html'; return; }
     
@@ -25,38 +23,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setupGlobalSearch(supabase, user);
 
     // ------------------------------------------------------------------------
-    // 2. GLOBAL STATE
+    // 2. STATE
     // ------------------------------------------------------------------------
     let state = {
         talent: [],         
         trades: [],         
         skills: [],         
         availability: [],   
-        assignments: [],    
+        assignments: [], // NOW HOLDS DAILY ASSIGNMENTS
         activeTasks: [],    
         viewDate: dayjs(),  
         daysToShow: 30,
         filterTradeId: null 
     };
 
-    // ------------------------------------------------------------------------
-    // 3. COLOR PALETTES (MATCHING PROJECTS PAGE)
-    // ------------------------------------------------------------------------
     const TRADE_COLORS = {
-        1: '#546E7A', // Kickoff (Blue Grey)
-        2: '#1E88E5', // Design (Engineering Blue)
-        3: '#D4AF37', // Fabrication (Metallic Gold/Bronze)
-        4: '#8D6E63', // Woodworking (Walnut)
-        5: '#66BB6A', // Installation (Green)
-        6: '#7E57C2'  // Finishing (Purple)
+        1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 
+        4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2'
     };
 
-    function getTradeColor(id) {
-        return TRADE_COLORS[id] || 'var(--primary-gold)'; 
-    }
+    function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
 
     // ------------------------------------------------------------------------
-    // 4. LISTENERS & SYNC
+    // 3. LISTENERS
     // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
@@ -72,7 +61,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // Sync Engine
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
     const dateHeader = document.getElementById('matrix-date-header');
@@ -85,7 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. DATA FETCHING
+    // 4. DATA LOADING (UPDATED FOR DAILY ASSIGNMENTS)
     // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
@@ -95,7 +83,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             supabase.from('shop_trades').select('*').order('name'),
             supabase.from('talent_skills').select('*'),
             supabase.from('talent_availability').select('*'),
-            supabase.from('project_tasks').select('*, projects(name)').not('assigned_talent_id', 'is', null),
+            // FETCH DAILY ASSIGNMENTS JOINED WITH TASKS
+            supabase.from('task_assignments').select(`
+                *, 
+                project_tasks (id, name, trade_id, projects(name))
+            `),
             supabase.from('project_tasks').select('*, projects(name)').in('status', ['Pending', 'In Progress'])
         ]);
 
@@ -122,10 +114,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. RENDER ENGINE
+    // 5. RENDER ENGINE (DAILY PRECISION)
     // ------------------------------------------------------------------------
     function renderMatrix() {
-        // A. FILTER LOGIC
+        // Filter Logic
         let visibleTalent = state.talent;
         if (state.filterTradeId) {
             const skilledTalentIds = state.skills
@@ -134,11 +126,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             visibleTalent = state.talent.filter(t => skilledTalentIds.includes(t.id));
         }
 
-        // B. Header Date
+        // Setup Dimensions
         const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
         document.getElementById('current-week-label').textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
 
-        // C. Dynamic Row Height
         const containerEl = document.getElementById('matrix-grid-canvas');
         const containerHeight = containerEl ? containerEl.clientHeight : 600;
         const totalRows = visibleTalent.length || 1;
@@ -146,7 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (calculatedHeight < 50) calculatedHeight = 50; 
         const rowHeightStyle = `${calculatedHeight}px`;
 
-        // D. Render Header Columns
+        // Render Header
         const dateHeaderEl = document.getElementById('matrix-date-header');
         let headerHtml = '';
         const colWidth = 120; 
@@ -157,38 +148,26 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            // Metric Calculations
-            let dailyDemand = 0;
-            if (state.filterTradeId) {
-                dailyDemand = state.activeTasks.filter(t => {
-                    const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
-                                   (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
-                    return active && t.trade_id === state.filterTradeId;
-                }).length;
-            } else {
-                dailyDemand = state.activeTasks.filter(t => {
-                    return (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
-                           (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
-                }).length;
-            }
-
-            const visibleIds = visibleTalent.map(t => t.id);
-            const effectivePto = state.availability.filter(a => 
-                a.date === dateStr && 
-                a.status === 'PTO' && 
-                visibleIds.includes(a.talent_id)
-            ).length;
-
-            const capacity = visibleTalent.length - effectivePto;
-            const isShort = dailyDemand > capacity;
+            // --- CAPACITY MATH ---
+            // 1. Demand: Sum of daily assignments for visible talent on this date
+            // Note: This is "Booked Hours" logic now, simpler than generic task demand
+            const bookings = state.assignments.filter(a => a.assigned_date === dateStr).length;
             
+            // 2. Capacity: Visible Talent - PTO
+            const visibleIds = visibleTalent.map(t => t.id);
+            const ptoCount = state.availability.filter(a => a.date === dateStr && a.status === 'PTO' && visibleIds.includes(a.talent_id)).length;
+            const capacity = visibleTalent.length - ptoCount;
+
+            const load = bookings; 
             let metricColor = 'var(--text-dim)';
-            if (isShort) metricColor = '#ff4444'; 
-            else if (dailyDemand === capacity) metricColor = 'var(--warning-yellow)'; 
-            else if (dailyDemand < capacity) metricColor = '#4CAF50';
+            
+            // Logic: If bookings > capacity, we are overbooked
+            if (bookings > capacity) metricColor = '#ff4444'; 
+            else if (bookings === capacity) metricColor = 'var(--warning-yellow)'; 
+            else metricColor = '#4CAF50';
 
             const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : '';
-            const borderStyle = isShort ? 'border-bottom: 3px solid #ff4444;' : (isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '');
+            const borderStyle = isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '';
             const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
 
             headerHtml += `
@@ -196,14 +175,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
                     <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
                     <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
-                        REQ: ${dailyDemand} / CAP: ${capacity}
+                        BOOKED: ${load} / ${capacity}
                     </div>
                 </div>
             `;
         }
         dateHeaderEl.innerHTML = headerHtml;
 
-        // E. Render Rows
+        // Render Grid
         const resList = document.getElementById('matrix-resource-list');
         const gridCanvas = document.getElementById('matrix-grid-canvas');
         resList.innerHTML = '';
@@ -212,7 +191,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         visibleTalent.forEach((person) => {
             const rowBg = 'rgba(255,255,255,0.02)';
 
-            // Sidebar (Name)
+            // Sidebar
             const sidebarItem = document.createElement('div');
             sidebarItem.style.height = rowHeightStyle;
             sidebarItem.style.backgroundColor = rowBg;
@@ -253,11 +232,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const dateStr = d.format('YYYY-MM-DD');
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
+                // Lookup Data
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
-                const task = state.assignments.find(t => 
-                    t.assigned_talent_id === person.id && 
-                    (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
-                    (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)))
+                
+                // NEW: Lookup Daily Assignment
+                const assignment = state.assignments.find(a => 
+                    a.talent_id === person.id && 
+                    a.assigned_date === dateStr
                 );
 
                 const cell = document.createElement('div');
@@ -276,23 +257,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 if (avail && avail.status === 'PTO') {
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
-                    cell.style.color = 'var(--text-dim)';
-                    cell.innerHTML = '<i class="fas fa-plane" style="margin-right:5px;"></i>';
-                } else if (task) {
-                    // NEW COLOR LOGIC HERE
+                    cell.innerHTML = '<i class="fas fa-plane" style="color:var(--text-dim);"></i>';
+                } else if (assignment && assignment.project_tasks) {
+                    // Render Assignment
+                    const task = assignment.project_tasks;
                     const tradeColor = getTradeColor(task.trade_id);
                     
-                    cell.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; // Neutral dark background to let text pop
-                    cell.style.borderLeft = `4px solid ${tradeColor}`; // The specific trade color
+                    cell.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; 
+                    cell.style.borderLeft = `4px solid ${tradeColor}`; 
                     cell.style.color = 'white';
-                    
                     cell.innerHTML = `<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 5px;">${task.projects?.name}</div>`;
                     cell.title = `${task.name} (${task.projects?.name})`;
                 }
 
-                cell.addEventListener('mouseenter', () => { if(!task && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
-                cell.addEventListener('mouseleave', () => { if(!task && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
-                cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, task));
+                cell.addEventListener('mouseenter', () => { if(!assignment && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
+                cell.addEventListener('mouseleave', () => { if(!assignment && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
+                
+                // Click passes assignment (if exists) or null
+                cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, assignment));
                 gridRow.appendChild(cell);
             }
             gridCanvas.appendChild(gridRow);
@@ -302,57 +284,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
 
     // ------------------------------------------------------------------------
-    // 7. SKILLS MODAL
+    // 6. SKILLS MODAL
     // ------------------------------------------------------------------------
     function openSkillsModal(person) {
-        const currentSkillIds = state.skills
-            .filter(s => s.talent_id === person.id)
-            .map(s => s.trade_id);
-
+        const currentSkillIds = state.skills.filter(s => s.talent_id === person.id).map(s => s.trade_id);
         const checkboxes = state.trades.map(trade => {
             const isChecked = currentSkillIds.includes(trade.id);
             return `
                 <div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
                     <input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} style="margin-right:10px; transform:scale(1.2);">
                     <label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer;">${trade.name}</label>
-                </div>
-            `;
+                </div>`;
         }).join('');
 
-        // Use the 'onConfirm' callback (3rd argument) for saving
         showModal(`Manage Skills: ${person.name}`, `
-            <div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">
-                Select functional capabilities for ${person.name}. This updates Capacity.
-            </div>
-            <div id="skills-checklist-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">
-                ${checkboxes}
-            </div>
+            <div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">Select functional capabilities.</div>
+            <div id="skills-checklist-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">${checkboxes}</div>
         `, async () => {
-            // SAVE LOGIC (Runs when 'Confirm' is clicked)
             const container = document.getElementById('skills-checklist-container');
-            const selectedTradeIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
-                .map(cb => parseInt(cb.value));
-            
-            // 1. Delete existing
+            const selectedTradeIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
             await supabase.from('talent_skills').delete().eq('talent_id', person.id);
-            
-            // 2. Insert new
             if(selectedTradeIds.length > 0) {
-                const insertData = selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid }));
-                await supabase.from('talent_skills').insert(insertData);
+                await supabase.from('talent_skills').insert(selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid })));
             }
-            
-            loadTalentData(); // Refresh Grid
-            return true; // Closes Modal
+            loadTalentData();
+            return true; 
         });
     }
 
     // ------------------------------------------------------------------------
-    // 8. ASSIGNMENT MODAL
+    // 7. ASSIGNMENT MODAL (UPDATED FOR DAILY/RANGE)
     // ------------------------------------------------------------------------
-    function handleCellClick(person, dateStr, avail, currentTask) {
+    function handleCellClick(person, dateStr, avail, currentAssignment) {
         const d = dayjs(dateStr);
         
+        // Filter tasks active on this date
         const viableTasks = state.activeTasks.filter(t => {
             const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
                            (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
@@ -360,8 +326,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             return active;
         });
 
+        const assignedTaskId = currentAssignment ? currentAssignment.task_id : '';
+
         const taskOptions = viableTasks.map(t => 
-            `<option value="${t.id}" ${currentTask && currentTask.id === t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`
+            `<option value="${t.id}" ${assignedTaskId === t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`
         ).join('');
         
         const isPTO = avail && avail.status === 'PTO';
@@ -371,20 +339,26 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
             </div>
             <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
+                
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
-                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task</label>
+                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task (Range)</label>
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <input type="date" id="assign-start" class="form-control" value="${dateStr}" style="flex:1;">
+                        <input type="date" id="assign-end" class="form-control" value="${dateStr}" style="flex:1;">
+                    </div>
                     ${viableTasks.length > 0 ? `
                         <select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;">
                             <option value="">-- No Assignment --</option>${taskOptions}
                         </select>
-                        <button id="btn-save-assign" class="btn-primary" style="width:100%;">Save</button>
+                        <button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>
                     ` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found for this trade/date.</div>`}
                 </div>
+
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
                     <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">PTO Range</label>
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="flex:1; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
-                        <input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="flex:1; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
+                        <input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="flex:1;">
+                        <input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="flex:1;">
                     </div>
                     <div style="display:flex; gap:10px;">
                         <button id="btn-mark-avail" style="flex:1; padding:10px; background:${!isPTO ? 'rgba(76,175,80,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Clear</button>
@@ -399,25 +373,61 @@ document.addEventListener("DOMContentLoaded", async () => {
             const ptoBtn = document.getElementById('btn-mark-pto');
             const availBtn = document.getElementById('btn-mark-avail');
 
+            // ASSIGNMENT LOGIC (RANGE SUPPORT)
             if(assignBtn) assignBtn.onclick = async () => {
                 const taskId = document.getElementById('assign-task-select').value;
+                const start = dayjs(document.getElementById('assign-start').value);
+                const end = dayjs(document.getElementById('assign-end').value);
+                const diff = end.diff(start, 'day');
+
+                // 1. Clear existing assignments for this range
+                await supabase.from('task_assignments')
+                    .delete()
+                    .eq('talent_id', person.id)
+                    .gte('assigned_date', start.format('YYYY-MM-DD'))
+                    .lte('assigned_date', end.format('YYYY-MM-DD'));
+
                 if (taskId) {
-                    await supabase.from('project_tasks').update({ assigned_talent_id: person.id }).eq('id', taskId);
-                    await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
-                } else if (currentTask) {
-                    await supabase.from('project_tasks').update({ assigned_talent_id: null }).eq('id', currentTask.id);
+                    // 2. Insert new assignments for range
+                    const inserts = [];
+                    for(let i=0; i<=diff; i++) {
+                        const day = start.add(i, 'day');
+                        // Optional: Skip weekends here if desired, but manual override is flexible
+                        if(day.day() !== 0 && day.day() !== 6) {
+                            inserts.push({
+                                task_id: taskId,
+                                talent_id: person.id,
+                                assigned_date: day.format('YYYY-MM-DD')
+                            });
+                        }
+                    }
+                    if(inserts.length > 0) {
+                        await supabase.from('task_assignments').insert(inserts);
+                        // Also clear PTO for these days to prevent conflict
+                        await supabase.from('talent_availability')
+                            .delete()
+                            .eq('talent_id', person.id)
+                            .gte('date', start.format('YYYY-MM-DD'))
+                            .lte('date', end.format('YYYY-MM-DD'));
+                    }
                 }
                 hideModal(); loadTalentData();
             };
 
+            // PTO LOGIC
             if(ptoBtn) ptoBtn.onclick = async () => {
                 const start = dayjs(document.getElementById('pto-start-date').value);
                 const end = dayjs(document.getElementById('pto-end-date').value);
                 const diff = end.diff(start, 'day');
-                if (diff < 0) { alert("Invalid date range"); return; }
                 const upsertData = [];
                 for(let i=0; i<=diff; i++) upsertData.push({ talent_id: person.id, date: start.add(i, 'day').format('YYYY-MM-DD'), status: 'PTO' });
                 await supabase.from('talent_availability').upsert(upsertData, { onConflict: 'talent_id, date' });
+                // Also remove task assignments for these days
+                await supabase.from('task_assignments')
+                    .delete()
+                    .eq('talent_id', person.id)
+                    .gte('assigned_date', start.format('YYYY-MM-DD'))
+                    .lte('assigned_date', end.format('YYYY-MM-DD'));
                 hideModal(); loadTalentData();
             };
 
