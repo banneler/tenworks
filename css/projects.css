@@ -1,0 +1,207 @@
+/* --- PROJECTS / SHOP LOAD VIEW --- */
+
+/* 1. Metrics Bar (The Heads Up Display) */
+.project-metrics-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    background: var(--bg-medium);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+.metric-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.metric-card .label {
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+}
+
+.metric-card .value {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.8rem;
+    color: var(--text-bright);
+    font-weight: 700;
+}
+
+/* Progress Bars */
+.progress-bar-container {
+    height: 8px;
+    background: #111;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--primary-blue); /* Gold */
+    width: 0%; /* JS updates this */
+    transition: width 0.5s ease;
+}
+
+/* 2. The Gantt Frame */
+.gantt-container-frame {
+    display: grid;
+    grid-template-columns: 260px 1fr; /* Sidebar | Timeline */
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    height: 650px; /* Tall enough for scrolling */
+    overflow: hidden;
+    position: relative;
+}
+
+/* Sidebar (Trades) */
+.gantt-sidebar {
+    background: var(--bg-medium);
+    border-right: 1px solid var(--border-color);
+    z-index: 20;
+    overflow-y: hidden; /* Synced with grid via JS if needed */
+}
+
+.gantt-header-cell {
+    height: 50px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding-left: 20px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--warning-yellow);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: rgba(0,0,0,0.2);
+}
+
+.resource-row {
+    height: 70px; /* Fixed height for row alignment */
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 20px;
+    transition: background 0.2s;
+}
+
+.resource-row:hover {
+    background: rgba(255,255,255,0.02);
+}
+
+.resource-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-bright);
+}
+
+.resource-role {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+/* Timeline (The Grid) */
+.gantt-timeline-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden; /* Vertical scroll handled by container? No, usually coupled. */
+    position: relative;
+    background: #15181c;
+}
+
+.gantt-timeline-header {
+    display: flex;
+    height: 50px;
+    background: var(--bg-medium);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky; /* Keeps header visible if we scroll vertical */
+    top: 0;
+    z-index: 10;
+}
+
+.date-cell {
+    min-width: 100px; /* Width of one day */
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.date-cell.weekend {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.date-cell.today {
+    background: rgba(179, 140, 98, 0.1);
+    border-bottom: 2px solid var(--primary-blue);
+}
+
+/* The Blueprint Grid */
+.gantt-grid-body {
+    position: relative;
+    height: 100%;
+    /* 100px wide (day), 70px tall (row) */
+    background-image: 
+        linear-gradient(var(--border-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+    background-size: 100px 70px; 
+}
+
+/* Task Bars */
+.gantt-task-bar {
+    position: absolute;
+    height: 40px; /* fits inside 70px row */
+    background: rgba(179, 140, 98, 0.2);
+    border: 1px solid var(--primary-blue);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s;
+    backdrop-filter: blur(2px);
+}
+
+.gantt-task-bar:hover {
+    background: rgba(179, 140, 98, 0.4);
+    z-index: 100;
+    transform: scale(1.02);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+.gantt-task-info {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    z-index: 2;
+}
+
+/* The Burn Line (Profit Tracker) */
+.burn-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    z-index: 1;
+    transition: width 0.3s;
+}
