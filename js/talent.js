@@ -4,7 +4,8 @@ import {
     showModal, 
     hideModal, 
     setupUserMenuAndAuth, 
-    loadSVGs 
+    loadSVGs,
+    setupGlobalSearch
 } from './shared_constants.js';
 
 // Initialize Supabase & Day.js
@@ -12,7 +13,9 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
-    // --- 1. INITIALIZATION & AUTH ---
+    // ------------------------------------------------------------------------
+    // 1. INITIALIZATION & AUTH
+    // ------------------------------------------------------------------------
     await loadSVGs(); 
     
     // Auth Check
@@ -20,21 +23,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!user) { window.location.href = 'index.html'; return; }
     
     await setupUserMenuAndAuth(supabase, { currentUser: user });
+    await setupGlobalSearch(supabase, user);
 
-    // --- 2. GLOBAL STATE ---
+    // ------------------------------------------------------------------------
+    // 2. GLOBAL STATE
+    // ------------------------------------------------------------------------
     let state = {
         talent: [],         // Rows: Active Staff
         availability: [],   // PTO/Sick records
         assignments: [],    // Tasks currently assigned
         activeTasks: [],    // All pending work (for demand calculation)
         viewDate: dayjs(),  // Start date of the sliding window
-        daysToShow: 30      // 30-Day Rolling Window
+        daysToShow: 30      // 30-Day View
     };
 
-    // --- 3. EVENT LISTENERS ---
+    // ------------------------------------------------------------------------
+    // 3. EVENT LISTENERS & SCROLL SYNC ENGINE
+    // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
     
+    // Date Navigation
     if (prevBtn) prevBtn.addEventListener('click', () => { 
         state.viewDate = state.viewDate.subtract(7, 'day'); 
         renderMatrix(); 
@@ -45,18 +54,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderMatrix(); 
     });
 
-    // --- SCROLL SYNC (CRITICAL FIX) ---
-    // This locks the sidebar scroll to the grid scroll so names always match rows
+    // --- THE SYNC ENGINE (CRITICAL) ---
+    // This locks the Date Header (Horizontal) and Name Sidebar (Vertical)
+    // to the Main Grid's scroll position.
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
+    const dateHeader = document.getElementById('matrix-date-header');
     
-    if (gridCanvas && sidebarList) {
+    if (gridCanvas && sidebarList && dateHeader) {
         gridCanvas.addEventListener('scroll', () => {
+            // Horizontal Lock: Scroll header when grid scrolls left/right
+            dateHeader.scrollLeft = gridCanvas.scrollLeft;
+            
+            // Vertical Lock: Scroll sidebar when grid scrolls up/down
             sidebarList.scrollTop = gridCanvas.scrollTop;
         });
     }
 
-    // --- 4. DATA FETCHING ---
+    // ------------------------------------------------------------------------
+    // 4. DATA FETCHING
+    // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
         
@@ -91,19 +108,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderMatrix();
     }
 
-    // --- 5. RENDER ENGINE ---
+    // ------------------------------------------------------------------------
+    // 5. RENDER ENGINE
+    // ------------------------------------------------------------------------
     function renderMatrix() {
-        // A. Update Header Date Range
+        // A. Update Date Label
         const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
         const labelEl = document.getElementById('current-week-label');
         if (labelEl) labelEl.textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
 
-        // B. Render Column Headers (Dates + Shortage Warnings)
-        const dateHeader = document.getElementById('matrix-date-header');
-        if (!dateHeader) return;
+        // B. Dynamic Row Height Calculation
+        // Measures available space and expands rows to fit, down to a minimum of 50px
+        const containerEl = document.getElementById('matrix-grid-canvas');
+        const containerHeight = containerEl ? containerEl.clientHeight : 600;
+        const totalStaff = state.talent.length || 1;
+        
+        let calculatedHeight = Math.floor((containerHeight - 20) / totalStaff); // -20 buffer
+        if (calculatedHeight < 50) calculatedHeight = 50; // Hard minimum
+        const rowHeightStyle = `${calculatedHeight}px`;
+
+        // C. Render Column Headers (Dates + Metrics)
+        const dateHeaderEl = document.getElementById('matrix-date-header');
+        if (!dateHeaderEl) return;
 
         let headerHtml = '';
-        const colWidth = 120; // Fixed cell width
+        const colWidth = 120; // Fixed column width
 
         for(let i = 0; i < state.daysToShow; i++) {
             const d = state.viewDate.add(i, 'day');
@@ -111,11 +140,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            // --- SHORTAGE MATH ---
+            // --- SHORTAGE CALCULATION ---
             const ptoToday = state.availability.filter(a => a.date === dateStr && a.status === 'PTO').length;
             const capacity = state.talent.length - ptoToday;
 
-            // Demand = Active tasks intersecting this date
             const demand = state.activeTasks.filter(t => {
                 const start = dayjs(t.start_date);
                 const end = dayjs(t.end_date);
@@ -124,14 +152,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const isShort = demand > capacity;
             
-            // Metric Color Logic
+            // Visual Logic
             let metricColor = 'var(--text-dim)';
             if (isShort) metricColor = '#ff4444'; 
             else if (demand === capacity) metricColor = 'var(--warning-yellow)'; 
             else if (demand < capacity) metricColor = '#4CAF50';
 
-            // Styles (Red Weekend Tint)
-            const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : ''; 
+            // Weekend Red Tint
+            const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : '';
             const borderStyle = isShort ? 'border-bottom: 3px solid #ff4444;' : (isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '');
             const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
 
@@ -139,17 +167,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div style="min-width:${colWidth}px; width:${colWidth}px; border-right:1px solid var(--border-color); padding:10px; text-align:center; display:flex; flex-direction:column; justify-content:center; ${bgStyle} ${borderStyle}">
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
                     <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
+                    
                     <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
                         REQ: ${demand} / CAP: ${capacity}
                     </div>
                 </div>
             `;
         }
-        dateHeader.innerHTML = headerHtml;
+        dateHeaderEl.innerHTML = headerHtml;
 
-        // C. Render The Grid (Rows & Cells)
-        const resList = document.getElementById('matrix-resource-list'); // Sidebar
-        const gridCanvas = document.getElementById('matrix-grid-canvas'); // Main Grid
+        // D. Render Grid Body (Rows & Cells)
+        const resList = document.getElementById('matrix-resource-list');
+        const gridCanvas = document.getElementById('matrix-grid-canvas');
         
         if (!resList || !gridCanvas) return;
 
@@ -158,35 +187,32 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         state.talent.forEach((person, index) => {
             const rowBg = index % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)';
-            
-            // UPDATED: Compressed Row Height
-            const rowHeight = '40px'; 
 
-            // 1. Sidebar Card
+            // 1. Sidebar Row (Name)
             const sidebarItem = document.createElement('div');
             sidebarItem.className = 'talent-row'; 
+            sidebarItem.style.height = rowHeightStyle; // Apply Dynamic Height
             sidebarItem.style.backgroundColor = rowBg;
-            sidebarItem.style.height = rowHeight; // Applied 40px
             sidebarItem.style.display = 'flex';
             sidebarItem.style.alignItems = 'center';
             sidebarItem.style.padding = '0 15px';
             sidebarItem.style.borderBottom = '1px solid var(--border-color)';
             
             sidebarItem.innerHTML = `
-                <div style="width:24px; height:24px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
+                <div style="width:30px; height:30px; min-width:30px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
                     ${getInitials(person.name)}
                 </div>
                 <div style="overflow:hidden;">
-                    <div style="font-weight:600; font-size:0.85rem; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${person.name}</div>
+                    <div style="font-weight:600; font-size:0.9rem; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${person.name}</div>
+                    <div style="font-size:0.75rem; color:var(--text-dim);">${person.role || 'Staff'}</div>
                 </div>
             `;
             resList.appendChild(sidebarItem);
 
-            // 2. Grid Row
+            // 2. Grid Row (Cells)
             const gridRow = document.createElement('div');
-            gridRow.className = 'matrix-grid-row';
-            gridRow.style.display = 'flex'; // Ensure flex layout
-            gridRow.style.height = rowHeight; // Applied 40px
+            gridRow.className = 'matrix-grid-row'; // Ensures max-content width
+            gridRow.style.height = rowHeightStyle; // Apply Dynamic Height
             gridRow.style.backgroundColor = rowBg;
             gridRow.style.borderBottom = '1px solid var(--border-color)';
 
@@ -195,7 +221,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const dateStr = d.format('YYYY-MM-DD');
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
-                // DATA LOOKUP
+                // Lookup Data
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
                 const task = state.assignments.find(t => 
                     t.assigned_talent_id === person.id && 
@@ -218,7 +244,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // Weekend Tint
                 if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
-                // Cell Content Logic
+                // Cell Visuals
                 if (avail && avail.status === 'PTO') {
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
                     cell.style.color = 'var(--text-dim)';
@@ -234,7 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     cell.title = `${task.name} (${task.projects?.name})`;
                 }
 
-                // Hover Effect
+                // Hover Effects
                 cell.addEventListener('mouseenter', () => { if(!task && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
                 cell.addEventListener('mouseleave', () => { if(!task && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
 
@@ -251,17 +277,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         return name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase(); 
     }
 
-    // --- 6. INTERACTIVITY (Modal Logic) ---
+    // ------------------------------------------------------------------------
+    // 6. INTERACTIVITY (MODAL & ACTIONS)
+    // ------------------------------------------------------------------------
     function handleCellClick(person, dateStr, avail, currentTask) {
         const d = dayjs(dateStr);
         
-        // Filter: Task must overlap this date AND not be completed
+        // Find tasks active on this specific date
         const viableTasks = state.activeTasks.filter(t => 
             (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
             (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)))
         );
 
-        // Build Dropdown Options
+        // Generate Dropdown
         const taskOptions = viableTasks.map(t => 
             `<option value="${t.id}" ${currentTask && currentTask.id === t.id ? 'selected' : ''}>
                 ${t.projects?.name} - ${t.name}
@@ -270,7 +298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const isPTO = avail && avail.status === 'PTO';
 
-        // Modal HTML
+        // Show Modal
         showModal(`Schedule: ${person.name}`, `
             <div style="text-align:center; margin-bottom:20px;">
                 <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
@@ -326,26 +354,31 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>
         `, async () => {}); 
 
+        // Bind Events (Delay to ensure DOM is in Modal)
         setTimeout(() => {
             const assignBtn = document.getElementById('btn-save-assign');
             const ptoBtn = document.getElementById('btn-mark-pto');
             const availBtn = document.getElementById('btn-mark-avail');
 
+            // A. SAVE ASSIGNMENT
             if(assignBtn) {
                 assignBtn.onclick = async () => {
                     const taskId = document.getElementById('assign-task-select').value;
                     
                     if (taskId) {
+                        // Assign User to Task
                         const { error } = await supabase.from('project_tasks')
                             .update({ assigned_talent_id: person.id })
                             .eq('id', taskId);
                         
                         if (!error) {
+                            // If working, remove PTO for that specific day
                             await supabase.from('talent_availability')
                                 .delete()
                                 .match({ talent_id: person.id, date: dateStr });
                         }
                     } else {
+                        // Unassign
                         if (currentTask) {
                             await supabase.from('project_tasks')
                                 .update({ assigned_talent_id: null })
@@ -357,6 +390,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 };
             }
 
+            // B. MARK PTO (BULK LOOP)
             if(ptoBtn) {
                 ptoBtn.onclick = async () => {
                     const startVal = document.getElementById('pto-start-date').value;
@@ -385,6 +419,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 };
             }
 
+            // C. MARK AVAILABLE (BULK DELETE)
             if(availBtn) {
                 availBtn.onclick = async () => {
                      const startVal = document.getElementById('pto-start-date').value;
