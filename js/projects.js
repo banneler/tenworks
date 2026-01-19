@@ -47,22 +47,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.projects
             .filter(p => p.name.toLowerCase().includes(filter))
             .forEach(p => {
+                // Using standard item-list structure
                 const el = document.createElement('div');
-                el.className = 'item-list-row';
-                if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
+                el.style.padding = '15px';
+                el.style.borderBottom = '1px solid var(--border-color)';
+                el.style.cursor = 'pointer';
+                el.style.transition = 'background 0.2s';
                 
-                // Matches Account Page Styling
-                const initial = p.name.charAt(0).toUpperCase();
-                
+                if (state.currentProject && state.currentProject.id === p.id) {
+                    el.style.backgroundColor = 'rgba(212, 175, 55, 0.1)';
+                    el.style.borderLeft = '4px solid var(--primary-gold)';
+                } else {
+                    el.style.borderLeft = '4px solid transparent';
+                }
+
+                // Hover effect logic handled via CSS on parent if possible, or inline here
+                el.onmouseenter = () => { if(state.currentProject?.id !== p.id) el.style.backgroundColor = 'var(--bg-medium)'; };
+                el.onmouseleave = () => { if(state.currentProject?.id !== p.id) el.style.backgroundColor = 'transparent'; };
+
+                let statusColor = '#888';
+                if (p.status === 'In Progress') statusColor = 'var(--primary-blue)';
+                if (p.status === 'Completed') statusColor = '#4CAF50';
+
                 el.innerHTML = `
-                    <div class="item-icon">${initial}</div>
-                    <div class="item-details">
-                        <div class="item-main">${p.name}</div>
-                        <div class="item-sub">
-                            <span>${p.status}</span>
-                            <span>${formatCurrency(p.project_value)}</span>
-                        </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-weight:600; color:var(--text-bright); font-size:0.95rem;">${p.name}</div>
+                        <div style="font-size:0.8rem; font-family:'Rajdhani'; color:var(--text-dim);">${formatCurrency(p.project_value)}</div>
                     </div>
+                    <div style="margin-top:4px; font-size:0.8rem; color:${statusColor}; text-transform:uppercase; letter-spacing:0.5px;">${p.status}</div>
                 `;
                 el.onclick = () => loadDetail(p.id);
                 listEl.appendChild(el);
@@ -104,7 +116,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('detail-content').classList.remove('hidden');
 
         const p = state.currentProject;
-        document.getElementById('detail-name').textContent = p.name;
+        document.getElementById('detail-name').value = p.name; // Input now
         document.getElementById('detail-status').textContent = p.status;
         document.getElementById('detail-dates').textContent = `${dayjs(p.start_date).format('MMM D')} - ${dayjs(p.end_date).format('MMM D')}`;
         document.getElementById('detail-value').textContent = formatCurrency(p.project_value);
@@ -122,15 +134,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderLogs();
         renderFiles();
         
-        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
         if(activeTab === 'timeline') renderMiniGantt();
     }
 
-    // 3. RENDERERS
     function renderContacts() {
         const list = document.getElementById('project-contacts-list');
         list.innerHTML = state.projectContacts.map(c => `
-            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid var(--border-color);">
+            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid var(--border-color); background:var(--bg-medium); margin-bottom:5px; border-radius:4px;">
                 <div>
                     <div style="font-weight:600; color:var(--text-bright);">${c.contacts.first_name} ${c.contacts.last_name}</div>
                     <div style="font-size:0.8rem; color:var(--text-dim);">${c.role || 'Stakeholder'}</div>
@@ -190,7 +201,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dayWidth = 50; 
         const totalWidth = totalDays * dayWidth;
 
-        // Force container width
+        // Force container width for scrolling
         scrollArea.style.width = `${totalWidth}px`;
         
         header.innerHTML = '';
@@ -235,17 +246,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             bar.style.width = `${(duration * dayWidth) - 10}px`;
             bar.style.backgroundColor = getTradeColor(t.trade_id);
             
-            // Progress Calculation
-            const est = t.estimated_hours || 1;
-            const act = t.actual_hours || 0;
-            const pct = Math.min((act/est)*100, 100);
-
-            // Assignee Avatar
+            // Assignee Badge
             let assigneeHtml = '';
             if(t.shop_talent) {
                 const initials = t.shop_talent.name.split(' ').map(n=>n[0]).join('').substring(0,2);
                 assigneeHtml = `<div class="gantt-assignee" title="${t.shop_talent.name}">${initials}</div>`;
             }
+
+            // Progress Fill & Text
+            const est = t.estimated_hours || 1;
+            const act = t.actual_hours || 0;
+            const pct = Math.min((act/est)*100, 100);
 
             bar.innerHTML = `
                 <div class="gantt-progress-fill" style="width:${pct}%"></div>
@@ -261,10 +272,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    // HANDLERS
+    document.querySelectorAll('.tab-button').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
             if(btn.dataset.tab === 'timeline') renderMiniGantt();
