@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Talent Matrix | Ten Works</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <link rel="stylesheet" href="css/style.css"> 
+    <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/projects.css">
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
 
     <style>
-        /* Matrix Specific Overrides */
+        /* Matrix Sidebar (Names) */
         .gantt-sidebar-header {
             background: var(--bg-medium);
             color: var(--text-bright);
@@ -24,70 +24,116 @@
             letter-spacing: 1px;
             font-size: 0.9rem;
             border-bottom: 1px solid var(--border-color);
-        }
-        
-        /* Grid Cells */
-        .talent-grid-cell {
             border-right: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
-            height: 60px;
-            display: flex;
+            padding-left: 20px;
+            display: flex; 
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            position: relative;
-        }
-        .talent-grid-cell:hover { background: rgba(255,255,255,0.05); }
-        
-        /* Status Indicators */
-        .status-pto { 
-            background: repeating-linear-gradient(45deg, rgba(45,45,45,0.8), rgba(45,45,45,0.8) 10px, rgba(58,58,58,0.8) 10px, rgba(58,58,58,0.8) 20px); 
-            color: #aaa; font-weight: 600;
-        }
-        .status-assigned { 
-            background: rgba(33, 150, 243, 0.15); 
-            border-left: 3px solid var(--primary-blue); 
-            color: var(--text-bright);
-            justify-content: flex-start; padding-left: 8px;
-            width: 100%; height: 100%; display: flex; align-items: center;
         }
 
-        /* Shortage Indicator (Red Underline in Header) */
-        .shortage-warning {
-            border-bottom: 3px solid #ff4444 !important;
-        }
-        
-        /* Avatar Styling */
+        /* The Person Card (Left Sidebar) */
         .talent-row {
-            height: 60px;
+            height: 60px; /* Fixed height for alignment */
             border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
             padding: 0 20px;
-            display: flex; align-items: center;
+            display: flex;
+            align-items: center;
             background: var(--bg-dark);
+            transition: background 0.2s;
         }
+        .talent-row:hover { background: rgba(255,255,255,0.03); }
+
+        /* Avatar Circle */
         .talent-avatar {
-            width: 36px; height: 36px; 
+            width: 34px; height: 34px; 
             background: var(--bg-medium); 
             border: 1px solid var(--primary-gold);
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             font-weight: 700; color: var(--primary-gold);
-            margin-right: 15px; font-family: 'Rajdhani', sans-serif;
+            margin-right: 12px; 
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.9rem;
         }
-        .talent-info h4 { margin: 0; font-size: 0.95rem; color: var(--text-bright); font-weight: 600; }
-        .talent-info span { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; }
+
+        /* Name & Role Text */
+        .talent-info { display: flex; flex-direction: column; justify-content: center; }
+        .talent-info h4 { margin: 0; font-size: 0.95rem; color: var(--text-bright); font-weight: 600; line-height: 1.2; }
+        .talent-info span { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* The Interactive Grid Cell */
+        .talent-grid-cell {
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            height: 60px; /* Must match .talent-row height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            position: relative;
+        }
+        .talent-grid-cell:hover { background: rgba(255,255,255,0.08); }
+
+        /* CELL STATES */
+        /* 1. PTO (Striped) */
+        .status-pto { 
+            background: repeating-linear-gradient(
+                45deg, 
+                rgba(45,45,45,0.6), 
+                rgba(45,45,45,0.6) 10px, 
+                rgba(58,58,58,0.6) 10px, 
+                rgba(58,58,58,0.6) 20px
+            ); 
+            color: #aaa; 
+            font-weight: 600;
+            cursor: default;
+        }
+        
+        /* 2. ASSIGNED (Blue Glow) */
+        .status-assigned { 
+            background: rgba(33, 150, 243, 0.15); 
+            border-left: 3px solid var(--primary-blue); 
+            color: var(--text-bright);
+            justify-content: flex-start; 
+            padding-left: 10px;
+            width: 100%; 
+            height: 100%;
+        }
+        .status-assigned:hover {
+            background: rgba(33, 150, 243, 0.25);
+        }
+
+        /* Shortage Warning (Red Underline on Dates) */
+        .date-header-cell {
+            border-right: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+        .shortage-warning::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            height: 3px;
+            background: #ff4444;
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
+        
         <aside class="sidebar">
             <div class="logo-area">
                 <div class="logo-icon" id="sidebar-logo-container">TW</div> 
                 <div class="logo-text">TEN WORKS</div>
             </div>
+            
             <nav class="main-nav">
                 <a href="index.html" class="nav-item"><i class="fas fa-home"></i> <span>Dashboard</span></a>
                 <a href="projects.html" class="nav-item"><i class="fas fa-industry"></i> <span>Production</span></a>
@@ -95,11 +141,11 @@
                 <a href="deals.html" class="nav-item"><i class="fas fa-dollar-sign"></i> <span>Deals</span></a>
             </nav>
             
-            <div class="user-area" id="user-menu-btn" style="position: absolute; bottom: 20px; left: 20px; right: 20px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; display:flex; align-items:center;">
-                <div class="avatar" style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-gold); color: black; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px;">CH</div>
-                <div class="user-info" style="font-size: 0.85rem;">
-                    <div style="color: white; font-weight: 600;">Chad Hershberger</div>
-                    <div style="color: #888;">Manager</div>
+            <div class="user-profile" id="user-menu-btn">
+                <div class="avatar" style="background-image: url('assets/chad-avatar.jpg'); background-size: cover;">CH</div>
+                <div class="user-info">
+                    <div class="name">Chad Hershberger</div>
+                    <div class="role">Manager</div>
                 </div>
             </div>
         </aside>
@@ -107,39 +153,42 @@
         <main class="main-content">
             <header class="top-bar">
                 <div class="breadcrumbs">
-                    <span class="crumb-root">Operations</span> <i class="fas fa-chevron-right"></i> <span class="crumb-current">Talent Matrix</span>
+                    <span class="crumb-root">Operations</span> 
+                    <i class="fas fa-chevron-right"></i> 
+                    <span class="crumb-current">Talent Matrix</span>
                 </div>
             </header>
 
             <div class="content-wrapper">
                 <div class="header-action-area" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <div>
-                        <h2 style="font-size: 2rem; margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 700; color: white; text-transform: uppercase;">Team Availability</h2>
-                        <span style="color: var(--text-dim); font-size: 0.9rem;">
-                            <span style="color:#ff4444; margin-right:5px;">●</span> Shortage
-                            <span style="color:#4CAF50; margin-left:10px; margin-right:5px;">●</span> Balanced
-                        </span>
+                        <h2 style="font-size: 2rem; margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 700; color: white; text-transform: uppercase;">Team Schedule</h2>
+                        <div style="color: var(--text-dim); font-size: 0.9rem; margin-top: 5px; display: flex; gap: 15px;">
+                            <span style="display:flex; align-items:center;"><span style="width:8px; height:8px; background:var(--primary-blue); border-radius:50%; margin-right:6px;"></span> Assigned</span>
+                            <span style="display:flex; align-items:center;"><span style="width:8px; height:8px; background:#444; border-radius:50%; margin-right:6px;"></span> PTO / Off</span>
+                            <span style="display:flex; align-items:center;"><span style="width:8px; height:8px; background:#ff4444; border-radius:50%; margin-right:6px;"></span> Shortage</span>
+                        </div>
                     </div>
                     
                     <div class="view-controls" style="background: var(--bg-medium); padding: 5px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center;">
-                        <button id="prev-week-btn" class="btn-icon" style="background:transparent; border:none; color:white; cursor:pointer; padding: 0 10px;"><i class="fas fa-chevron-left"></i></button>
-                        <span id="current-week-label" style="margin:0 15px; font-weight:600; font-family:'Rajdhani', sans-serif; color: var(--primary-gold); font-size: 1.1rem;">This Week</span>
-                        <button id="next-week-btn" class="btn-icon" style="background:transparent; border:none; color:white; cursor:pointer; padding: 0 10px;"><i class="fas fa-chevron-right"></i></button>
+                        <button id="prev-week-btn" class="btn-icon" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; padding: 8px 15px;"><i class="fas fa-chevron-left"></i></button>
+                        <span id="current-week-label" style="margin:0 10px; font-weight:600; font-family:'Rajdhani', sans-serif; color: var(--primary-gold); font-size: 1.1rem; min-width: 150px; text-align: center;">...</span>
+                        <button id="next-week-btn" class="btn-icon" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; padding: 8px 15px;"><i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
 
-                <div class="gantt-container" style="height: calc(100vh - 200px); display:flex; flex-direction:column; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+                <div class="gantt-container" style="height: calc(100vh - 220px); display:flex; flex-direction:column; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
                     
-                    <div class="gantt-header" style="display:flex; height:60px; border-bottom:1px solid var(--border-color); background:var(--bg-medium);">
-                        <div class="gantt-sidebar-header" style="width:280px; padding:20px; border-right:1px solid var(--border-color); display: flex; align-items: center;">
-                            TEAM MEMBER
+                    <div class="gantt-header" style="display:flex; height:60px; background:var(--bg-medium);">
+                        <div class="gantt-sidebar-header" style="width:280px; min-width:280px;">
+                            TALENT / ROLE
                         </div>
                         <div id="matrix-date-header" style="flex:1; display:flex; overflow:hidden;">
                             </div>
                     </div>
 
                     <div class="gantt-body" style="flex:1; display:flex; overflow:hidden;">
-                        <div id="matrix-resource-list" style="width:280px; background:var(--bg-dark); border-right:1px solid var(--border-color); overflow-y:auto;">
+                        <div id="matrix-resource-list" style="width:280px; min-width:280px; background:var(--bg-dark); border-right:1px solid var(--border-color); overflow-y:auto; scrollbar-width: none;">
                             </div>
                         
                         <div id="matrix-grid-canvas" style="flex:1; overflow:auto; position:relative; background:var(--bg-dark);">
@@ -149,8 +198,9 @@
             </div>
         </main>
     </div>
-    
-    <div id="modal-overlay" class="modal-overlay hidden"></div>
+
+    <div id="modal-overlay" class="modal-overlay hidden">
+        </div>
 
     <script type="module" src="js/talent.js"></script>
 </body>
