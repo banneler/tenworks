@@ -3,6 +3,7 @@ import {
     SUPABASE_ANON_KEY, 
     formatCurrency, 
     showModal, 
+    hideModal, // Make sure this is exported in shared_constants
     setupUserMenuAndAuth, 
     loadSVGs, 
     setupGlobalSearch 
@@ -21,7 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- STATE ---
     let state = {
-        currentView: 'resource', // 'resource' or 'project'
+        currentView: 'resource',
         trades: [],
         projects: [],
         tasks: []
@@ -36,19 +37,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function switchView(view) {
         state.currentView = view;
-        // Update Buttons
         if(view === 'resource') {
+            btnResource.classList.add('active'); // Ensure CSS handles .active styling
             btnResource.style.background = 'var(--primary-blue)';
             btnResource.style.color = 'white';
             btnProject.style.background = 'transparent';
             btnProject.style.color = 'var(--text-dim)';
         } else {
+            btnProject.classList.add('active');
             btnProject.style.background = 'var(--primary-blue)';
             btnProject.style.color = 'white';
             btnResource.style.background = 'transparent';
             btnResource.style.color = 'var(--text-dim)';
         }
-        renderGantt(); // Re-render with new mode
+        renderGantt();
     }
 
     // --- DATA LOADING ---
@@ -58,7 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const { data: trades } = await supabase.from('shop_trades').select('*').order('id');
         state.trades = trades || [];
 
-        const { data: tasks } = await supabase.from('project_tasks').select(`*, projects(name, project_value), shop_trades(name)`);
+        const { data: tasks } = await supabase.from('project_tasks').select(`*, projects(name), shop_trades(name)`);
         state.tasks = tasks || [];
 
         const { data: projects } = await supabase.from('projects').select('*').order('start_date');
@@ -68,17 +70,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateMetrics();
     }
 
-    // --- MAIN RENDER ENGINE ---
+    // --- RENDER ENGINE ---
     function renderGantt() {
         const resourceList = document.getElementById('gantt-resource-list');
         const gridCanvas = document.getElementById('gantt-grid-canvas');
         const dateHeader = document.getElementById('gantt-date-header');
 
-        // 1. SETUP TIMELINE (Shared)
+        // 1. TIMELINE SETUP
         let dateHtml = '';
-        // Start view 2 days ago so we can see recent history
-        const startDate = dayjs().subtract(2, 'day'); 
-        const daysToRender = 30;
+        const startDate = dayjs().subtract(5, 'day'); // Show recent history
+        const daysToRender = 35; // 5 weeks view
         const dayWidth = 100;
 
         for (let i = 0; i < daysToRender; i++) {
@@ -97,29 +98,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         dateHeader.style.width = `${totalWidth}px`;
         gridCanvas.style.width = `${totalWidth}px`;
 
-        // 2. RENDER ROWS (Based on View Mode)
+        // 2. RENDER ROWS
         resourceList.innerHTML = '';
         gridCanvas.innerHTML = '';
 
         const rows = state.currentView === 'resource' ? state.trades : state.projects;
 
         rows.forEach((rowItem, index) => {
-            // A. Sidebar Row
+            // Sidebar
             const rowEl = document.createElement('div');
             rowEl.className = 'resource-row';
             
             if (state.currentView === 'resource') {
-                // Resource Mode: Show Trade Name
                 rowEl.innerHTML = `
                     <div class="resource-name">${rowItem.name}</div>
                     <div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>
                 `;
             } else {
-                // Project Mode: Show Project Name & Status
                 let statusColor = '#888';
                 if(rowItem.status === 'Fabrication') statusColor = 'var(--primary-blue)';
                 if(rowItem.status === 'Installation') statusColor = 'var(--warning-yellow)';
-                
                 rowEl.innerHTML = `
                     <div class="resource-name">${rowItem.name}</div>
                     <div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>
@@ -127,8 +125,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             resourceList.appendChild(rowEl);
 
-            // B. Render Bars for this Row
-            // Filter tasks that belong to this row
+            // Bars
             const rowTasks = state.tasks.filter(t => {
                 if (state.currentView === 'resource') return t.trade_id === rowItem.id;
                 else return t.project_id === rowItem.id;
@@ -140,40 +137,88 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const diff = start.diff(startDate, 'day');
                 const duration = end.diff(start, 'day') + 1;
 
-                // Skip if entirely off-screen
-                if (diff + duration < 0) return; 
+                if (diff + duration < 0) return;
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-task-bar';
-                
-                // Position
                 bar.style.top = `${(index * 70) + 15}px`; 
                 bar.style.left = `${diff * dayWidth}px`;
                 bar.style.width = `${(duration * dayWidth) - 10}px`;
 
-                // Color Logic
-                // Resource View = Gold Bars
-                // Project View = Color by Trade? Or different shades?
-                // Let's keep it Gold for now, maybe add a specific class later
-                
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
                 const burnColor = percent > 1 ? '#ff4444' : 'var(--warning-yellow)';
 
-                // Label Logic
                 const label = state.currentView === 'resource' 
-                    ? task.projects?.name // In Resource view, see Project Name
-                    : task.shop_trades?.name; // In Project view, see Trade Name (e.g. "Design")
+                    ? task.projects?.name 
+                    : task.shop_trades?.name;
+
+                // Color Coding for Project View (Optional Polish)
+                if (state.currentView === 'project') {
+                    if (task.shop_trades?.name.includes('CAD')) bar.style.borderColor = '#4CAF50'; // Green
+                    if (task.shop_trades?.name.includes('Install')) bar.style.borderColor = '#2196F3'; // Blue
+                }
 
                 bar.innerHTML = `
                     <span class="gantt-task-info">${label || task.name}</span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor};"></div>
                 `;
                 
-                // Tooltip
-                bar.title = `${task.name}\n${task.start_date} - ${task.end_date}`;
+                // CLICK EVENT: Open Editor
+                bar.addEventListener('click', () => openTaskModal(task));
 
                 gridCanvas.appendChild(bar);
             });
+        });
+    }
+
+    // --- INTERACTIVITY: EDIT MODAL ---
+    function openTaskModal(task) {
+        showModal(`Edit Task: ${task.name}`, `
+            <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                <div>
+                    <label>Status</label>
+                    <select id="edit-status" class="form-control" style="background:var(--bg-dark); color:white; padding:8px;">
+                        <option value="Pending" ${task.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                        <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="Completed" ${task.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Actual Hours (Burn)</label>
+                    <input type="number" id="edit-actual" class="form-control" value="${task.actual_hours}">
+                    <small style="color:var(--text-dim)">Est: ${task.estimated_hours} hrs</small>
+                </div>
+                <div>
+                    <label>Start Date</label>
+                    <input type="date" id="edit-start" class="form-control" value="${task.start_date}">
+                </div>
+                <div>
+                    <label>End Date</label>
+                    <input type="date" id="edit-end" class="form-control" value="${task.end_date}">
+                </div>
+            </div>
+        `, async () => {
+            // SAVE LOGIC
+            const newStatus = document.getElementById('edit-status').value;
+            const newActual = document.getElementById('edit-actual').value;
+            const newStart = document.getElementById('edit-start').value;
+            const newEnd = document.getElementById('edit-end').value;
+
+            const { error } = await supabase
+                .from('project_tasks')
+                .update({ 
+                    status: newStatus, 
+                    actual_hours: newActual,
+                    start_date: newStart,
+                    end_date: newEnd
+                })
+                .eq('id', task.id);
+
+            if (error) alert('Error updating task: ' + error.message);
+            else {
+                // hideModal(); // If you have this function
+                loadShopData(); // Refresh grid
+            }
         });
     }
 
@@ -184,22 +229,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         const revenueEl = document.getElementById('metrics-revenue');
         const countEl = document.getElementById('metrics-count');
+        const loadBar = document.getElementById('metrics-load-bar');
+        const loadText = document.getElementById('metrics-load-text');
         
         if(revenueEl) revenueEl.textContent = formatCurrency(totalRev);
         if(countEl) countEl.textContent = activeProjects.length;
 
-        // Utilization: Active Tasks vs Capacity
+        // Utilization Logic
         const today = dayjs();
         const activeTasks = state.tasks.filter(t => dayjs(t.start_date).isBefore(today) && dayjs(t.end_date).isAfter(today)).length;
         const load = Math.min((activeTasks / 5) * 100, 100);
         
-        const loadBar = document.getElementById('metrics-load-bar');
-        const loadText = document.getElementById('metrics-load-text');
         if(loadBar) loadBar.style.width = `${load}%`;
         if(loadText) loadText.textContent = `${Math.round(load)}%`;
     }
 
-    // --- LAUNCH BUTTON (Your existing logic) ---
+    // --- LAUNCH LOGIC (Existing) ---
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
         launchBtn.addEventListener('click', async () => {
@@ -226,7 +271,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if(error) { alert(error.message); return; }
                 const pid = proj[0].id;
                 
-                // Auto-Generate Waterfall Tasks
+                // Auto-Generate Waterfall
                 const s = dayjs(start);
                 const tasks = [
                     { project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff', start_date: start, end_date: s.add(2,'day').format('YYYY-MM-DD'), estimated_hours: 5 },
