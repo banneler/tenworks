@@ -14,93 +14,33 @@
     </script>
 
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/projects.css">
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
+
     <style>
-        /* SPLIT VIEW */
-        .split-view { display: flex; height: calc(100vh - 80px); overflow: hidden; }
-        
-        /* LIST PANEL */
-        .split-list-panel { 
-            width: 350px; 
-            min-width: 350px; 
-            border-right: 1px solid var(--border-color); 
-            display: flex; 
-            flex-direction: column; 
-            background: var(--bg-dark); 
-        }
-
-        /* DETAIL PANEL */
-        .split-detail-panel { 
-            flex: 1; 
-            background: #0f0f0f; 
-            overflow-y: auto; 
-            padding: 30px;
-        }
-
-        /* PROJECT LIST ITEM (Clean, No Icon) */
-        .project-list-item {
-            padding: 18px 25px; /* More breathing room */
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: all 0.2s;
-            border-left: 4px solid transparent;
-        }
-        .project-list-item:hover { background: var(--bg-medium); }
-        .project-list-item.selected { 
-            background: rgba(212, 175, 55, 0.05); 
-            border-left-color: var(--primary-gold); 
-        }
-        .item-main { font-weight: 600; font-size: 1rem; color: var(--text-bright); margin-bottom: 4px; }
-        .item-sub { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* CONTENT CARD */
-        .content-card {
-            background: var(--bg-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            overflow: hidden;
-            margin-bottom: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            /* height: calc(100vh - 100px); Optional: fix height to screen */
-        }
-
-        .card-header {
-            padding: 25px 30px;
-            border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(180deg, var(--bg-medium) 0%, var(--bg-dark) 100%);
-        }
-
-        .card-body { padding: 30px; flex: 1; overflow-y: auto; }
-
-        /* TABS */
-        .detail-tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--border-color); padding: 0 30px; background: var(--bg-dark); }
-        .tab-btn { background: none; border: none; padding: 15px 0; color: var(--text-dim); cursor: pointer; font-size: 0.95rem; font-weight: 500; position: relative; text-transform: uppercase; letter-spacing: 1px; transition: color 0.2s; }
-        .tab-btn:hover { color: var(--text-bright); }
-        .tab-btn.active { color: var(--primary-gold); font-weight: 700; }
-        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--primary-gold); box-shadow: 0 -2px 8px rgba(212, 175, 55, 0.4); }
-        
-        .tab-pane { display: none; }
-        .tab-pane.active { display: block; animation: fadeIn 0.2s ease; }
-
-        /* TIMELINE (Single Scroll Container) */
+        /* --- TIMELINE (SCHEDULE PAGE CARBON COPY) --- */
         .mini-gantt-wrapper {
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            background: #1a1a1a;
-            overflow-x: auto; /* The ONE scrollbar */
+            background: #1a1a1a; /* Dark background for contrast */
+            overflow-x: auto;
             overflow-y: hidden;
             position: relative;
             height: 500px;
+            margin-top: 15px;
         }
         
         .gantt-scroll-content {
             height: 100%;
             position: relative;
-            /* Width set by JS */
+            /* Width set dynamically via JS */
         }
 
         .gantt-header-row {
@@ -113,25 +53,43 @@
             z-index: 10;
         }
 
-        .gantt-grid-line { position: absolute; top: 0; bottom: 0; border-right: 1px solid rgba(255,255,255,0.05); pointer-events: none; }
-        
-        /* GANTT BARS (Matching Schedule Page) */
-        .gantt-task-row { position: relative; height: 50px; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.02); }
-        
-        .gantt-bar { 
-            position: absolute; height: 32px; top: 9px; border-radius: 4px; 
-            display: flex; align-items: center; padding-left: 10px; 
-            font-size: 0.75rem; color: white; font-weight: 600; 
-            text-shadow: 0 1px 3px black; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.4); 
+        .gantt-grid-line { 
+            position: absolute; top: 0; bottom: 0; 
+            border-right: 1px solid rgba(255,255,255,0.05); 
+            pointer-events: none; 
+        }
+
+        /* SCHEDULE PAGE BAR STYLING */
+        .gantt-task-bar {
+            position: absolute;
+            height: 36px; /* Taller as requested */
+            top: 6px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            font-size: 0.75rem;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 1px 2px black;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             border: 1px solid rgba(255,255,255,0.15);
             background-image: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1));
             overflow: hidden;
             z-index: 2;
         }
 
-        .burn-line { position: absolute; bottom: 0; left: 0; height: 4px; z-index: 3; transition: width 0.3s ease; }
-        
+        /* THE BURN LINE (Progress Overlay) */
+        .burn-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 100%; /* Full height overlay or bottom strip? Using bottom strip per schedule page */
+            height: 4px; 
+            z-index: 3;
+            transition: width 0.3s ease;
+        }
+
         .gantt-assignee { 
             position: absolute; right: -36px; top: 50%; transform: translateY(-50%);
             width: 28px; height: 28px; background: var(--bg-medium); border: 1px solid var(--border-color); 
@@ -139,27 +97,73 @@
             font-size: 0.7rem; color: var(--text-bright); font-weight: 700; z-index: 3;
         }
 
+        /* --- CONTENT CARD & TABS --- */
+        .content-card {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            overflow: hidden;
+            margin-bottom: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 25px 30px;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(180deg, var(--bg-medium) 0%, var(--bg-dark) 100%);
+        }
+
+        .card-body { padding: 30px; flex: 1; overflow-y: auto; }
+
+        .detail-tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--border-color); padding: 0 30px; background: var(--bg-dark); }
+        .tab-btn { background: none; border: none; padding: 15px 0; color: var(--text-dim); cursor: pointer; font-size: 0.95rem; font-weight: 500; position: relative; text-transform: uppercase; letter-spacing: 1px; transition: color 0.2s; }
+        .tab-btn:hover { color: var(--text-bright); }
+        .tab-btn.active { color: var(--primary-gold); font-weight: 700; }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--primary-gold); box-shadow: 0 -2px 8px rgba(212, 175, 55, 0.4); }
+        
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; animation: fadeIn 0.2s ease; }
+
         /* KPI & LOGS */
         .project-kpi-card { background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; text-align: center; }
         .project-kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
         .project-kpi-value { font-size: 1.8rem; font-weight: 700; color: var(--text-bright); font-family: 'Rajdhani', sans-serif; }
 
+        /* LOG STYLING */
         .log-entry-card { background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-bottom: 12px; display: flex; gap: 15px; }
         .log-avatar { width: 32px; height: 32px; background: var(--primary-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.8rem; }
         .log-content-wrapper { flex: 1; }
         .log-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.8rem; color: var(--text-dim); }
         .log-body { color: var(--text-bright); line-height: 1.4; font-size: 0.9rem; }
 
+        /* FILE LIST STYLING */
+        .file-item-card { 
+            display: flex; align-items: center; padding: 15px; 
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid var(--border-color); 
+            border-radius: 6px; 
+            margin-bottom: 10px; 
+            transition: all 0.2s; 
+        }
+        .file-item-card:hover { background: rgba(255,255,255,0.06); border-color: var(--text-dim); }
+        .file-icon-box { width: 40px; height: 40px; background: rgba(212, 175, 55, 0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--primary-gold); font-size: 1.2rem; margin-right: 15px; }
+
+        /* PREVIEW FRAME */
+        .file-preview-frame {
+            width: 100%;
+            height: 600px;
+            border: 1px solid var(--border-color);
+            background: #000;
+            margin-top: 15px;
+            border-radius: 6px;
+        }
+
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
 </head>
 
 <body>
@@ -179,19 +183,15 @@
         </nav>
 
         <main class="content-area split-view">
-            <div class="split-list-panel">
+            <div class="item-list-container">
                 <div style="padding: 20px; border-bottom: 1px solid var(--border-color);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h2 style="margin:0; font-size:1.5rem;">Projects</h2>
-                        <button id="btn-new-project" class="btn-primary-icon" style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;"><i class="fas fa-plus"></i></button>
-                    </div>
+                    <button id="btn-new-project" class="btn-primary full-width" style="margin-bottom:15px;">Add New Project</button>
                     <input type="text" id="project-search" placeholder="Search projects..." class="form-control" style="width:100%;">
                 </div>
-                <div id="project-list" style="flex:1; overflow-y:auto;"></div>
+                <div id="project-list" class="item-list"></div>
             </div>
 
-            <div id="project-detail-panel" class="split-detail-panel">
-                
+            <div id="project-detail-panel" class="details-panel">
                 <div class="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim);">
                     <i class="fas fa-layer-group" style="font-size:64px; margin-bottom:20px; opacity:0.2;"></i>
                     <h3>Select a Project</h3>
@@ -215,6 +215,7 @@
                                     <button class="btn-primary" id="btn-save-changes">Save Changes</button>
                                 </div>
                             </div>
+                            
                             <div style="margin-top:15px; padding-top:15px; border-top:1px solid var(--border-color); display:flex; align-items:center; gap:10px;">
                                 <label style="color:var(--text-dim); font-size:0.9rem;">Due Date:</label>
                                 <input type="date" id="detail-due-date" class="form-control" style="width:auto; padding:5px; background:rgba(0,0,0,0.2);">
@@ -244,7 +245,7 @@
 
                                 <div>
                                     <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:10px; align-items:center;">
-                                        <h4 style="margin:0; color:var(--text-bright);">Project Team</h4>
+                                        <h4 style="margin:0; color:var(--text-bright);">Project Contacts</h4>
                                         <button id="btn-add-contact" class="btn-secondary" style="padding:6px 12px; font-size:0.8rem;"><i class="fas fa-plus"></i> Add Contact</button>
                                     </div>
                                     <div id="project-contacts-list"></div>
@@ -267,6 +268,14 @@
                                     <input type="file" id="file-input" style="display:none" multiple>
                                 </div>
                                 <div id="file-list"></div>
+                                
+                                <div id="file-preview-container" class="hidden">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
+                                        <h4 style="margin:0;">File Preview</h4>
+                                        <button id="close-preview" class="btn-text" style="color:var(--text-dim); cursor:pointer;">Close</button>
+                                    </div>
+                                    <iframe id="file-preview-frame" class="file-preview-frame"></iframe>
+                                </div>
                             </div>
 
                             <div id="tab-log" class="tab-pane">
