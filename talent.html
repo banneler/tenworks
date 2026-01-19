@@ -1,206 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Talent Matrix | Ten Works</title>
+    <title>TenWorks Talent Matrix</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <script>
+        // Theme initialization to prevent flash of unstyled content
+        (function() {
+            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+            document.documentElement.className = 'theme-' + savedTheme;
+            if (!localStorage.getItem('crm-theme')) localStorage.setItem('crm-theme', 'dark');
+        })();
+    </script>
+
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/projects.css">
-    
+    <link rel="stylesheet" href="css/projects.css"> <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
 
     <style>
-        /* Matrix Sidebar (Names) */
-        .gantt-sidebar-header {
-            background: var(--bg-medium);
-            color: var(--text-bright);
-            font-family: 'Rajdhani', sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-size: 0.9rem;
-            border-bottom: 1px solid var(--border-color);
-            border-right: 1px solid var(--border-color);
-            padding-left: 20px;
-            display: flex; 
-            align-items: center;
-        }
-
-        /* The Person Card (Left Sidebar) */
-        .talent-row {
-            height: 60px; /* Fixed height for alignment */
-            border-bottom: 1px solid var(--border-color);
-            border-right: 1px solid var(--border-color);
-            padding: 0 20px;
+        /* Matrix Specific Overrides */
+        .matrix-header-controls {
             display: flex;
             align-items: center;
-            background: var(--bg-dark);
+            gap: 15px;
+            background: var(--bg-medium);
+            padding: 5px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .date-nav-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-bright);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 5px 10px;
+            border-radius: 4px;
             transition: background 0.2s;
         }
-        .talent-row:hover { background: rgba(255,255,255,0.03); }
 
-        /* Avatar Circle */
-        .talent-avatar {
-            width: 34px; height: 34px; 
-            background: var(--bg-medium); 
-            border: 1px solid var(--primary-gold);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 700; color: var(--primary-gold);
-            margin-right: 12px; 
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 0.9rem;
+        .date-nav-btn:hover {
+            background: var(--primary-blue);
+            color: white;
         }
 
-        /* Name & Role Text */
-        .talent-info { display: flex; flex-direction: column; justify-content: center; }
-        .talent-info h4 { margin: 0; font-size: 0.95rem; color: var(--text-bright); font-weight: 600; line-height: 1.2; }
-        .talent-info span { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* The Interactive Grid Cell */
-        .talent-grid-cell {
-            border-right: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
-            height: 60px; /* Must match .talent-row height */
+        /* Grid Alignment */
+        .talent-row {
+            height: 60px; /* Fixed height for rows */
             display: flex;
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            position: relative;
         }
-        .talent-grid-cell:hover { background: rgba(255,255,255,0.08); }
 
-        /* CELL STATES */
-        /* 1. PTO (Striped) */
-        .status-pto { 
-            background: repeating-linear-gradient(
-                45deg, 
-                rgba(45,45,45,0.6), 
-                rgba(45,45,45,0.6) 10px, 
-                rgba(58,58,58,0.6) 10px, 
-                rgba(58,58,58,0.6) 20px
-            ); 
-            color: #aaa; 
-            font-weight: 600;
-            cursor: default;
+        /* Hide scrollbars for cleaner look but keep functionality */
+        #matrix-grid-canvas::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
         }
         
-        /* 2. ASSIGNED (Blue Glow) */
-        .status-assigned { 
-            background: rgba(33, 150, 243, 0.15); 
-            border-left: 3px solid var(--primary-blue); 
-            color: var(--text-bright);
-            justify-content: flex-start; 
-            padding-left: 10px;
-            width: 100%; 
-            height: 100%;
+        #matrix-grid-canvas::-webkit-scrollbar-track {
+            background: var(--bg-dark); 
         }
-        .status-assigned:hover {
-            background: rgba(33, 150, 243, 0.25);
-        }
-
-        /* Shortage Warning (Red Underline on Dates) */
-        .date-header-cell {
-            border-right: 1px solid var(--border-color);
-            padding: 10px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            position: relative;
-        }
-        .shortage-warning::after {
-            content: '';
-            position: absolute;
-            bottom: 0; left: 0; width: 100%;
-            height: 3px;
-            background: #ff4444;
+        
+        #matrix-grid-canvas::-webkit-scrollbar-thumb {
+            background: var(--border-color); 
+            border-radius: 4px;
         }
     </style>
 </head>
+
 <body>
-    <div class="app-container">
+    <div class="crm-container">
         
-        <aside class="sidebar">
-            <div class="logo-area">
-                <div class="logo-icon" id="sidebar-logo-container">TW</div> 
-                <div class="logo-text">TEN WORKS</div>
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div> 
+            
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Search...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
             </div>
             
-            <nav class="main-nav">
-                <a href="index.html" class="nav-item"><i class="fas fa-home"></i> <span>Dashboard</span></a>
-                <a href="projects.html" class="nav-item"><i class="fas fa-industry"></i> <span>Production</span></a>
-                <a href="talent.html" class="nav-item active"><i class="fas fa-users"></i> <span>Talent Matrix</span></a>
-                <a href="deals.html" class="nav-item"><i class="fas fa-dollar-sign"></i> <span>Deals</span></a>
-            </nav>
+            <a href="command-center.html" class="nav-button">Fabrication Shop</a>
+            <a href="deals.html" class="nav-button">Deals</a>
+            <a href="projects.html" class="nav-button">Projects</a>
+            <a href="talent.html" class="nav-button active">Talent Matrix</a> <a href="contacts.html" class="nav-button">Contacts</a>
+            <a href="accounts.html" class="nav-button">Accounts</a>
+            <a href="campaigns.html" class="nav-button">Campaigns</a>
+            <a href="sequences.html" class="nav-button">Sequences</a>
+            <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
             
-            <div class="user-profile" id="user-menu-btn">
-                <div class="avatar" style="background-image: url('assets/chad-avatar.jpg'); background-size: cover;">CH</div>
-                <div class="user-info">
-                    <div class="name">Chad Hershberger</div>
-                    <div class="role">Manager</div>
+            <div class="nav-bottom-section">
+                <div style="position: relative;">
+                    <a href="cognito.html" class="nav-button cognito-nav-link">
+                        <h1>C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50"><circle cx="20" cy="20" r="15" fill="none" stroke="#b38c62" stroke-width="5"/></svg>gnito</h1>
+                    </a>
+                    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+                </div>
+                <div class="user-menu" style="margin-top: auto;">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
                 </div>
             </div>
-        </aside>
+        </nav>
 
-        <main class="main-content">
-            <header class="top-bar">
-                <div class="breadcrumbs">
-                    <span class="crumb-root">Operations</span> 
-                    <i class="fas fa-chevron-right"></i> 
-                    <span class="crumb-current">Talent Matrix</span>
-                </div>
-            </header>
-
-            <div class="content-wrapper">
-                <div class="header-action-area" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <main class="content-area">
+            <div class="projects-view"> <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <div>
-                        <h2 style="font-size: 2rem; margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 700; color: white; text-transform: uppercase;">Team Schedule</h2>
-                        <div style="color: var(--text-dim); font-size: 0.9rem; margin-top: 5px; display: flex; gap: 15px;">
-                            <span style="display:flex; align-items:center;"><span style="width:8px; height:8px; background:var(--primary-blue); border-radius:50%; margin-right:6px;"></span> Assigned</span>
-                            <span style="display:flex; align-items:center;"><span style="width:8px; height:8px; background:#444; border-radius:50%; margin-right:6px;"></span> PTO / Off</span>
-                            <span style="display:flex; align-items:center;"><span style="width:8px; height:8px; background:#ff4444; border-radius:50%; margin-right:6px;"></span> Shortage</span>
-                        </div>
+                        <h2 class="contact-name" style="font-size: 2rem; margin: 0;">Talent Availability</h2>
+                        <span class="account-name" style="color: var(--text-dim);">Shop Capacity & Assignments</span>
                     </div>
                     
-                    <div class="view-controls" style="background: var(--bg-medium); padding: 5px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center;">
-                        <button id="prev-week-btn" class="btn-icon" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; padding: 8px 15px;"><i class="fas fa-chevron-left"></i></button>
-                        <span id="current-week-label" style="margin:0 10px; font-weight:600; font-family:'Rajdhani', sans-serif; color: var(--primary-gold); font-size: 1.1rem; min-width: 150px; text-align: center;">...</span>
-                        <button id="next-week-btn" class="btn-icon" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; padding: 8px 15px;"><i class="fas fa-chevron-right"></i></button>
+                    <div class="matrix-header-controls">
+                        <button id="prev-week-btn" class="date-nav-btn"><i class="fas fa-chevron-left"></i></button>
+                        <span id="current-week-label" style="font-family:'Rajdhani', sans-serif; font-weight:600; font-size:1.1rem; min-width:140px; text-align:center;">
+                            Loading...
+                        </span>
+                        <button id="next-week-btn" class="date-nav-btn"><i class="fas fa-chevron-right"></i></button>
                     </div>
+
+                    <button onclick="window.location.reload()" class="btn-primary" style="padding: 12px 24px; font-size: 1rem; background: var(--bg-medium); border:1px solid var(--border-color);">
+                        <i class="fas fa-sync-alt"></i> &nbsp;Refresh
+                    </button>
                 </div>
 
-                <div class="gantt-container" style="height: calc(100vh - 220px); display:flex; flex-direction:column; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+                <div class="gantt-container-frame" style="border: 1px solid var(--border-color); background: var(--bg-dark); border-radius: 8px; overflow: hidden; display: flex; height: calc(100vh - 180px);">
                     
-                    <div class="gantt-header" style="display:flex; height:60px; background:var(--bg-medium);">
-                        <div class="gantt-sidebar-header" style="width:280px; min-width:280px;">
-                            TALENT / ROLE
+                    <div class="gantt-sidebar" style="width: 260px; min-width: 260px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
+                        <div class="gantt-header-cell" style="height: 60px; padding: 0 15px; display: flex; align-items: center; font-weight: bold; color: var(--text-dim); border-bottom: 1px solid var(--border-color); background: var(--bg-medium);">
+                            Team Member
                         </div>
-                        <div id="matrix-date-header" style="flex:1; display:flex; overflow:hidden;">
+                        <div id="matrix-resource-list" style="flex: 1; overflow-y: hidden; background: var(--bg-dark);">
                             </div>
                     </div>
 
-                    <div class="gantt-body" style="flex:1; display:flex; overflow:hidden;">
-                        <div id="matrix-resource-list" style="width:280px; min-width:280px; background:var(--bg-dark); border-right:1px solid var(--border-color); overflow-y:auto; scrollbar-width: none;">
+                    <div class="gantt-timeline-wrapper" style="flex: 1; overflow-x: auto; display: flex; flex-direction: column;">
+                        
+                        <div id="matrix-date-header" style="height: 60px; display: flex; background: var(--bg-medium); border-bottom: 1px solid var(--border-color);">
                             </div>
                         
-                        <div id="matrix-grid-canvas" style="flex:1; overflow:auto; position:relative; background:var(--bg-dark);">
+                        <div id="matrix-grid-canvas" style="flex: 1; overflow-y: auto; background: var(--bg-dark); position: relative;">
                             </div>
                     </div>
                 </div>
+
             </div>
         </main>
     </div>
 
-    <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
+    </div>
 
     <script type="module" src="js/talent.js"></script>
 </body>
