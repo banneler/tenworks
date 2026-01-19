@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         trades: [],
         projects: [],
         tasks: [],
+        availability: [], // <--- ADDED: Store PTO records
         
         // Physics Engine State (Drag & Drop)
         isDragging: false,
@@ -92,21 +93,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.log("Loading Ten Works Production Data...");
         
         // We use Promise.all to fetch all tables simultaneously for speed
-        // This prevents the "pop-in" effect where trades load before tasks
-        const [tradesRes, tasksRes, projectsRes] = await Promise.all([
+        const [tradesRes, tasksRes, projectsRes, availRes] = await Promise.all([
             supabase.from('shop_trades').select('*').order('id'),
             supabase.from('project_tasks').select(`*, projects(name), shop_trades(name)`),
-            supabase.from('projects').select('*').order('start_date')
+            supabase.from('projects').select('*').order('start_date'),
+            supabase.from('talent_availability').select('*') // <--- ADDED: Fetch PTO
         ]);
 
         if (tradesRes.error) console.error("Error loading trades:", tradesRes.error);
         if (tasksRes.error) console.error("Error loading tasks:", tasksRes.error);
         if (projectsRes.error) console.error("Error loading projects:", projectsRes.error);
+        if (availRes.error) console.error("Error loading availability:", availRes.error);
 
         // Update State
         state.trades = tradesRes.data || [];
         state.tasks = tasksRes.data || [];
         state.projects = projectsRes.data || [];
+        state.availability = availRes.data || []; // <--- ADDED
 
         // Update UI
         renderGantt();
@@ -135,7 +138,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         return lanes.length; 
     }
-    // ------------------------------------------------------------------------
+
+    // --- HELPER: CHECK AVAILABILITY CONFLICT (ADDED) ---
+    function checkAvailabilityConflict(taskId, newStartDate, newEndDate) {
+        // 1. Find the task to get the assigned person
+        const task = state.tasks.find(t => t.id === taskId);
+        if (!task || !task.assigned_talent_id) return null; // No person assigned, no conflict
+
+        // 2. Generate array of dates for the new span
+        const start = dayjs(newStartDate);
+        const end = dayjs(newEndDate);
+        const days = end.diff(start, 'day') + 1;
+        
+        // 3. Check each day against state.availability
+        for (let i = 0; i < days; i++) {
+            const checkDate = start.add(i, 'day').format('YYYY-MM-DD');
+            const conflict = state.availability.find(a => 
+                a.talent_id === task.assigned_talent_id && 
+                a.date === checkDate && 
+                a.status === 'PTO'
+            );
+
+            if (conflict) {
+                return { date: checkDate, talentId: task.assigned_talent_id };
+            }
+        }
+        return null;
+    }
+
     // ------------------------------------------------------------------------
     // 6. RENDER ENGINE (With Stacking & Zebra Striping)
     // ------------------------------------------------------------------------
@@ -328,15 +358,32 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (dayShift !== 0) {
             console.log(`Shifting task ${state.dragTask.name} by ${dayShift} days.`);
 
-            // 1. Optimistic UI Update (Update local state immediately)
+            // 1. Calculate Proposed Dates
             const oldStart = state.dragTask.start_date;
             const newStart = dayjs(state.dragTask.start_date).add(dayShift, 'day').format('YYYY-MM-DD');
             const newEnd = dayjs(state.dragTask.end_date).add(dayShift, 'day').format('YYYY-MM-DD');
 
+            // --- INTERCEPT: CHECK PTO CONFLICT ---
+            const conflict = checkAvailabilityConflict(state.dragTask.id, newStart, newEnd);
+            if (conflict) {
+                // Found a conflict!
+                const confirmMove = confirm(
+                    `WARNING: The assigned staff member is marked as PTO on ${conflict.date}.\n\nDo you still want to move this task?`
+                );
+                
+                if (!confirmMove) {
+                    // User cancelled: Snap back visually and abort
+                    state.dragEl.style.left = `${state.dragStartLeft}px`;
+                    return; 
+                }
+            }
+            // -------------------------------------
+
+            // 2. Optimistic UI Update (Update local state immediately)
             state.dragTask.start_date = newStart;
             state.dragTask.end_date = newEnd;
 
-            // 2. Database Update (Parent Task)
+            // 3. Database Update (Parent Task)
             const { error } = await supabase.from('project_tasks')
                 .update({ start_date: newStart, end_date: newEnd })
                 .eq('id', state.dragTask.id);
@@ -348,7 +395,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            // 3. THE DOMINO EFFECT (Cascade Children)
+            // 4. THE DOMINO EFFECT (Cascade Children)
             // Find dependent tasks
             const { data: children } = await supabase
                 .from('project_tasks')
