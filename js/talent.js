@@ -114,17 +114,27 @@ document.addEventListener("DOMContentLoaded", async () => {
             }).length;
 
             const isShort = demand > capacity;
+            
+            // NEW: Metric Color Logic (Red if short, Green if good, Yellow if tight)
+            let metricColor = 'var(--text-dim)';
+            if (isShort) metricColor = '#ff4444'; 
+            else if (demand === capacity) metricColor = 'var(--warning-yellow)'; 
+            else if (demand < capacity) metricColor = '#4CAF50';
 
             // Styling
             const borderStyle = isShort ? 'border-bottom: 3px solid #ff4444;' : (isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '');
             const bgStyle = isWeekend ? 'background:rgba(255,255,255,0.03);' : '';
             const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
 
+            // NEW: Always show the Load Requirement (Req / Cap)
             headerHtml += `
                 <div style="min-width:${colWidth}px; width:${colWidth}px; border-right:1px solid var(--border-color); padding:10px; text-align:center; display:flex; flex-direction:column; justify-content:center; ${bgStyle} ${borderStyle}">
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
                     <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
-                    ${isShort ? `<div style="font-size:0.6rem; color:#ff4444; font-weight:bold; margin-top:4px;">SHORT (${demand}/${capacity})</div>` : ''}
+                    
+                    <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
+                        REQ: ${demand} / CAP: ${capacity}
+                    </div>
                 </div>
             `;
         }
@@ -255,7 +265,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const isPTO = avail && avail.status === 'PTO';
 
-        // Modal HTML
+        // NEW: Modal HTML with Date Range Picker for PTO
         showModal(`Schedule: ${person.name}`, `
             <div style="text-align:center; margin-bottom:20px;">
                 <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
@@ -285,14 +295,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
                     <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">
-                        <i class="fas fa-user-clock" style="color:var(--warning-yellow); margin-right:8px;"></i> Exceptions
+                        <i class="fas fa-user-clock" style="color:var(--warning-yellow); margin-right:8px;"></i> Exceptions (PTO/Sick)
                     </label>
+                    
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                        <div style="flex:1;">
+                            <label style="font-size:0.7rem; color:var(--text-dim);">From</label>
+                            <input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="width:100%; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:0.7rem; color:var(--text-dim);">To (Inclusive)</label>
+                            <input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="width:100%; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
+                        </div>
+                    </div>
+
                     <div style="display:flex; gap:10px;">
                         <button id="btn-mark-avail" style="flex:1; padding:12px; border:1px solid var(--border-color); background:${!isPTO ? 'rgba(76, 175, 80, 0.2)' : 'transparent'}; color:${!isPTO ? '#4CAF50' : 'var(--text-dim)'}; border-radius:6px; cursor:pointer; transition:all 0.2s;">
-                            <i class="fas fa-check"></i> Available
+                            <i class="fas fa-check"></i> Clear PTO
                         </button>
                         <button id="btn-mark-pto" style="flex:1; padding:12px; border:1px solid var(--border-color); background:${isPTO ? 'rgba(244, 67, 54, 0.2)' : 'transparent'}; color:${isPTO ? '#ff4444' : 'var(--text-dim)'}; border-radius:6px; cursor:pointer; transition:all 0.2s;">
-                            <i class="fas fa-plane"></i> Mark PTO
+                            <i class="fas fa-plane"></i> Mark Range PTO
                         </button>
                     </div>
                 </div>
@@ -335,27 +357,60 @@ document.addEventListener("DOMContentLoaded", async () => {
                 };
             }
 
-            // B. MARK PTO
+            // B. MARK PTO (BULK LOGIC)
             if(ptoBtn) {
                 ptoBtn.onclick = async () => {
-                    // Upsert PTO record
-                    await supabase.from('talent_availability')
-                        .upsert({ talent_id: person.id, date: dateStr, status: 'PTO' }, { onConflict: 'talent_id, date' });
-                    
-                    // Note: We deliberately do NOT auto-unassign tasks here. 
-                    // This creates a "Conflict" state that the Manager should resolve manually.
-                    
-                    hideModal(); 
-                    loadTalentData();
+                    const startVal = document.getElementById('pto-start-date').value;
+                    const endVal = document.getElementById('pto-end-date').value;
+
+                    if (!startVal || !endVal) { alert("Please select a date range."); return; }
+
+                    const start = dayjs(startVal);
+                    const end = dayjs(endVal);
+                    const diff = end.diff(start, 'day');
+
+                    if (diff < 0) { alert("End date cannot be before start date."); return; }
+
+                    // Generate array of rows to upsert
+                    const upsertData = [];
+                    for(let i = 0; i <= diff; i++) {
+                        const d = start.add(i, 'day').format('YYYY-MM-DD');
+                        upsertData.push({
+                            talent_id: person.id,
+                            date: d,
+                            status: 'PTO'
+                        });
+                    }
+
+                    // Bulk Upsert
+                    const { error } = await supabase.from('talent_availability')
+                        .upsert(upsertData, { onConflict: 'talent_id, date' });
+
+                    if (error) {
+                        alert("Error saving PTO: " + error.message);
+                    } else {
+                        hideModal(); 
+                        loadTalentData();
+                    }
                 };
             }
 
-            // C. MARK AVAILABLE (Clear PTO)
+            // C. MARK AVAILABLE (Clear PTO Range)
             if(availBtn) {
                 availBtn.onclick = async () => {
-                    await supabase.from('talent_availability')
+                     const startVal = document.getElementById('pto-start-date').value;
+                     const endVal = document.getElementById('pto-end-date').value;
+
+                    // Delete range logic involves checking the date column
+                    // Supabase delete with multiple filters is tricky, simpler to loop or use 'in' if possible
+                    // For simplicity and safety, we will just delete the range using >= and <= logic
+                    
+                    const { error } = await supabase.from('talent_availability')
                         .delete()
-                        .match({ talent_id: person.id, date: dateStr });
+                        .eq('talent_id', person.id)
+                        .gte('date', startVal)
+                        .lte('date', endVal);
+
                     hideModal();
                     loadTalentData();
                 };
