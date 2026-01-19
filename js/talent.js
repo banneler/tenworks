@@ -13,7 +13,7 @@ const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
-    // 1. INITIALIZATION & AUTH
+    // 1. INITIALIZATION
     // ------------------------------------------------------------------------
     await loadSVGs(); 
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setupGlobalSearch(supabase, user);
 
     // ------------------------------------------------------------------------
-    // 2. GLOBAL STATE
+    // 2. STATE
     // ------------------------------------------------------------------------
     let state = {
         talent: [],         
@@ -31,29 +31,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         availability: [],   
         assignments: [],    
         activeTasks: [],    
-        unassignedTasks: [], // For Bottom Lane
+        unassignedTasks: [], 
+        internalProjectID: null, // Store ID for "Shop Infrastructure"
         viewDate: dayjs(),  
         daysToShow: 30,
         filterTradeId: null 
     };
 
-    const TRADE_COLORS = {
-        1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 
-        4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2'
-    };
-
+    const TRADE_COLORS = { 1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2' };
     function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
 
     // ------------------------------------------------------------------------
-    // 3. LISTENERS & SYNC
+    // 3. LISTENERS
     // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
     const filterEl = document.getElementById('trade-filter');
+    const internalBtn = document.getElementById('btn-internal-task'); // NEW
 
     if (prevBtn) prevBtn.addEventListener('click', () => { state.viewDate = state.viewDate.subtract(7, 'day'); renderMatrix(); });
     if (nextBtn) nextBtn.addEventListener('click', () => { state.viewDate = state.viewDate.add(7, 'day'); renderMatrix(); });
     if (filterEl) filterEl.addEventListener('change', (e) => { state.filterTradeId = e.target.value ? parseInt(e.target.value) : null; renderMatrix(); });
+    if (internalBtn) internalBtn.addEventListener('click', openInternalTaskModal); // NEW
 
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
@@ -67,18 +66,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 4. DATA FETCHING
+    // 4. DATA FETCHING (BURN DOWN LOGIC)
     // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
         
+        // 1. Ensure "Shop Infrastructure" Project Exists
+        let { data: internalProj } = await supabase.from('projects').select('id').eq('name', 'Shop Infrastructure').single();
+        if (!internalProj) {
+            // Auto-create if missing
+            const { data: newProj } = await supabase.from('projects').insert({ name: 'Shop Infrastructure', status: 'Internal', project_value: 0 }).select().single();
+            state.internalProjectID = newProj?.id;
+        } else {
+            state.internalProjectID = internalProj.id;
+        }
+
         const [talentRes, tradeRes, skillRes, availRes, assignRes, activeRes] = await Promise.all([
             supabase.from('shop_talent').select('*').eq('active', true).order('name'),
             supabase.from('shop_trades').select('*').order('name'),
             supabase.from('talent_skills').select('*'),
             supabase.from('talent_availability').select('*'),
-            supabase.from('task_assignments').select(`*, project_tasks (id, name, trade_id, projects(name))`),
-            supabase.from('project_tasks').select('*, projects(name), shop_trades(name)').in('status', ['Pending', 'In Progress'])
+            supabase.from('task_assignments').select(`*, project_tasks (id, name, trade_id, estimated_hours, projects(name))`),
+            supabase.from('project_tasks').select('*, projects(name), shop_trades(name)').neq('status', 'Completed') // Fetch ALL active tasks
         ]);
 
         state.talent = talentRes.data || [];
@@ -88,13 +97,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.assignments = assignRes.data || [];
         state.activeTasks = activeRes.data || [];
 
-        // Filter for Unassigned Tasks (No 'assigned_talent_id')
-        state.unassignedTasks = state.activeTasks.filter(t => !t.assigned_talent_id)
-            .sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date))); // Sort by Date
+        // --- BURN DOWN CALCULATION ---
+        // We filter for tasks that still have "hours remaining"
+        state.unassignedTasks = state.activeTasks.filter(task => {
+            // How many days have been booked for this task?
+            const daysBooked = state.assignments.filter(a => a.task_id === task.id).length;
+            const hoursBooked = daysBooked * 8; // Standard 8hr day assumption
+            const remaining = (task.estimated_hours || 0) - hoursBooked;
+            
+            // Attach temporary property for UI
+            task.remaining_hours = remaining > 0 ? remaining : 0;
+            task.hours_booked = hoursBooked;
+
+            // Keep in pool if hours remain
+            return remaining > 0;
+        }).sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date)));
 
         populateFilterDropdown();
         renderMatrix();
-        renderStagingLane(); // NEW
+        renderStagingLane();
     }
 
     function populateFilterDropdown() {
@@ -109,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. RENDER STAGING LANE (BOTTOM DOCK)
+    // 5. RENDER STAGING LANE (WITH BURN DOWN)
     // ------------------------------------------------------------------------
     function renderStagingLane() {
         const list = document.getElementById('unassigned-pool-list');
@@ -125,26 +146,42 @@ document.addEventListener("DOMContentLoaded", async () => {
             card.draggable = true; 
             
             const color = getTradeColor(task.trade_id);
-            card.style.borderTopColor = color; // Colored Top Border
+            card.style.borderTopColor = color; 
 
-            // Format Date Range
+            // Calculate Progress
+            const total = task.estimated_hours || 8;
+            const booked = task.hours_booked || 0;
+            const remaining = task.remaining_hours;
+            const percent = Math.min((booked / total) * 100, 100);
+
+            // Date Formatting
             const s = dayjs(task.start_date).format('MMM D');
             
             card.innerHTML = `
                 <div>
-                    <div style="font-size:0.7rem; color:${color}; font-weight:bold; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px;">
-                        ${task.shop_trades?.name || 'Task'}
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                        <span style="font-size:0.7rem; color:${color}; font-weight:bold; letter-spacing:1px; text-transform:uppercase;">
+                            ${task.shop_trades?.name || 'Task'}
+                        </span>
+                        <span style="font-size:0.65rem; color:var(--text-dim); background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:3px;">
+                            ${booked} / ${total} hrs
+                        </span>
                     </div>
                     <div style="font-weight:700; color:var(--text-bright); line-height:1.2; font-size:0.95rem;">${task.name}</div>
                     <div style="font-size:0.75rem; color:var(--text-dim); margin-top:3px;">${task.projects?.name}</div>
                 </div>
-                <div style="font-size:0.75rem; color:var(--text-bright); margin-top:10px; display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">
-                    <span><i class="far fa-calendar"></i> ${s}</span>
-                    <span>${task.estimated_hours}h</span>
+                
+                <div style="margin-top:auto;">
+                    <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; margin-bottom:8px;">
+                        <div style="width:${percent}%; height:100%; background:${color};"></div>
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--text-bright); display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">
+                        <span><i class="far fa-calendar"></i> ${s}</span>
+                        <span style="color:${color}; font-weight:bold;">${remaining}h left</span>
+                    </div>
                 </div>
             `;
 
-            // Attach Drag Events
             card.addEventListener('dragstart', (e) => handleDragStart(e, task));
             card.addEventListener('dragend', handleDragEnd);
 
@@ -153,7 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. RENDER MATRIX (WITH DROP ZONES)
+    // 6. RENDER MATRIX
     // ------------------------------------------------------------------------
     function renderMatrix() {
         let visibleTalent = state.talent;
@@ -165,7 +202,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
         document.getElementById('current-week-label').textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
 
-        // Auto-Size Height
         const containerEl = document.getElementById('matrix-grid-canvas');
         const containerHeight = containerEl ? containerEl.clientHeight : 600;
         const totalRows = visibleTalent.length || 1;
@@ -205,12 +241,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
                         BOOKED: ${bookings} / ${capacity}
                     </div>
-                </div>
-            `;
+                </div>`;
         }
         dateHeaderEl.innerHTML = headerHtml;
 
-        // GRID & SIDEBAR
+        // GRID
         const resList = document.getElementById('matrix-resource-list');
         const gridCanvas = document.getElementById('matrix-grid-canvas');
         resList.innerHTML = '';
@@ -218,10 +253,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         visibleTalent.forEach((person) => {
             const rowBg = 'rgba(255,255,255,0.02)';
-
-            // Sidebar Row
             const sidebarItem = document.createElement('div');
-            sidebarItem.className = 'talent-row-item'; // For drag highlighting
+            sidebarItem.className = 'talent-row-item'; 
             sidebarItem.dataset.talentId = person.id;
             sidebarItem.style.height = rowHeightStyle;
             sidebarItem.style.backgroundColor = rowBg;
@@ -232,28 +265,25 @@ document.addEventListener("DOMContentLoaded", async () => {
             sidebarItem.style.transition = 'opacity 0.2s';
             
             const personSkills = state.skills.filter(s => s.talent_id === person.id).map(s => {
-                const t = state.trades.find(tr => tr.id === s.trade_id);
-                return t ? t.name : '';
+                const t = state.trades.find(tr => tr.id === s.trade_id); return t ? t.name : '';
             }).join(', ');
 
             sidebarItem.innerHTML = `
-                <div style="width:30px; height:30px; min-width:30px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
-                    ${getInitials(person.name)}
-                </div>
+                <div style="width:30px; height:30px; min-width:30px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">${getInitials(person.name)}</div>
                 <div style="overflow:hidden; width:100%;">
                     <div class="talent-name-clickable" style="font-weight:600; font-size:0.9rem; color:var(--text-bright); white-space:nowrap; cursor:pointer;">${person.name}</div>
                     <div style="font-size:0.7rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${personSkills || 'No Skills'}</div>
-                </div>
-            `;
+                </div>`;
             sidebarItem.querySelector('.talent-name-clickable').addEventListener('click', () => openSkillsModal(person));
             resList.appendChild(sidebarItem);
 
-            // Grid Row
             const gridRow = document.createElement('div');
             gridRow.className = 'matrix-grid-row';
+            gridRow.dataset.talentId = person.id;
             gridRow.style.height = rowHeightStyle;
             gridRow.style.backgroundColor = rowBg;
             gridRow.style.borderBottom = '1px solid var(--border-color)';
+            gridRow.style.transition = 'opacity 0.2s, background 0.2s';
 
             for(let i = 0; i < state.daysToShow; i++) {
                 const d = state.viewDate.add(i, 'day');
@@ -264,8 +294,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const assignment = state.assignments.find(a => a.talent_id === person.id && a.assigned_date === dateStr);
 
                 const cell = document.createElement('div');
-                cell.className = 'grid-cell'; // For drop targeting
+                cell.className = 'grid-cell';
                 cell.dataset.date = dateStr;
+                cell.dataset.talentId = person.id;
                 
                 cell.style.minWidth = `${colWidth}px`;
                 cell.style.width = `${colWidth}px`;
@@ -286,7 +317,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 } else if (assignment && assignment.project_tasks) {
                     const task = assignment.project_tasks;
                     const tradeColor = getTradeColor(task.trade_id);
-                    
                     cell.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; 
                     cell.style.borderLeft = `4px solid ${tradeColor}`; 
                     cell.style.color = 'white';
@@ -294,12 +324,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     cell.title = `${task.name} (${task.projects?.name})`;
                 }
 
-                // Interaction
                 cell.addEventListener('mouseenter', () => { if(!assignment && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
                 cell.addEventListener('mouseleave', () => { if(!assignment && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
                 cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, assignment));
-
-                // DROP HANDLERS (Crucial)
                 cell.addEventListener('dragover', handleDragOver);
                 cell.addEventListener('dragenter', handleDragEnter);
                 cell.addEventListener('dragleave', handleDragLeave);
@@ -312,7 +339,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. DRAG & DROP LOGIC (KANBAN TO MATRIX)
+    // 7. DRAG AND DROP (WITH BURN DOWN LOGIC)
     // ------------------------------------------------------------------------
     let draggingTask = null;
 
@@ -320,172 +347,136 @@ document.addEventListener("DOMContentLoaded", async () => {
         draggingTask = task;
         e.dataTransfer.setData('text/plain', JSON.stringify(task));
         e.dataTransfer.effectAllowed = 'copy';
-
-        // VISUALS: Highlight rows that have the required skill
-        const allSidebarItems = document.querySelectorAll('.talent-row-item');
         
-        // Find people with this skill
-        const matchingTalentIds = state.skills
-            .filter(s => s.trade_id === task.trade_id)
-            .map(s => s.talent_id);
-
-        allSidebarItems.forEach(item => {
+        const matchingTalentIds = state.skills.filter(s => s.trade_id === task.trade_id).map(s => s.talent_id);
+        document.querySelectorAll('.talent-row-item').forEach(item => {
             const tId = parseInt(item.dataset.talentId);
-            if (matchingTalentIds.includes(tId)) {
-                item.classList.add('talent-row-highlight');
-            } else {
-                item.classList.add('talent-row-dimmed');
-            }
+            if (matchingTalentIds.includes(tId)) item.classList.add('talent-row-highlight');
+            else item.classList.add('talent-row-dimmed');
         });
     }
 
     function handleDragEnd(e) {
         draggingTask = null;
-        // Reset Visuals
-        document.querySelectorAll('.talent-row-item').forEach(item => {
-            item.classList.remove('talent-row-highlight', 'talent-row-dimmed');
-        });
-        document.querySelectorAll('.grid-cell').forEach(cell => {
-            cell.classList.remove('grid-cell-droppable');
-        });
+        document.querySelectorAll('.talent-row-item').forEach(item => item.classList.remove('talent-row-highlight', 'talent-row-dimmed'));
+        document.querySelectorAll('.grid-cell').forEach(cell => cell.classList.remove('grid-cell-droppable'));
     }
 
     function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+    function handleDragEnter(e) { e.preventDefault(); if (e.target.classList.contains('grid-cell')) e.target.classList.add('grid-cell-droppable'); }
+    function handleDragLeave(e) { if (e.target.classList.contains('grid-cell')) e.target.classList.remove('grid-cell-droppable'); }
 
-    function handleDragEnter(e) {
+    async function handleDrop(e, person, dateStr) {
         e.preventDefault();
-        if (e.target.classList.contains('grid-cell')) {
-            e.target.classList.add('grid-cell-droppable');
-        }
-    }
-
-    function handleDragLeave(e) {
-        if (e.target.classList.contains('grid-cell')) {
-            e.target.classList.remove('grid-cell-droppable');
-        }
-    }
-
-async function handleDrop(e, person, dateStr) {
-        e.preventDefault();
-        if (e.target.classList.contains('grid-cell')) {
-            e.target.classList.remove('grid-cell-droppable');
-        }
-
+        e.target.classList.remove('grid-cell-droppable');
         if (!draggingTask) return;
 
-        // 1. Skill Check
         const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
-        if (!hasSkill) {
-            const confirmAssign = confirm(`${person.name} is not tagged for '${draggingTask.shop_trades?.name || 'this trade'}'. Assign anyway?`);
-            if (!confirmAssign) return;
-        }
+        if (!hasSkill && !confirm(`${person.name} is not tagged for this trade. Assign anyway?`)) return;
 
-        console.log(`Attempting to drop Task ${draggingTask.id} on ${person.name} for ${dateStr}`);
-
-        // 2. Optimistic Update (Make it feel instant)
-        // We temporarily update state locally while DB crunches
-        // (Optional, but good for UX. For now, let's rely on the reload to be safe)
-
-        // 3. DATABASE TRANSACTION LOGIC
-        // A. Insert the Daily Record FIRST. If this fails, we stop.
-        const { error: insertError } = await supabase.from('task_assignments').upsert({
-            task_id: parseInt(draggingTask.id),
-            talent_id: parseInt(person.id),
+        // 1. Assign Daily Allocation
+        const { error } = await supabase.from('task_assignments').upsert({
+            task_id: draggingTask.id,
+            talent_id: person.id,
             assigned_date: dateStr
         }, { onConflict: 'task_id, talent_id, assigned_date' });
 
-        if (insertError) {
-            console.error("Drop failed:", insertError);
-            alert("Error scheduling task: " + insertError.message);
-            return; // Stop here. Task stays in pool.
-        }
-
-        // B. If Step A worked, NOW we assign ownership (which removes it from pool)
-        if (!draggingTask.assigned_talent_id) {
-            const { error: updateError } = await supabase
-                .from('project_tasks')
-                .update({ assigned_talent_id: parseInt(person.id) })
-                .eq('id', parseInt(draggingTask.id));
+        if (!error) {
+            // 2. Clear PTO if exists
+            await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
             
-            if (updateError) {
-                console.error("Ownership update failed:", updateError);
-                // Rollback the daily assignment so we don't have orphan data
-                await supabase.from('task_assignments').delete().match({ 
-                    task_id: draggingTask.id, 
-                    talent_id: person.id, 
-                    assigned_date: dateStr 
-                });
-                alert("Could not update task owner.");
-                return;
+            // 3. Mark Task Owner (If first time)
+            if (!draggingTask.assigned_talent_id) {
+                await supabase.from('project_tasks').update({ assigned_talent_id: person.id }).eq('id', draggingTask.id);
             }
+        } else {
+            console.error("Drop Error:", error);
         }
 
-        // C. Clean up PTO conflicts if necessary
-        await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
-
-        console.log("Drop successful. Reloading...");
-        loadTalentData(); 
+        // 4. FORCE RELOAD (Wait for DB to settle)
+        setTimeout(() => loadTalentData(), 100);
     }
 
-    function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
+    // ------------------------------------------------------------------------
+    // 8. INTERNAL TASK MODAL (NEW)
+    // ------------------------------------------------------------------------
+    function openInternalTaskModal() {
+        const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        showModal('Create Internal Task', `
+            <div style="margin-bottom:15px; color:var(--text-dim); font-size:0.9rem;">
+                Schedule maintenance, shop cleanup, or internal projects.
+            </div>
+            <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                <div><label>Category</label><select id="int-task-trade" class="form-control" style="background:var(--bg-dark); color:white; padding:8px;">${tradeOptions}</select></div>
+                <div><label>Name</label><input type="text" id="int-task-name" class="form-control" placeholder="e.g. Machine Maintenance"></div>
+                <div><label>Start Date</label><input type="date" id="int-task-start" class="form-control" value="${dayjs().format('YYYY-MM-DD')}"></div>
+                <div><label>Duration (Hours)</label><input type="number" id="int-task-hours" class="form-control" value="8"></div>
+            </div>
+            <button id="btn-save-internal" class="btn-primary" style="width:100%; margin-top:20px;">Add to Schedule</button>
+        `, async () => {});
+
+        setTimeout(() => {
+            const saveBtn = document.getElementById('btn-save-internal');
+            if(saveBtn) saveBtn.onclick = async () => {
+                const name = document.getElementById('int-task-name').value;
+                const tradeId = document.getElementById('int-task-trade').value;
+                const start = document.getElementById('int-task-start').value;
+                const hours = parseInt(document.getElementById('int-task-hours').value) || 8;
+
+                if (!name) return;
+
+                await supabase.from('project_tasks').insert({
+                    project_id: state.internalProjectID,
+                    trade_id: tradeId,
+                    name: name,
+                    start_date: start,
+                    end_date: start, // Default to single day, extensible
+                    estimated_hours: hours,
+                    status: 'Pending'
+                });
+                hideModal(); loadTalentData();
+            };
+        }, 100);
+    }
 
     // ------------------------------------------------------------------------
-    // 8. SKILLS MODAL
+    // 9. ASSIGNMENT MODAL & HELPERS
     // ------------------------------------------------------------------------
-    function openSkillsModal(person) {
+    function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
+    
+    function openSkillsModal(person) { /* Same as before, omitted for brevity but included in full file */ 
         const currentSkillIds = state.skills.filter(s => s.talent_id === person.id).map(s => s.trade_id);
         const checkboxes = state.trades.map(trade => {
             const isChecked = currentSkillIds.includes(trade.id);
-            return `
-                <div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
-                    <input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} style="margin-right:10px; transform:scale(1.2);">
-                    <label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer;">${trade.name}</label>
-                </div>`;
+            return `<div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color);"><input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} style="margin-right:10px; transform:scale(1.2);"><label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer;">${trade.name}</label></div>`;
         }).join('');
-
-        showModal(`Manage Skills: ${person.name}`, `
-            <div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">Select functional capabilities.</div>
-            <div id="skills-checklist-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">${checkboxes}</div>
-        `, async () => {
+        showModal(`Manage Skills: ${person.name}`, `<div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">Select capabilities.</div><div id="skills-checklist-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">${checkboxes}</div>`, async () => {
             const container = document.getElementById('skills-checklist-container');
             const selectedTradeIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
             await supabase.from('talent_skills').delete().eq('talent_id', person.id);
-            if(selectedTradeIds.length > 0) {
-                await supabase.from('talent_skills').insert(selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid })));
-            }
-            loadTalentData();
-            return true; 
+            if(selectedTradeIds.length > 0) await supabase.from('talent_skills').insert(selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid })));
+            loadTalentData(); return true; 
         });
     }
 
-    // ------------------------------------------------------------------------
-    // 9. ASSIGNMENT MODAL
-    // ------------------------------------------------------------------------
     function handleCellClick(person, dateStr, avail, currentAssignment) {
         const d = dayjs(dateStr);
         const viableTasks = state.activeTasks.filter(t => {
-            const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
-                           (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
+            const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
             if(state.filterTradeId) return active && t.trade_id === state.filterTradeId;
             return active;
         });
-
         const assignedTaskId = currentAssignment ? currentAssignment.task_id : '';
         const taskOptions = viableTasks.map(t => `<option value="${t.id}" ${assignedTaskId == t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`).join('');
         const isPTO = avail && avail.status === 'PTO';
 
         showModal(`Schedule: ${person.name}`, `
-            <div style="text-align:center; margin-bottom:20px;">
-                <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
-            </div>
+            <div style="text-align:center; margin-bottom:20px;"><h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4></div>
             <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
-                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task (Range)</label>
-                    <div style="display:flex; gap:10px; margin-bottom:10px;">
-                        <input type="date" id="assign-start" class="form-control" value="${dateStr}" style="flex:1;">
-                        <input type="date" id="assign-end" class="form-control" value="${dateStr}" style="flex:1;">
-                    </div>
-                    ${viableTasks.length > 0 ? `<select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found for this trade/date.</div>`}
+                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task</label>
+                    <div style="display:flex; gap:10px; margin-bottom:10px;"><input type="date" id="assign-start" class="form-control" value="${dateStr}" style="flex:1;"><input type="date" id="assign-end" class="form-control" value="${dateStr}" style="flex:1;"></div>
+                    ${viableTasks.length > 0 ? `<select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found.</div>`}
                 </div>
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
                     <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">PTO Range</label>
@@ -505,9 +496,7 @@ async function handleDrop(e, person, dateStr) {
                 const start = dayjs(document.getElementById('assign-start').value);
                 const end = dayjs(document.getElementById('assign-end').value);
                 const diff = end.diff(start, 'day');
-
                 await supabase.from('task_assignments').delete().eq('talent_id', person.id).gte('assigned_date', start.format('YYYY-MM-DD')).lte('assigned_date', end.format('YYYY-MM-DD'));
-
                 if (taskId) {
                     const inserts = [];
                     for(let i=0; i<=diff; i++) {
