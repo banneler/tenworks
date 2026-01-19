@@ -48,19 +48,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             .filter(p => p.name.toLowerCase().includes(filter))
             .forEach(p => {
                 const el = document.createElement('div');
-                el.className = 'item-list-row'; // Matching Accounts Style
+                el.className = 'item-list-row';
                 if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
                 
-                let statusColor = '#888';
-                if (p.status === 'In Progress') statusColor = 'var(--primary-blue)';
-                if (p.status === 'Completed') statusColor = '#4CAF50';
-
+                // Matches Account Page Styling
+                const initial = p.name.charAt(0).toUpperCase();
+                
                 el.innerHTML = `
-                    <div style="flex:1;">
-                        <div style="font-weight:600; color:var(--text-bright);">${p.name}</div>
-                        <div style="font-size:0.8rem; color:${statusColor};">${p.status}</div>
+                    <div class="item-icon">${initial}</div>
+                    <div class="item-details">
+                        <div class="item-main">${p.name}</div>
+                        <div class="item-sub">
+                            <span>${p.status}</span>
+                            <span>${formatCurrency(p.project_value)}</span>
+                        </div>
                     </div>
-                    <div style="font-size:0.9rem; color:var(--text-bright); font-family:'Rajdhani';">${formatCurrency(p.project_value)}</div>
                 `;
                 el.onclick = () => loadDetail(p.id);
                 listEl.appendChild(el);
@@ -108,7 +110,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('detail-value').textContent = formatCurrency(p.project_value);
         document.getElementById('detail-scope').value = p.description || '';
 
-        // PROGRESS MATH
         const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
         const totalAct = state.tasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
         const progress = totalEst > 0 ? Math.min(Math.round((totalAct / totalEst) * 100), 100) : 0;
@@ -121,8 +122,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderLogs();
         renderFiles();
         
-        // Trigger Gantt if active
-        if(document.querySelector('.tab-button.active').dataset.tab === 'timeline') renderMiniGantt();
+        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+        if(activeTab === 'timeline') renderMiniGantt();
     }
 
     // 3. RENDERERS
@@ -174,6 +175,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function renderMiniGantt() {
+        const scrollArea = document.getElementById('gantt-scroll-area');
         const header = document.getElementById('mini-gantt-header');
         const body = document.getElementById('mini-gantt-body');
         
@@ -188,9 +190,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dayWidth = 50; 
         const totalWidth = totalDays * dayWidth;
 
-        // Force container widths for scrolling
-        header.style.minWidth = `${totalWidth}px`;
-        body.style.minWidth = `${totalWidth}px`;
+        // Force container width
+        scrollArea.style.width = `${totalWidth}px`;
         
         header.innerHTML = '';
         body.innerHTML = '';
@@ -226,7 +227,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             const row = document.createElement('div');
             row.className = 'gantt-task-row';
-            row.style.top = `${index * 42}px`; // Explicit row position
+            row.style.top = `${index * 45}px`;
 
             const bar = document.createElement('div');
             bar.className = 'gantt-bar';
@@ -234,21 +235,24 @@ document.addEventListener("DOMContentLoaded", async () => {
             bar.style.width = `${(duration * dayWidth) - 10}px`;
             bar.style.backgroundColor = getTradeColor(t.trade_id);
             
-            // Assignee Badge
+            // Progress Calculation
+            const est = t.estimated_hours || 1;
+            const act = t.actual_hours || 0;
+            const pct = Math.min((act/est)*100, 100);
+
+            // Assignee Avatar
             let assigneeHtml = '';
             if(t.shop_talent) {
                 const initials = t.shop_talent.name.split(' ').map(n=>n[0]).join('').substring(0,2);
                 assigneeHtml = `<div class="gantt-assignee" title="${t.shop_talent.name}">${initials}</div>`;
             }
 
-            // Progress Fill
-            const est = t.estimated_hours || 1;
-            const act = t.actual_hours || 0;
-            const pct = Math.min((act/est)*100, 100);
-
             bar.innerHTML = `
                 <div class="gantt-progress-fill" style="width:${pct}%"></div>
-                <span style="position:relative; z-index:2; margin-right:5px;">${t.name}</span>
+                <div class="gantt-text-overlay">
+                    <span>${t.name}</span>
+                    <span style="font-size:0.7rem; opacity:0.8;">${Math.round(pct)}%</span>
+                </div>
                 ${assigneeHtml}
             `;
             
@@ -257,11 +261,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // INTERACTION HANDLERS
-    document.querySelectorAll('.tab-button').forEach(btn => {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
             if(btn.dataset.tab === 'timeline') renderMiniGantt();
@@ -278,10 +281,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         loadDetail(state.currentProject.id); 
     });
 
-    // FILE UPLOAD
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
-
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary-gold)'; });
     dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border-color)'; });
