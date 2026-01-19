@@ -66,26 +66,37 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById('project-search').addEventListener('input', renderList);
 
-    // 2. Load Detail
+    // 2. Load Detail (SAFE FETCH)
     async function loadDetail(id) {
-        // Fetch Project, Tasks, Logs, Files, Contacts in parallel
-        const [projRes, taskRes, logRes, contactRes] = await Promise.all([
-            supabase.from('projects').select('*, deals_tw(id, deal_name)').eq('id', id).single(),
+        // Safe fetch - decouple relationships
+        const { data: proj } = await supabase.from('projects').select('*').eq('id', id).single();
+        state.currentProject = proj;
+
+        if (!proj) return; // Prevent crash if deleted
+
+        // Fetch Deal Name Separately (Prevents 400 Bad Request if relation undefined)
+        if (proj.deal_id) {
+            const { data: deal } = await supabase.from('deals_tw').select('deal_name').eq('id', proj.deal_id).single();
+            if (deal) state.currentProject.deal_name = deal.deal_name;
+        }
+
+        const [taskRes, logRes, contactRes] = await Promise.all([
             supabase.from('project_tasks').select('*').eq('project_id', id),
             supabase.from('project_notes').select('*').eq('project_id', id).order('created_at', { ascending: false }),
             supabase.from('project_contacts').select('*, contacts(first_name, last_name, email)').eq('project_id', id)
         ]);
 
-        state.currentProject = projRes.data;
         state.tasks = taskRes.data || [];
         state.logs = logRes.data || [];
         state.projectContacts = contactRes.data || [];
 
         renderDetail();
-        renderList(); // Update active state
+        renderList(); // Update active highlights
     }
 
     function renderDetail() {
+        if (!state.currentProject) return;
+
         document.querySelector('.empty-state').classList.add('hidden');
         document.getElementById('detail-content').classList.remove('hidden');
 
@@ -94,7 +105,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('detail-status').textContent = p.status;
         document.getElementById('detail-dates').textContent = `${dayjs(p.start_date).format('MMM D')} - ${dayjs(p.end_date).format('MMM D')}`;
         document.getElementById('detail-value').textContent = formatCurrency(p.project_value);
-        document.getElementById('detail-scope').value = p.description || ''; // Assuming 'description' field exists or we use notes
+        document.getElementById('detail-deal-name').textContent = p.deal_name ? `via ${p.deal_name}` : '';
+        document.getElementById('detail-scope').value = p.description || '';
 
         // KPIs
         const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
@@ -105,24 +117,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('kpi-act-hours').textContent = totalAct;
         document.getElementById('kpi-progress').textContent = `${progress}%`;
 
-        // Load Tabs
         renderContacts();
         renderLogs();
-        // Trigger specific tab render if active
+        
         const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
         if(activeTab === 'timeline') renderMiniGantt();
     }
 
-    // 3. Sub-Renderers
     function renderContacts() {
         const list = document.getElementById('project-contacts-list');
         list.innerHTML = state.projectContacts.map(c => `
-            <div style="display:flex; justify-content:space-between; padding:8px; background:var(--bg-medium); margin-bottom:5px; border-radius:4px;">
+            <div style="display:flex; justify-content:space-between; padding:8px; background:var(--bg-dark); border:1px solid var(--border-color); margin-bottom:5px; border-radius:4px;">
                 <div>
-                    <div style="font-weight:600;">${c.contacts.first_name} ${c.contacts.last_name}</div>
+                    <div style="font-weight:600; color:var(--text-bright);">${c.contacts.first_name} ${c.contacts.last_name}</div>
                     <div style="font-size:0.8rem; color:var(--text-dim);">${c.role || 'Stakeholder'}</div>
                 </div>
-                <div style="font-size:0.8rem;">${c.contacts.email || ''}</div>
+                <div style="font-size:0.8rem; color:var(--text-dim); align-self:center;">${c.contacts.email || ''}</div>
             </div>
         `).join('');
     }
@@ -141,13 +151,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function renderMiniGantt() {
-        // Simplified version of the main Schedule Gantt
-        // Just creates bars for this project's tasks
         const container = document.getElementById('project-gantt-container');
         const header = document.getElementById('mini-gantt-header');
         const body = document.getElementById('mini-gantt-body');
         
-        // Setup Date Range (Start of project to End of project)
+        if(!state.currentProject.start_date || !state.currentProject.end_date) {
+            body.innerHTML = '<div style="padding:20px; color:var(--text-dim); text-align:center;">No dates set.</div>';
+            return;
+        }
+
         const start = dayjs(state.currentProject.start_date).subtract(2, 'day');
         const end = dayjs(state.currentProject.end_date).add(5, 'day');
         const totalDays = end.diff(start, 'day');
@@ -165,12 +177,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             cell.style.borderRight = '1px solid var(--border-color)';
             cell.style.fontSize = '0.7rem';
             cell.style.textAlign = 'center';
-            cell.style.paddingTop = '5px';
+            cell.style.paddingTop = '10px';
+            cell.style.color = 'var(--text-dim)';
             cell.textContent = d.format('D');
             header.appendChild(cell);
         }
 
-        // Render Tasks
         state.tasks.forEach((t, index) => {
             const tStart = dayjs(t.start_date);
             const tEnd = dayjs(t.end_date);
@@ -195,7 +207,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // 4. Interaction Handlers
+    // Interaction Handlers
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -211,17 +223,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const content = input.value;
         if(!content) return;
 
-        const initials = user.email.substring(0,2).toUpperCase(); // Simple initials logic
-        
+        const initials = user.email.substring(0,2).toUpperCase(); 
         await supabase.from('project_notes').insert({
             project_id: state.currentProject.id,
             content,
             author_name: initials
         });
         input.value = '';
-        loadDetail(state.currentProject.id); // Refresh
+        loadDetail(state.currentProject.id); 
     });
 
-    // 5. Initial Load
     loadProjects();
 });
