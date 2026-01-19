@@ -3,7 +3,7 @@ import {
     SUPABASE_ANON_KEY, 
     formatCurrency, 
     showModal, 
-    hideModal, // Make sure this is exported in shared_constants
+    hideModal, 
     setupUserMenuAndAuth, 
     loadSVGs, 
     setupGlobalSearch 
@@ -25,7 +25,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentView: 'resource',
         trades: [],
         projects: [],
-        tasks: []
+        tasks: [],
+        isDragging: false,
+        dragTask: null,
+        dragStartX: 0,
+        dragStartLeft: 0,
+        dragEl: null
     };
 
     // --- VIEW TOGGLES ---
@@ -38,7 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function switchView(view) {
         state.currentView = view;
         if(view === 'resource') {
-            btnResource.classList.add('active'); // Ensure CSS handles .active styling
+            btnResource.classList.add('active');
             btnResource.style.background = 'var(--primary-blue)';
             btnResource.style.color = 'white';
             btnProject.style.background = 'transparent';
@@ -78,8 +83,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // 1. TIMELINE SETUP
         let dateHtml = '';
-        const startDate = dayjs().subtract(5, 'day'); // Show recent history
-        const daysToRender = 35; // 5 weeks view
+        const startDate = dayjs().subtract(5, 'day'); 
+        const daysToRender = 45; // Increased range
         const dayWidth = 100;
 
         for (let i = 0; i < daysToRender; i++) {
@@ -105,7 +110,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const rows = state.currentView === 'resource' ? state.trades : state.projects;
 
         rows.forEach((rowItem, index) => {
-            // Sidebar
+            // Sidebar Row
             const rowEl = document.createElement('div');
             rowEl.className = 'resource-row';
             
@@ -125,12 +130,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             resourceList.appendChild(rowEl);
 
-            // Bars
+            // Filter Tasks
             const rowTasks = state.tasks.filter(t => {
                 if (state.currentView === 'resource') return t.trade_id === rowItem.id;
                 else return t.project_id === rowItem.id;
             });
 
+            // Render Bars
             rowTasks.forEach(task => {
                 const start = dayjs(task.start_date);
                 const end = dayjs(task.end_date);
@@ -144,31 +150,115 @@ document.addEventListener("DOMContentLoaded", async () => {
                 bar.style.top = `${(index * 70) + 15}px`; 
                 bar.style.left = `${diff * dayWidth}px`;
                 bar.style.width = `${(duration * dayWidth) - 10}px`;
+                
+                // Add styling cursor
+                bar.style.cursor = 'grab';
 
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
                 const burnColor = percent > 1 ? '#ff4444' : 'var(--warning-yellow)';
-
-                const label = state.currentView === 'resource' 
-                    ? task.projects?.name 
-                    : task.shop_trades?.name;
-
-                // Color Coding for Project View (Optional Polish)
-                if (state.currentView === 'project') {
-                    if (task.shop_trades?.name.includes('CAD')) bar.style.borderColor = '#4CAF50'; // Green
-                    if (task.shop_trades?.name.includes('Install')) bar.style.borderColor = '#2196F3'; // Blue
-                }
+                const label = state.currentView === 'resource' ? task.projects?.name : task.shop_trades?.name;
 
                 bar.innerHTML = `
-                    <span class="gantt-task-info">${label || task.name}</span>
-                    <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor};"></div>
+                    <span class="gantt-task-info" style="pointer-events:none;">${label || task.name}</span>
+                    <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
                 
-                // CLICK EVENT: Open Editor
-                bar.addEventListener('click', () => openTaskModal(task));
+                // MOUSE EVENTS FOR DRAG AND CLICK
+                // We use mousedown to distinguish between a "Click" (Edit) and a "Drag" (Move)
+                bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
 
                 gridCanvas.appendChild(bar);
             });
         });
+    }
+
+    // --- DRAG AND DROP ENGINE ---
+    function handleDragStart(e, task, element) {
+        // Only left click
+        if (e.button !== 0) return;
+
+        state.isDragging = true;
+        state.dragTask = task;
+        state.dragEl = element;
+        state.dragStartX = e.clientX;
+        state.dragStartLeft = parseInt(element.style.left || 0);
+        state.hasMoved = false; // Track if this was a click or a drag
+
+        element.style.cursor = 'grabbing';
+        element.style.zIndex = 1000; // Bring to front
+        element.style.transition = 'none'; // Disable smooth transition for instant follow
+
+        // Attach global listeners
+        document.addEventListener('mousemove', handleDragMove);
+        document.addEventListener('mouseup', handleDragEnd);
+    }
+
+    function handleDragMove(e) {
+        if (!state.isDragging) return;
+        
+        const deltaX = e.clientX - state.dragStartX;
+        
+        // If moved more than 5 pixels, consider it a drag
+        if (Math.abs(deltaX) > 5) state.hasMoved = true;
+
+        // Visual Update Only
+        state.dragEl.style.left = `${state.dragStartLeft + deltaX}px`;
+    }
+
+    async function handleDragEnd(e) {
+        if (!state.isDragging) return;
+
+        // Clean up
+        state.isDragging = false;
+        state.dragEl.style.cursor = 'grab';
+        state.dragEl.style.zIndex = '';
+        state.dragEl.style.transition = 'all 0.2s'; // Re-enable smoothing
+        
+        document.removeEventListener('mousemove', handleDragMove);
+        document.removeEventListener('mouseup', handleDragEnd);
+
+        // CHECK: Was this a Click or a Drag?
+        if (!state.hasMoved) {
+            // It was just a click -> Open Modal
+            openTaskModal(state.dragTask);
+            // Reset position just in case
+            state.dragEl.style.left = `${state.dragStartLeft}px`;
+            return;
+        }
+
+        // IT WAS A DRAG -> Calculate New Dates
+        const currentLeft = parseInt(state.dragEl.style.left || 0);
+        
+        // Snap to Grid (100px)
+        const snapLeft = Math.round(currentLeft / 100) * 100;
+        state.dragEl.style.left = `${snapLeft}px`; // Visual Snap
+
+        // Calculate Date Shift
+        const pixelShift = snapLeft - state.dragStartLeft;
+        const dayShift = Math.round(pixelShift / 100);
+
+        if (dayShift !== 0) {
+            // Apply Shift to Dates
+            const newStart = dayjs(state.dragTask.start_date).add(dayShift, 'day').format('YYYY-MM-DD');
+            const newEnd = dayjs(state.dragTask.end_date).add(dayShift, 'day').format('YYYY-MM-DD');
+
+            console.log(`Shifting task ${state.dragTask.name} by ${dayShift} days.`);
+
+            // DB Update
+            const { error } = await supabase
+                .from('project_tasks')
+                .update({ start_date: newStart, end_date: newEnd })
+                .eq('id', state.dragTask.id);
+
+            if (error) {
+                alert("Failed to move task: " + error.message);
+                state.dragEl.style.left = `${state.dragStartLeft}px`; // Revert
+            } else {
+                // Update local state so we don't need full reload
+                state.dragTask.start_date = newStart;
+                state.dragTask.end_date = newEnd;
+            }
+        }
     }
 
     // --- INTERACTIVITY: EDIT MODAL ---
@@ -186,7 +276,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div>
                     <label>Actual Hours (Burn)</label>
                     <input type="number" id="edit-actual" class="form-control" value="${task.actual_hours}">
-                    <small style="color:var(--text-dim)">Est: ${task.estimated_hours} hrs</small>
                 </div>
                 <div>
                     <label>Start Date</label>
@@ -196,6 +285,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <label>End Date</label>
                     <input type="date" id="edit-end" class="form-control" value="${task.end_date}">
                 </div>
+            </div>
+            <div style="margin-top:15px; text-align:right;">
+                <button id="delete-task-btn" style="background:#773030; color:white; border:none; padding:8px 12px; border-radius:4px; float:left;">Delete Task</button>
             </div>
         `, async () => {
             // SAVE LOGIC
@@ -215,14 +307,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                 .eq('id', task.id);
 
             if (error) alert('Error updating task: ' + error.message);
-            else {
-                // hideModal(); // If you have this function
-                loadShopData(); // Refresh grid
-            }
+            else loadShopData();
         });
+
+        // Attach Delete Listener after modal render
+        setTimeout(() => {
+            const delBtn = document.getElementById('delete-task-btn');
+            if(delBtn) delBtn.onclick = async () => {
+                if(confirm("Are you sure you want to delete this task?")) {
+                    await supabase.from('project_tasks').delete().eq('id', task.id);
+                    hideModal();
+                    loadShopData();
+                }
+            };
+        }, 100);
     }
 
-    // --- METRICS ---
+    // --- METRICS & LAUNCH (Same as before) ---
     function updateMetrics() {
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
         const totalRev = activeProjects.reduce((acc, p) => acc + (p.project_value || 0), 0);
@@ -235,7 +336,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(revenueEl) revenueEl.textContent = formatCurrency(totalRev);
         if(countEl) countEl.textContent = activeProjects.length;
 
-        // Utilization Logic
         const today = dayjs();
         const activeTasks = state.tasks.filter(t => dayjs(t.start_date).isBefore(today) && dayjs(t.end_date).isAfter(today)).length;
         const load = Math.min((activeTasks / 5) * 100, 100);
@@ -244,7 +344,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(loadText) loadText.textContent = `${Math.round(load)}%`;
     }
 
-    // --- LAUNCH LOGIC (Existing) ---
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
         launchBtn.addEventListener('click', async () => {
@@ -271,7 +370,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if(error) { alert(error.message); return; }
                 const pid = proj[0].id;
                 
-                // Auto-Generate Waterfall
                 const s = dayjs(start);
                 const tasks = [
                     { project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff', start_date: start, end_date: s.add(2,'day').format('YYYY-MM-DD'), estimated_hours: 5 },
