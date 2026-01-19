@@ -254,6 +254,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.style.alignItems = 'center';
                 cell.style.justifyContent = 'center';
                 cell.style.fontSize = '0.75rem';
+                cell.style.transition = 'background 0.2s';
                 
                 if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
@@ -280,7 +281,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
 
     // ------------------------------------------------------------------------
-    // 6. SKILLS MODAL (FIXED LAYOUT)
+    // 6. SKILLS MODAL (UPDATED)
     // ------------------------------------------------------------------------
     function openSkillsModal(person) {
         const currentSkillIds = state.skills
@@ -289,43 +290,40 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const checkboxes = state.trades.map(trade => {
             const isChecked = currentSkillIds.includes(trade.id);
-            // Explicit sizing and flex behavior
             return `
-                <div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color); box-sizing:border-box; width:100%;">
+                <div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
                     <input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} style="margin-right:10px; transform:scale(1.2);">
-                    <label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${trade.name}</label>
+                    <label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer;">${trade.name}</label>
                 </div>
             `;
         }).join('');
 
+        // Use the 'onConfirm' callback (3rd argument) for saving
         showModal(`Manage Skills: ${person.name}`, `
             <div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">
-                Select functional capabilities. This updates "Capacity" calculations.
+                Select functional capabilities for ${person.name}. This updates Capacity.
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto; width:100%; box-sizing:border-box;">
+            <div id="skills-checklist-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">
                 ${checkboxes}
             </div>
-            <button id="btn-save-skills" class="btn-primary" style="width:100%; margin-top:20px;">Save Changes</button>
-        `, async () => {});
-
-        setTimeout(() => {
-            const saveBtn = document.getElementById('btn-save-skills');
-            if(saveBtn) {
-                saveBtn.onclick = async () => {
-                    const selectedTradeIds = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
-                    
-                    await supabase.from('talent_skills').delete().eq('talent_id', person.id);
-                    
-                    if(selectedTradeIds.length > 0) {
-                        const insertData = selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid }));
-                        await supabase.from('talent_skills').insert(insertData);
-                    }
-                    
-                    hideModal();
-                    loadTalentData();
-                };
+        `, async () => {
+            // SAVE LOGIC (Runs when 'Confirm' is clicked)
+            const container = document.getElementById('skills-checklist-container');
+            const selectedTradeIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            // 1. Delete existing
+            await supabase.from('talent_skills').delete().eq('talent_id', person.id);
+            
+            // 2. Insert new
+            if(selectedTradeIds.length > 0) {
+                const insertData = selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid }));
+                await supabase.from('talent_skills').insert(insertData);
             }
-        }, 100);
+            
+            loadTalentData(); // Refresh Grid
+            return true; // Closes Modal
+        });
     }
 
     // ------------------------------------------------------------------------
