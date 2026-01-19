@@ -26,8 +26,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
 
     <style>
-        /* --- MATRIX SPECIFIC STYLES --- */
-        
         .matrix-header-controls {
             display: flex;
             align-items: center;
@@ -54,34 +52,26 @@
             color: white;
         }
 
-        /* COMPRESSED ROW HEIGHT (40px) */
-        .talent-row {
-            height: 40px; /* Updated from 60px */
-            display: flex;
-            align-items: center;
-        }
-
-        /* SCROLLBAR STYLING */
-        #matrix-grid-canvas::-webkit-scrollbar {
+        /* SCROLLBAR STYLING - Slim & Dark */
+        ::-webkit-scrollbar {
             height: 10px;
             width: 10px;
         }
         
-        #matrix-grid-canvas::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {
             background: var(--bg-dark); 
             border-left: 1px solid var(--border-color);
         }
         
-        #matrix-grid-canvas::-webkit-scrollbar-thumb {
+        ::-webkit-scrollbar-thumb {
             background: var(--border-color); 
             border-radius: 5px;
             border: 2px solid var(--bg-dark);
         }
         
-        /* Ensure the grid rows don't wrap */
         .matrix-grid-row {
             display: flex;
-            width: max-content; /* Critical for 30-day expansion */
+            width: max-content; 
         }
     </style>
 </head>
@@ -148,19 +138,19 @@
                     </button>
                 </div>
 
-                <div class="gantt-container-frame" style="border: 1px solid var(--border-color); background: var(--bg-dark); border-radius: 8px; overflow: hidden; display: flex; height: calc(100vh - 180px);">
+                <div id="matrix-container" class="gantt-container-frame" style="border: 1px solid var(--border-color); background: var(--bg-dark); border-radius: 8px; overflow: hidden; display: flex; height: calc(100vh - 180px);">
                     
                     <div class="gantt-sidebar" style="width: 260px; min-width: 260px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 2; background: var(--bg-dark);">
-                        <div class="gantt-header-cell" style="height: 60px; padding: 0 15px; display: flex; align-items: center; font-weight: bold; color: var(--text-dim); border-bottom: 1px solid var(--border-color); background: var(--bg-medium);">
+                        <div class="gantt-header-cell" style="height: 60px; min-height: 60px; padding: 0 15px; display: flex; align-items: center; font-weight: bold; color: var(--text-dim); border-bottom: 1px solid var(--border-color); background: var(--bg-medium);">
                             Team Member
                         </div>
-                        <div id="matrix-resource-list" style="flex: 1; overflow-y: hidden; background: var(--bg-dark);">
+                        <div id="matrix-resource-list" style="flex: 1; overflow: hidden; background: var(--bg-dark);">
                             </div>
                     </div>
 
-                    <div class="gantt-timeline-wrapper" style="flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: column;">
+                    <div class="gantt-timeline-wrapper" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
                         
-                        <div id="matrix-date-header" style="height: 60px; display: flex; background: var(--bg-medium); border-bottom: 1px solid var(--border-color); width: max-content;">
+                        <div id="matrix-date-header" style="height: 60px; min-height: 60px; display: flex; background: var(--bg-medium); border-bottom: 1px solid var(--border-color); overflow: hidden; width: 100%;">
                             </div>
                         
                         <div id="matrix-grid-canvas" style="flex: 1; overflow: auto; background: var(--bg-dark); position: relative;">
