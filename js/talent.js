@@ -8,131 +8,122 @@ import {
     setupGlobalSearch
 } from './shared_constants.js';
 
-// Initialize Supabase & Day.js
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
-    // ------------------------------------------------------------------------
-    // 1. INITIALIZATION & AUTH
-    // ------------------------------------------------------------------------
+    // --- 1. INITIALIZATION ---
     await loadSVGs(); 
-    
-    // Auth Check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = 'index.html'; return; }
-    
     await setupUserMenuAndAuth(supabase, { currentUser: user });
     await setupGlobalSearch(supabase, user);
 
-    // ------------------------------------------------------------------------
-    // 2. GLOBAL STATE
-    // ------------------------------------------------------------------------
+    // --- 2. GLOBAL STATE ---
     let state = {
-        talent: [],         // Rows: Active Staff
-        availability: [],   // PTO/Sick records
-        assignments: [],    // Tasks currently assigned
-        activeTasks: [],    // All pending work (for demand calculation)
-        viewDate: dayjs(),  // Start date of the sliding window
-        daysToShow: 30      // 30-Day View
+        talent: [],         
+        trades: [],         // New: List of all skills
+        skills: [],         // New: Junction table (who has what skill)
+        availability: [],   
+        assignments: [],    
+        activeTasks: [],    
+        viewDate: dayjs(),  
+        daysToShow: 30,
+        filterTradeId: null // New: Current Filter
     };
 
-    // ------------------------------------------------------------------------
-    // 3. EVENT LISTENERS & SCROLL SYNC ENGINE
-    // ------------------------------------------------------------------------
+    // --- 3. LISTENERS ---
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
-    
-    // Date Navigation
-    if (prevBtn) prevBtn.addEventListener('click', () => { 
-        state.viewDate = state.viewDate.subtract(7, 'day'); 
-        renderMatrix(); 
-    });
-    
-    if (nextBtn) nextBtn.addEventListener('click', () => { 
-        state.viewDate = state.viewDate.add(7, 'day'); 
-        renderMatrix(); 
-    });
+    const filterEl = document.getElementById('trade-filter');
 
-    // --- THE SYNC ENGINE (CRITICAL) ---
-    // This locks the Date Header (Horizontal) and Name Sidebar (Vertical)
-    // to the Main Grid's scroll position.
+    if (prevBtn) prevBtn.addEventListener('click', () => { state.viewDate = state.viewDate.subtract(7, 'day'); renderMatrix(); });
+    if (nextBtn) nextBtn.addEventListener('click', () => { state.viewDate = state.viewDate.add(7, 'day'); renderMatrix(); });
+    
+    // Filter Listener
+    if (filterEl) {
+        filterEl.addEventListener('change', (e) => {
+            state.filterTradeId = e.target.value ? parseInt(e.target.value) : null;
+            renderMatrix(); // Re-render with filter
+        });
+    }
+
+    // Sync Engine
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
     const dateHeader = document.getElementById('matrix-date-header');
-    
     if (gridCanvas && sidebarList && dateHeader) {
         gridCanvas.addEventListener('scroll', () => {
-            // Horizontal Lock: Scroll header when grid scrolls left/right
             dateHeader.scrollLeft = gridCanvas.scrollLeft;
-            
-            // Vertical Lock: Scroll sidebar when grid scrolls up/down
             sidebarList.scrollTop = gridCanvas.scrollTop;
         });
     }
 
-    // ------------------------------------------------------------------------
-    // 4. DATA FETCHING
-    // ------------------------------------------------------------------------
+    // --- 4. DATA FETCHING ---
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
         
-        const [talentRes, availRes, assignRes, activeRes] = await Promise.all([
-            // 1. Active Staff Only
-            supabase.from('shop_talent')
-                .select('*')
-                .eq('active', true)
-                .order('name'),
-            
-            // 2. PTO/Availability Records
+        const [talentRes, tradeRes, skillRes, availRes, assignRes, activeRes] = await Promise.all([
+            supabase.from('shop_talent').select('*').eq('active', true).order('name'),
+            supabase.from('shop_trades').select('*').order('name'), // Load Trades
+            supabase.from('talent_skills').select('*'),             // Load Skills Junction
             supabase.from('talent_availability').select('*'),
-            
-            // 3. Assigned Tasks (Joined with Project Name)
-            supabase.from('project_tasks')
-                .select('*, projects(name)')
-                .not('assigned_talent_id', 'is', null),
-                
-            // 4. All Pending Work (For Demand Calculation)
-            supabase.from('project_tasks')
-                .select('*, projects(name)')
-                .in('status', ['Pending', 'In Progress'])
+            supabase.from('project_tasks').select('*, projects(name)').not('assigned_talent_id', 'is', null),
+            supabase.from('project_tasks').select('*, projects(name)').in('status', ['Pending', 'In Progress'])
         ]);
 
-        if (talentRes.error) console.error("Error fetching talent:", talentRes.error);
-        
         state.talent = talentRes.data || [];
+        state.trades = tradeRes.data || [];
+        state.skills = skillRes.data || [];
         state.availability = availRes.data || [];
         state.assignments = assignRes.data || [];
         state.activeTasks = activeRes.data || [];
 
+        populateFilterDropdown();
         renderMatrix();
     }
 
-    // ------------------------------------------------------------------------
-    // 5. RENDER ENGINE
-    // ------------------------------------------------------------------------
-    function renderMatrix() {
-        // A. Update Date Label
-        const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
-        const labelEl = document.getElementById('current-week-label');
-        if (labelEl) labelEl.textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
+    function populateFilterDropdown() {
+        const sel = document.getElementById('trade-filter');
+        if(!sel) return;
+        // Keep "All" as first option
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">ALL FUNCTIONS</option>';
+        state.trades.forEach(trade => {
+            sel.innerHTML += `<option value="${trade.id}">${trade.name.toUpperCase()}</option>`;
+        });
+        if(currentVal) sel.value = currentVal;
+    }
 
-        // B. Dynamic Row Height Calculation
-        // Measures available space and expands rows to fit, down to a minimum of 50px
+    // --- 5. RENDER ENGINE ---
+    function renderMatrix() {
+        // A. FILTER LOGIC
+        // Determine which rows (people) to show
+        let visibleTalent = state.talent;
+        if (state.filterTradeId) {
+            // Only show people who have this skill
+            const skilledTalentIds = state.skills
+                .filter(s => s.trade_id === state.filterTradeId)
+                .map(s => s.talent_id);
+            visibleTalent = state.talent.filter(t => skilledTalentIds.includes(t.id));
+        }
+
+        // B. Header Update
+        const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
+        document.getElementById('current-week-label').textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
+
+        // C. Dynamic Row Height
         const containerEl = document.getElementById('matrix-grid-canvas');
         const containerHeight = containerEl ? containerEl.clientHeight : 600;
-        const totalStaff = state.talent.length || 1;
-        
-        let calculatedHeight = Math.floor((containerHeight - 20) / totalStaff); // -20 buffer
-        if (calculatedHeight < 50) calculatedHeight = 50; // Hard minimum
+        const totalRows = visibleTalent.length || 1;
+        let calculatedHeight = Math.floor((containerHeight - 20) / totalRows); 
+        if (calculatedHeight < 50) calculatedHeight = 50; 
         const rowHeightStyle = `${calculatedHeight}px`;
 
-        // C. Render Column Headers (Dates + Metrics)
+        // D. Render Columns (Header)
         const dateHeaderEl = document.getElementById('matrix-date-header');
-        if (!dateHeaderEl) return;
-
         let headerHtml = '';
-        const colWidth = 120; // Fixed column width
+        const colWidth = 120; 
 
         for(let i = 0; i < state.daysToShow; i++) {
             const d = state.viewDate.add(i, 'day');
@@ -140,25 +131,39 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            // --- SHORTAGE CALCULATION ---
-            const ptoToday = state.availability.filter(a => a.date === dateStr && a.status === 'PTO').length;
-            const capacity = state.talent.length - ptoToday;
+            // --- FUNCTIONAL SHORTAGE MATH ---
+            // 1. Calculate DEMAND (REQ)
+            let dailyDemand = 0;
+            if (state.filterTradeId) {
+                // If filtered, count only tasks for this specific trade
+                dailyDemand = state.activeTasks.filter(t => {
+                    const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
+                                   (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
+                    return active && t.trade_id === state.filterTradeId;
+                }).length;
+            } else {
+                // If ALL, count ALL active tasks
+                dailyDemand = state.activeTasks.filter(t => {
+                    return (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
+                           (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
+                }).length;
+            }
 
-            const demand = state.activeTasks.filter(t => {
-                const start = dayjs(t.start_date);
-                const end = dayjs(t.end_date);
-                return (d.isSame(start) || d.isAfter(start)) && (d.isSame(end) || d.isBefore(end));
-            }).length;
+            // 2. Calculate CAPACITY (CAP)
+            // Count visible staff (already filtered by trade above) minus PTO
+            const ptoCount = state.availability.filter(a => a.date === dateStr && a.status === 'PTO').length;
+            // Note: We need to filter PTO only for the *visible* talent
+            const visibleIds = visibleTalent.map(t => t.id);
+            const effectivePto = state.availability.filter(a => 
+                a.date === dateStr && 
+                a.status === 'PTO' && 
+                visibleIds.includes(a.talent_id)
+            ).length;
 
-            const isShort = demand > capacity;
-            
-            // Visual Logic
-            let metricColor = 'var(--text-dim)';
-            if (isShort) metricColor = '#ff4444'; 
-            else if (demand === capacity) metricColor = 'var(--warning-yellow)'; 
-            else if (demand < capacity) metricColor = '#4CAF50';
+            const capacity = visibleTalent.length - effectivePto;
 
-            // Weekend Red Tint
+            const isShort = dailyDemand > capacity;
+            let metricColor = isShort ? '#ff4444' : (dailyDemand === capacity ? 'var(--warning-yellow)' : '#4CAF50');
             const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : '';
             const borderStyle = isShort ? 'border-bottom: 3px solid #ff4444;' : (isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '');
             const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
@@ -167,52 +172,58 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div style="min-width:${colWidth}px; width:${colWidth}px; border-right:1px solid var(--border-color); padding:10px; text-align:center; display:flex; flex-direction:column; justify-content:center; ${bgStyle} ${borderStyle}">
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
                     <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
-                    
                     <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
-                        REQ: ${demand} / CAP: ${capacity}
+                        REQ: ${dailyDemand} / CAP: ${capacity}
                     </div>
                 </div>
             `;
         }
         dateHeaderEl.innerHTML = headerHtml;
 
-        // D. Render Grid Body (Rows & Cells)
+        // E. Render Rows
         const resList = document.getElementById('matrix-resource-list');
         const gridCanvas = document.getElementById('matrix-grid-canvas');
-        
-        if (!resList || !gridCanvas) return;
-
         resList.innerHTML = '';
         gridCanvas.innerHTML = '';
 
-        state.talent.forEach((person, index) => {
-            const rowBg = index % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)';
+        visibleTalent.forEach((person) => {
+            const rowBg = 'rgba(255,255,255,0.02)'; // Uniform BG
 
-            // 1. Sidebar Row (Name)
+            // Sidebar (Clickable Name)
             const sidebarItem = document.createElement('div');
-            sidebarItem.className = 'talent-row'; 
-            sidebarItem.style.height = rowHeightStyle; // Apply Dynamic Height
+            sidebarItem.style.height = rowHeightStyle;
             sidebarItem.style.backgroundColor = rowBg;
             sidebarItem.style.display = 'flex';
             sidebarItem.style.alignItems = 'center';
             sidebarItem.style.padding = '0 15px';
             sidebarItem.style.borderBottom = '1px solid var(--border-color)';
             
+            // Generate Tags for Skills
+            const personSkills = state.skills
+                .filter(s => s.talent_id === person.id)
+                .map(s => {
+                    const t = state.trades.find(tr => tr.id === s.trade_id);
+                    return t ? t.name : '';
+                }).join(', ');
+
             sidebarItem.innerHTML = `
                 <div style="width:30px; height:30px; min-width:30px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
                     ${getInitials(person.name)}
                 </div>
                 <div style="overflow:hidden;">
-                    <div style="font-weight:600; font-size:0.9rem; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${person.name}</div>
-                    <div style="font-size:0.75rem; color:var(--text-dim);">${person.role || 'Staff'}</div>
+                    <div class="talent-name-clickable" style="font-weight:600; font-size:0.9rem; color:var(--text-bright); white-space:nowrap;">${person.name}</div>
+                    <div style="font-size:0.7rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${personSkills || 'No Skills'}</div>
                 </div>
             `;
+            
+            // Name Click -> Open Skills Modal
+            sidebarItem.querySelector('.talent-name-clickable').addEventListener('click', () => openSkillsModal(person));
             resList.appendChild(sidebarItem);
 
-            // 2. Grid Row (Cells)
+            // Grid Cells
             const gridRow = document.createElement('div');
-            gridRow.className = 'matrix-grid-row'; // Ensures max-content width
-            gridRow.style.height = rowHeightStyle; // Apply Dynamic Height
+            gridRow.className = 'matrix-grid-row';
+            gridRow.style.height = rowHeightStyle;
             gridRow.style.backgroundColor = rowBg;
             gridRow.style.borderBottom = '1px solid var(--border-color)';
 
@@ -221,7 +232,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const dateStr = d.format('YYYY-MM-DD');
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
-                // Lookup Data
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
                 const task = state.assignments.find(t => 
                     t.assigned_talent_id === person.id && 
@@ -241,14 +251,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.style.fontSize = '0.75rem';
                 cell.style.transition = 'background 0.2s';
                 
-                // Weekend Tint
                 if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
-                // Cell Visuals
                 if (avail && avail.status === 'PTO') {
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
                     cell.style.color = 'var(--text-dim)';
-                    cell.innerHTML = '<i class="fas fa-plane" style="margin-right:5px;"></i> PTO';
+                    cell.innerHTML = '<i class="fas fa-plane" style="margin-right:5px;"></i>';
                 } else if (task) {
                     cell.style.backgroundColor = 'rgba(33, 150, 243, 0.15)'; 
                     cell.style.borderLeft = '3px solid var(--primary-blue)';
@@ -260,11 +268,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     cell.title = `${task.name} (${task.projects?.name})`;
                 }
 
-                // Hover Effects
                 cell.addEventListener('mouseenter', () => { if(!task && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
                 cell.addEventListener('mouseleave', () => { if(!task && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
-
-                // Click Action
                 cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, task));
                 gridRow.appendChild(cell);
             }
@@ -272,172 +277,138 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    function getInitials(name) { 
-        if(!name) return 'TW';
-        return name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase(); 
-    }
+    function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
 
-    // ------------------------------------------------------------------------
-    // 6. INTERACTIVITY (MODAL & ACTIONS)
-    // ------------------------------------------------------------------------
-    function handleCellClick(person, dateStr, avail, currentTask) {
-        const d = dayjs(dateStr);
-        
-        // Find tasks active on this specific date
-        const viableTasks = state.activeTasks.filter(t => 
-            (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
-            (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)))
-        );
+    // --- 6. SKILLS MANAGER MODAL (NEW) ---
+    function openSkillsModal(person) {
+        // Get current skills
+        const currentSkillIds = state.skills
+            .filter(s => s.talent_id === person.id)
+            .map(s => s.trade_id);
 
-        // Generate Dropdown
-        const taskOptions = viableTasks.map(t => 
-            `<option value="${t.id}" ${currentTask && currentTask.id === t.id ? 'selected' : ''}>
-                ${t.projects?.name} - ${t.name}
-            </option>`
-        ).join('');
-
-        const isPTO = avail && avail.status === 'PTO';
-
-        // Show Modal
-        showModal(`Schedule: ${person.name}`, `
-            <div style="text-align:center; margin-bottom:20px;">
-                <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
-                <div style="font-size:0.8rem; color:var(--text-dim);">Manage assignments or availability</div>
-            </div>
-
-            <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
-                <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
-                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">
-                        <i class="fas fa-tasks" style="color:var(--primary-blue); margin-right:8px;"></i> Assign Active Task
-                    </label>
-                    
-                    ${viableTasks.length > 0 ? `
-                        <select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;">
-                            <option value="">-- No Assignment --</option>
-                            ${taskOptions}
-                        </select>
-                        <button id="btn-save-assign" class="btn-primary" style="width:100%;">
-                            ${currentTask ? 'Update Assignment' : 'Assign Task'}
-                        </button>
-                    ` : `
-                        <div style="padding:15px; background:var(--bg-medium); color:var(--text-dim); border-radius:4px; font-size:0.9rem; text-align:center;">
-                            No active tasks scheduled for this date range.
-                        </div>
-                    `}
+        // Build Checkboxes
+        const checkboxes = state.trades.map(trade => {
+            const isChecked = currentSkillIds.includes(trade.id);
+            return `
+                <div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
+                    <input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} style="margin-right:10px; transform:scale(1.2);">
+                    <label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer; flex:1;">${trade.name}</label>
                 </div>
+            `;
+        }).join('');
 
-                <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
-                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">
-                        <i class="fas fa-user-clock" style="color:var(--warning-yellow); margin-right:8px;"></i> Exceptions (PTO/Sick)
-                    </label>
-                    
-                    <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <div style="flex:1;">
-                            <label style="font-size:0.7rem; color:var(--text-dim);">From</label>
-                            <input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="width:100%; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
-                        </div>
-                        <div style="flex:1;">
-                            <label style="font-size:0.7rem; color:var(--text-dim);">To (Inclusive)</label>
-                            <input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="width:100%; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
-                        </div>
-                    </div>
-
-                    <div style="display:flex; gap:10px;">
-                        <button id="btn-mark-avail" style="flex:1; padding:12px; border:1px solid var(--border-color); background:${!isPTO ? 'rgba(76, 175, 80, 0.2)' : 'transparent'}; color:${!isPTO ? '#4CAF50' : 'var(--text-dim)'}; border-radius:6px; cursor:pointer; transition:all 0.2s;">
-                            <i class="fas fa-check"></i> Clear PTO
-                        </button>
-                        <button id="btn-mark-pto" style="flex:1; padding:12px; border:1px solid var(--border-color); background:${isPTO ? 'rgba(244, 67, 54, 0.2)' : 'transparent'}; color:${isPTO ? '#ff4444' : 'var(--text-dim)'}; border-radius:6px; cursor:pointer; transition:all 0.2s;">
-                            <i class="fas fa-plane"></i> Mark Range PTO
-                        </button>
-                    </div>
-                </div>
+        showModal(`Manage Skills: ${person.name}`, `
+            <div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">
+                Select the functional capabilities for this staff member. This affects the "Capacity" calculation in the matrix.
             </div>
-        `, async () => {}); 
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">
+                ${checkboxes}
+            </div>
+            <button id="btn-save-skills" class="btn-primary" style="width:100%; margin-top:20px;">Save Changes</button>
+        `, async () => {});
 
-        // Bind Events (Delay to ensure DOM is in Modal)
         setTimeout(() => {
-            const assignBtn = document.getElementById('btn-save-assign');
-            const ptoBtn = document.getElementById('btn-mark-pto');
-            const availBtn = document.getElementById('btn-mark-avail');
-
-            // A. SAVE ASSIGNMENT
-            if(assignBtn) {
-                assignBtn.onclick = async () => {
-                    const taskId = document.getElementById('assign-task-select').value;
+            const saveBtn = document.getElementById('btn-save-skills');
+            if(saveBtn) {
+                saveBtn.onclick = async () => {
+                    const selectedTradeIds = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
                     
-                    if (taskId) {
-                        // Assign User to Task
-                        const { error } = await supabase.from('project_tasks')
-                            .update({ assigned_talent_id: person.id })
-                            .eq('id', taskId);
-                        
-                        if (!error) {
-                            // If working, remove PTO for that specific day
-                            await supabase.from('talent_availability')
-                                .delete()
-                                .match({ talent_id: person.id, date: dateStr });
-                        }
-                    } else {
-                        // Unassign
-                        if (currentTask) {
-                            await supabase.from('project_tasks')
-                                .update({ assigned_talent_id: null })
-                                .eq('id', currentTask.id);
-                        }
+                    // 1. Delete all existing skills for this person
+                    await supabase.from('talent_skills').delete().eq('talent_id', person.id);
+                    
+                    // 2. Insert new selections
+                    if(selectedTradeIds.length > 0) {
+                        const insertData = selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid }));
+                        await supabase.from('talent_skills').insert(insertData);
                     }
+                    
                     hideModal();
-                    loadTalentData();
-                };
-            }
-
-            // B. MARK PTO (BULK LOOP)
-            if(ptoBtn) {
-                ptoBtn.onclick = async () => {
-                    const startVal = document.getElementById('pto-start-date').value;
-                    const endVal = document.getElementById('pto-end-date').value;
-
-                    if (!startVal || !endVal) { alert("Please select a date range."); return; }
-                    const start = dayjs(startVal);
-                    const end = dayjs(endVal);
-                    const diff = end.diff(start, 'day');
-                    if (diff < 0) { alert("End date cannot be before start date."); return; }
-
-                    const upsertData = [];
-                    for(let i = 0; i <= diff; i++) {
-                        upsertData.push({
-                            talent_id: person.id,
-                            date: start.add(i, 'day').format('YYYY-MM-DD'),
-                            status: 'PTO'
-                        });
-                    }
-
-                    const { error } = await supabase.from('talent_availability')
-                        .upsert(upsertData, { onConflict: 'talent_id, date' });
-
-                    if (error) alert("Error saving PTO: " + error.message);
-                    else { hideModal(); loadTalentData(); }
-                };
-            }
-
-            // C. MARK AVAILABLE (BULK DELETE)
-            if(availBtn) {
-                availBtn.onclick = async () => {
-                     const startVal = document.getElementById('pto-start-date').value;
-                     const endVal = document.getElementById('pto-end-date').value;
-
-                    const { error } = await supabase.from('talent_availability')
-                        .delete()
-                        .eq('talent_id', person.id)
-                        .gte('date', startVal)
-                        .lte('date', endVal);
-
-                    hideModal();
-                    loadTalentData();
+                    loadTalentData(); // Refresh grid
                 };
             }
         }, 100);
     }
 
-    // Start App
+    // --- 7. ASSIGNMENT MODAL ---
+    function handleCellClick(person, dateStr, avail, currentTask) {
+        const d = dayjs(dateStr);
+        // Filter tasks by selected trade (if filter active) AND date
+        const viableTasks = state.activeTasks.filter(t => {
+            const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
+                           (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
+            
+            // If filter is active, only show tasks matching that filter
+            if(state.filterTradeId) {
+                return active && t.trade_id === state.filterTradeId;
+            }
+            return active;
+        });
+
+        const taskOptions = viableTasks.map(t => 
+            `<option value="${t.id}" ${currentTask && currentTask.id === t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`
+        ).join('');
+        
+        const isPTO = avail && avail.status === 'PTO';
+
+        showModal(`Schedule: ${person.name}`, `
+            <div style="text-align:center; margin-bottom:20px;">
+                <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
+                <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
+                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task</label>
+                    ${viableTasks.length > 0 ? `
+                        <select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;">
+                            <option value="">-- No Assignment --</option>${taskOptions}
+                        </select>
+                        <button id="btn-save-assign" class="btn-primary" style="width:100%;">Save</button>
+                    ` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No active tasks found for this day/trade.</div>`}
+                </div>
+                <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
+                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">PTO Range</label>
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                        <input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="flex:1; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
+                        <input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="flex:1; padding:5px; background:var(--bg-medium); color:white; border:1px solid var(--border-color);">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button id="btn-mark-avail" style="flex:1; padding:10px; background:${!isPTO ? 'rgba(76,175,80,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Clear</button>
+                        <button id="btn-mark-pto" style="flex:1; padding:10px; background:${isPTO ? 'rgba(244,67,54,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Mark PTO</button>
+                    </div>
+                </div>
+            </div>
+        `, async () => {});
+
+        setTimeout(() => {
+            const assignBtn = document.getElementById('btn-save-assign');
+            const ptoBtn = document.getElementById('btn-mark-pto');
+            const availBtn = document.getElementById('btn-mark-avail');
+
+            if(assignBtn) assignBtn.onclick = async () => {
+                const taskId = document.getElementById('assign-task-select').value;
+                if (taskId) {
+                    await supabase.from('project_tasks').update({ assigned_talent_id: person.id }).eq('id', taskId);
+                    await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
+                } else if (currentTask) {
+                    await supabase.from('project_tasks').update({ assigned_talent_id: null }).eq('id', currentTask.id);
+                }
+                hideModal(); loadTalentData();
+            };
+
+            if(ptoBtn) ptoBtn.onclick = async () => {
+                const start = dayjs(document.getElementById('pto-start-date').value);
+                const end = dayjs(document.getElementById('pto-end-date').value);
+                const upsertData = [];
+                for(let i=0; i<=end.diff(start, 'day'); i++) upsertData.push({ talent_id: person.id, date: start.add(i, 'day').format('YYYY-MM-DD'), status: 'PTO' });
+                await supabase.from('talent_availability').upsert(upsertData, { onConflict: 'talent_id, date' });
+                hideModal(); loadTalentData();
+            };
+
+            if(availBtn) availBtn.onclick = async () => {
+                await supabase.from('talent_availability').delete().eq('talent_id', person.id).gte('date', document.getElementById('pto-start-date').value).lte('date', document.getElementById('pto-end-date').value);
+                hideModal(); loadTalentData();
+            };
+        }, 100);
+    }
+
     loadTalentData();
 });
