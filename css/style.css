@@ -4402,3 +4402,186 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
 .list-item.selected small {
     color: rgba(31, 35, 41, 0.8) !important;
 }
+/* METRICS BAR */
+.project-metrics-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+}
+
+.metric-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.metric-card .label {
+    font-family: 'Rajdhani', sans-serif;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+}
+
+.metric-card .value {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.8rem;
+    color: var(--text-bright);
+    font-weight: 700;
+}
+
+.progress-bar-container {
+    height: 6px;
+    background: var(--bg-dark);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--primary-blue); /* Gold */
+    box-shadow: 0 0 8px rgba(179, 140, 98, 0.4);
+}
+
+/* GANTT FRAMEWORK */
+.gantt-container-frame {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    height: 600px;
+    overflow: hidden;
+}
+
+/* LEFT SIDEBAR (Resources) */
+.gantt-sidebar {
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+.gantt-header-cell {
+    height: 50px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding-left: 15px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--warning-yellow);
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.2);
+}
+
+.resource-row {
+    height: 60px; /* Fixed height for alignment */
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 15px;
+}
+
+.resource-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    color: var(--text-bright);
+}
+
+.resource-role {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+/* RIGHT TIMELINE (The Grid) */
+.gantt-timeline-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    background: #15181c; /* Slightly darker than card */
+}
+
+.gantt-timeline-header {
+    display: flex;
+    height: 50px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.date-cell {
+    min-width: 100px; /* One day width */
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.date-cell.weekend {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.gantt-grid-body {
+    position: relative;
+    /* Blueprint Grid Effect */
+    background-image: 
+        linear-gradient(var(--border-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+    background-size: 100px 60px; /* Width matches date-cell, Height matches resource-row */
+    height: 100%;
+}
+
+/* TASK BARS */
+.gantt-task-bar {
+    position: absolute;
+    height: 40px;
+    background: rgba(179, 140, 98, 0.15);
+    border: 1px solid var(--primary-blue);
+    border-radius: 4px;
+    top: 10px; /* (60px row - 40px bar) / 2 */
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.gantt-task-bar:hover {
+    background: rgba(179, 140, 98, 0.3);
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.gantt-task-info {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-bright);
+    z-index: 2;
+}
+
+/* The Burn Line */
+.burn-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--warning-yellow);
+    box-shadow: 0 0 6px var(--warning-yellow);
+    z-index: 1;
+}
