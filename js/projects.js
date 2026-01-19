@@ -14,7 +14,7 @@ const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
-    // 1. INITIALIZATION & AUTH
+    // 1. INITIALIZATION & AUTHENTICATION
     // ------------------------------------------------------------------------
     await loadSVGs();
     const { data: { user } } = await supabase.auth.getUser();
@@ -28,25 +28,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setupGlobalSearch(supabase, user);
 
     // ------------------------------------------------------------------------
-    // 2. STATE MANAGEMENT
+    // 2. CENTRAL STATE MANAGEMENT
     // ------------------------------------------------------------------------
     let state = {
-        currentView: 'resource', // 'resource' or 'project'
+        // View Mode: 'resource' (Capacity) or 'project' (Timeline)
+        currentView: 'resource', 
+        
+        // Data Containers
         trades: [],
         projects: [],
         tasks: [],
         
-        // Drag Engine State
+        // Physics Engine State (Drag & Drop)
         isDragging: false,
-        dragTask: null,
-        dragEl: null,
-        dragStartX: 0,
-        dragStartLeft: 0,
-        hasMoved: false
+        dragTask: null, // The task object being moved
+        dragEl: null,   // The DOM element being moved
+        dragStartX: 0,  // Mouse X position at start
+        dragStartLeft: 0, // Element Left position at start
+        hasMoved: false   // Distinguishes between Click and Drag
     };
 
     // ------------------------------------------------------------------------
-    // 3. VIEW CONTROLS (Toggle Logic)
+    // 3. VIEW CONTROL LOGIC (Toggle Buttons)
     // ------------------------------------------------------------------------
     const btnResource = document.getElementById('view-resource-btn');
     const btnProject = document.getElementById('view-project-btn');
@@ -59,6 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function switchView(view) {
         state.currentView = view;
         
+        // Update Button Styling
         if(view === 'resource') {
             btnResource.classList.add('active');
             btnResource.style.background = 'var(--primary-blue)';
@@ -77,15 +81,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             btnResource.style.color = 'var(--text-dim)';
         }
         
+        // Re-render the grid immediately
         renderGantt();
     }
 
     // ------------------------------------------------------------------------
-    // 4. DATA LOADING (Parallel Fetch)
+    // 4. ROBUST DATA LOADING (Parallel Processing)
     // ------------------------------------------------------------------------
     async function loadShopData() {
         console.log("Loading Ten Works Production Data...");
         
+        // We use Promise.all to fetch all tables simultaneously for speed
+        // This prevents the "pop-in" effect where trades load before tasks
         const [tradesRes, tasksRes, projectsRes] = await Promise.all([
             supabase.from('shop_trades').select('*').order('id'),
             supabase.from('project_tasks').select(`*, projects(name), shop_trades(name)`),
@@ -96,16 +103,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (tasksRes.error) console.error("Error loading tasks:", tasksRes.error);
         if (projectsRes.error) console.error("Error loading projects:", projectsRes.error);
 
+        // Update State
         state.trades = tradesRes.data || [];
         state.tasks = tasksRes.data || [];
         state.projects = projectsRes.data || [];
 
+        // Update UI
         renderGantt();
         updateMetrics();
     }
 
     // ------------------------------------------------------------------------
-    // 5. RENDER ENGINE
+    // 5. THE RENDER ENGINE (Grid, Rows, and Bars)
     // ------------------------------------------------------------------------
     function renderGantt() {
         const resourceList = document.getElementById('gantt-resource-list');
@@ -114,11 +123,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (!resourceList || !gridCanvas || !dateHeader) return;
 
-        // A. TIMELINE HEADER
+        // --- A. TIMELINE GENERATION ---
         let dateHtml = '';
-        const startDate = dayjs().subtract(5, 'day'); // Start 5 days ago
+        const startDate = dayjs().subtract(5, 'day'); // Start 5 days in the past
         const daysToRender = 60; // 2 Month View
-        const dayWidth = 100; // px
+        const dayWidth = 100; // Fixed width per day (px)
 
         for (let i = 0; i < daysToRender; i++) {
             const current = startDate.add(i, 'day');
@@ -134,27 +143,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         dateHeader.innerHTML = dateHtml;
         
+        // Set dynamic widths
         const totalWidth = daysToRender * dayWidth;
         dateHeader.style.width = `${totalWidth}px`;
         gridCanvas.style.width = `${totalWidth}px`;
 
-        // B. ROWS & BARS
+        // --- B. ROW GENERATION ---
         resourceList.innerHTML = '';
         gridCanvas.innerHTML = '';
 
+        // Determine which list to use as rows
         const rows = state.currentView === 'resource' ? state.trades : state.projects;
 
         rows.forEach((rowItem, index) => {
-            // 1. Sidebar Row
+            // 1. Sidebar Row Element
             const rowEl = document.createElement('div');
             rowEl.className = 'resource-row';
             
             if (state.currentView === 'resource') {
+                // Resource Mode: Show Trade Name & Rate
                 rowEl.innerHTML = `
                     <div class="resource-name">${rowItem.name}</div>
                     <div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>
                 `;
             } else {
+                // Project Mode: Show Project Name & Status
                 let statusColor = '#888';
                 if(rowItem.status === 'Fabrication') statusColor = 'var(--primary-blue)';
                 if(rowItem.status === 'Installation') statusColor = 'var(--warning-yellow)';
@@ -167,44 +180,48 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             resourceList.appendChild(rowEl);
 
-            // 2. Filter Tasks
+            // 2. Filter Tasks for this Row
             const rowTasks = state.tasks.filter(t => {
                 if (state.currentView === 'resource') return t.trade_id === rowItem.id;
                 else return t.project_id === rowItem.id;
             });
 
-            // 3. Render Bars
+            // 3. Render Bars for this Row
             rowTasks.forEach(task => {
                 const start = dayjs(task.start_date);
                 const end = dayjs(task.end_date);
                 
+                // Calculate Position based on timeline start
                 const diff = start.diff(startDate, 'day');
-                const duration = end.diff(start, 'day') + 1;
+                const duration = end.diff(start, 'day') + 1; // +1 to include the end day
 
-                if (diff + duration < 0) return; // Skip off-screen
+                // Skip if entirely off-screen to the left
+                if (diff + duration < 0) return;
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-task-bar';
+                
+                // CSS Positioning: Row is 70px high. Top padding 15px.
                 bar.style.top = `${(index * 70) + 15}px`; 
                 bar.style.left = `${diff * dayWidth}px`;
-                bar.style.width = `${(duration * dayWidth) - 10}px`;
-                bar.style.cursor = 'grab';
+                bar.style.width = `${(duration * dayWidth) - 10}px`; // -10px for gap
+                bar.style.cursor = 'grab'; // Indicates draggable
 
-                // Status/Burn Colors
+                // Logic: Burn Line (Actual vs Estimated)
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
                 const burnColor = percent > 1 ? '#ff4444' : 'var(--warning-yellow)';
                 
-                // Labels
+                // Logic: Label Text
                 const label = state.currentView === 'resource' 
-                    ? task.projects?.name 
-                    : task.shop_trades?.name;
+                    ? task.projects?.name // In Resource view, see Project Name
+                    : task.shop_trades?.name; // In Project view, see Trade Phase
 
                 bar.innerHTML = `
                     <span class="gantt-task-info" style="pointer-events:none;">${label || task.name}</span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
                 
-                // Attach Physics
+                // Attach Physics Listener
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
 
                 gridCanvas.appendChild(bar);
@@ -213,10 +230,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. PHYSICS ENGINE (Drag & Cascade)
+    // 6. PHYSICS ENGINE (Drag & Cascade Logic)
     // ------------------------------------------------------------------------
     function handleDragStart(e, task, element) {
-        if (e.button !== 0) return;
+        if (e.button !== 0) return; // Only Left Click
 
         state.isDragging = true;
         state.dragTask = task;
@@ -225,10 +242,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.dragStartLeft = parseInt(element.style.left || 0);
         state.hasMoved = false;
 
+        // Visual Feedback: Lift the element
         element.style.cursor = 'grabbing';
         element.style.zIndex = 1000;
-        element.style.transition = 'none'; // Instant follow
+        element.style.transition = 'none'; // Disable smoothing for instant follow
 
+        // Attach Global Listeners
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
     }
@@ -237,7 +256,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!state.isDragging) return;
         
         const deltaX = e.clientX - state.dragStartX;
-        if (Math.abs(deltaX) > 5) state.hasMoved = true; // Drag threshold
+        
+        // Threshold: If moved more than 5 pixels, consider it a drag
+        if (Math.abs(deltaX) > 5) state.hasMoved = true;
 
         state.dragEl.style.left = `${state.dragStartLeft + deltaX}px`;
     }
@@ -249,22 +270,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.isDragging = false;
         state.dragEl.style.cursor = 'grab';
         state.dragEl.style.zIndex = '';
-        state.dragEl.style.transition = 'all 0.2s';
+        state.dragEl.style.transition = 'all 0.2s'; // Re-enable smoothing
         
         document.removeEventListener('mousemove', handleDragMove);
         document.removeEventListener('mouseup', handleDragEnd);
 
-        // CASE A: Click -> Edit
+        // CASE A: It was a Click -> Open Edit Modal
         if (!state.hasMoved) {
-            state.dragEl.style.left = `${state.dragStartLeft}px`; 
+            state.dragEl.style.left = `${state.dragStartLeft}px`; // Snap back
             openTaskModal(state.dragTask);
             return;
         }
 
-        // CASE B: Drag -> Move & Cascade
+        // CASE B: It was a Drag -> Move & Cascade
         const currentLeft = parseInt(state.dragEl.style.left || 0);
         const snapLeft = Math.round(currentLeft / 100) * 100; // Snap to 100px grid
-        state.dragEl.style.left = `${snapLeft}px`; 
+        state.dragEl.style.left = `${snapLeft}px`; // Visual snap
 
         const pixelShift = snapLeft - state.dragStartLeft;
         const dayShift = Math.round(pixelShift / 100);
@@ -272,7 +293,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (dayShift !== 0) {
             console.log(`Shifting task ${state.dragTask.name} by ${dayShift} days.`);
 
-            // 1. Optimistic Update (Visual)
+            // 1. Optimistic UI Update (Update local state immediately)
             const oldStart = state.dragTask.start_date;
             const newStart = dayjs(state.dragTask.start_date).add(dayShift, 'day').format('YYYY-MM-DD');
             const newEnd = dayjs(state.dragTask.end_date).add(dayShift, 'day').format('YYYY-MM-DD');
@@ -280,7 +301,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             state.dragTask.start_date = newStart;
             state.dragTask.end_date = newEnd;
 
-            // 2. Database Update (Parent)
+            // 2. Database Update (Parent Task)
             const { error } = await supabase.from('project_tasks')
                 .update({ start_date: newStart, end_date: newEnd })
                 .eq('id', state.dragTask.id);
@@ -288,11 +309,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (error) {
                 console.error("Move failed, reverting...", error);
                 state.dragTask.start_date = oldStart; 
-                loadShopData(); // Revert UI
+                loadShopData(); // Hard refresh to fix UI
                 return;
             }
 
-            // 3. Database Update (Children - Cascade)
+            // 3. THE DOMINO EFFECT (Cascade Children)
+            // Find dependent tasks
             const { data: children } = await supabase
                 .from('project_tasks')
                 .select('*')
@@ -301,10 +323,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (children && children.length > 0) {
                 console.log(`Cascading move to ${children.length} downstream tasks...`);
                 
-                // Parallel updates for speed
+                // Use Promise.all to update children concurrently
                 const updatePromises = children.map(child => {
                     const cStart = dayjs(child.start_date).add(dayShift, 'day').format('YYYY-MM-DD');
                     const cEnd = dayjs(child.end_date).add(dayShift, 'day').format('YYYY-MM-DD');
+                    
                     return supabase.from('project_tasks')
                         .update({ start_date: cStart, end_date: cEnd })
                         .eq('id', child.id);
@@ -313,13 +336,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 await Promise.all(updatePromises);
             }
 
-            // Final Refresh
+            // Reload to ensure full sync
             loadShopData();
         }
     }
 
     // ------------------------------------------------------------------------
-    // 7. EDIT MODAL
+    // 7. EDIT MODAL (Update Hours, Status, Delete)
     // ------------------------------------------------------------------------
     function openTaskModal(task) {
         showModal(`Edit Task: ${task.name}`, `
@@ -335,6 +358,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div>
                     <label>Actual Hours (Burn)</label>
                     <input type="number" id="edit-actual" class="form-control" value="${task.actual_hours}">
+                    <small style="color:var(--text-dim)">Est: ${task.estimated_hours} hrs</small>
                 </div>
                 <div>
                     <label>Start Date</label>
@@ -349,21 +373,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <button id="delete-task-btn" style="background:#773030; color:white; border:none; padding:8px 12px; border-radius:4px; float:left;">Delete Task</button>
             </div>
         `, async () => {
-            // Save
+            // SAVE LOGIC
             const newStatus = document.getElementById('edit-status').value;
             const newActual = document.getElementById('edit-actual').value;
             const newStart = document.getElementById('edit-start').value;
             const newEnd = document.getElementById('edit-end').value;
 
             const { error } = await supabase.from('project_tasks').update({ 
-                status: newStatus, actual_hours: newActual, start_date: newStart, end_date: newEnd 
+                status: newStatus, 
+                actual_hours: newActual, 
+                start_date: newStart, 
+                end_date: newEnd 
             }).eq('id', task.id);
 
             if (error) alert('Error: ' + error.message);
             else loadShopData();
         });
 
-        // Delete
+        // Delete Logic
         setTimeout(() => {
             const delBtn = document.getElementById('delete-task-btn');
             if(delBtn) delBtn.onclick = async () => {
@@ -377,7 +404,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 8. METRICS
+    // 8. METRICS DASHBOARD
     // ------------------------------------------------------------------------
     function updateMetrics() {
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
@@ -391,12 +418,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(revenueEl) revenueEl.textContent = formatCurrency(totalRev);
         if(countEl) countEl.textContent = activeProjects.length;
 
+        // Load Logic: Count tasks active today
         const today = dayjs();
         const activeTasks = state.tasks.filter(t => 
             dayjs(t.start_date).isBefore(today) && dayjs(t.end_date).isAfter(today)
         ).length;
         
-        const capacity = 5; // Adjustable shop capacity
+        const capacity = 5; // Adjustable Shop Capacity
         const load = Math.min((activeTasks / capacity) * 100, 100);
         
         if(loadBar) loadBar.style.width = `${load}%`;
@@ -404,12 +432,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 9. LAUNCH NEW PROJECT (Waterfall)
+    // 9. MISSION PLANNER (Dynamic Launch Modal)
     // ------------------------------------------------------------------------
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
         launchBtn.addEventListener('click', async () => {
-            // 1. Fetch Deals (Safe & Robust)
+            // 1. Fetch Deals
             const { data: deals, error } = await supabase
                 .from('deals_tw')
                 .select('*')
@@ -418,87 +446,135 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (error) { alert("Error fetching deals: " + error.message); return; }
             if (!deals || deals.length === 0) { alert("No deals found in 'deals_tw' table."); return; }
 
-            // Safe Option Building
+            // 2. Build Options (Handling Undefined Fields)
             const options = deals.map(d => {
-                const safeName = d.deal_name || d.name || 'Unnamed Deal';
-                const safeAmt = d.amount || 0;
-                const safeStage = d.stage || 'Unknown Stage';
-                return `<option value="${d.id}" data-name="${safeName}" data-amt="${safeAmt}">
-                    ${safeName} (${formatCurrency(safeAmt)}) - ${safeStage}
-                </option>`;
+                const name = d.deal_name || d.name || 'Unnamed';
+                const amt = d.amount || 0;
+                return `<option value="${d.id}" data-name="${name}" data-amt="${amt}">${name} (${formatCurrency(amt)})</option>`;
             }).join('');
 
-            showModal('Launch Production Project', `
+            // 3. Calculate Default Dates (Waterfall)
+            const today = dayjs();
+            const defDates = {
+                pmStart: today.format('YYYY-MM-DD'), pmEnd: today.add(2, 'day').format('YYYY-MM-DD'),
+                cadStart: today.add(3, 'day').format('YYYY-MM-DD'), cadEnd: today.add(10, 'day').format('YYYY-MM-DD'),
+                fabStart: today.add(11, 'day').format('YYYY-MM-DD'), fabEnd: today.add(25, 'day').format('YYYY-MM-DD'),
+                instStart: today.add(26, 'day').format('YYYY-MM-DD'), instEnd: today.add(30, 'day').format('YYYY-MM-DD')
+            };
+
+            showModal('Launch Project Plan', `
                 <div class="form-group">
-                    <label>Select Deal:</label>
-                    <select id="launch-deal" class="form-control" style="background:var(--bg-dark); color:white; padding:10px; border:1px solid var(--border-color); width:100%; box-sizing:border-box;">${options}</select>
+                    <label>Select Deal</label>
+                    <select id="launch-deal" class="form-control" style="background:var(--bg-dark); color:white; padding:10px; width:100%; box-sizing:border-box;">${options}</select>
                 </div>
-                <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div><label>Start Date:</label><input type="date" id="launch-start" class="form-control" value="${dayjs().format('YYYY-MM-DD')}"></div>
-                    <div><label>Target End:</label><input type="date" id="launch-end" class="form-control" value="${dayjs().add(30,'day').format('YYYY-MM-DD')}"></div>
-                </div>
-                <div style="margin-top:15px; padding:10px; background:rgba(33, 150, 243, 0.1); border-left:3px solid var(--primary-blue);">
-                    <small><strong><i class="fas fa-magic"></i> Auto-Scheduling:</strong> This will create a dependency chain: Kickoff &rarr; Design &rarr; Fabrication &rarr; Installation.</small>
+                
+                <div style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h4 style="color:var(--text-bright); margin:0;">Phase Scheduling</h4>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <label style="margin:0; font-size:0.8rem; color:var(--text-dim);">Project Start:</label>
+                            <input type="date" id="master-start-date" class="form-control" style="width:140px;" value="${defDates.pmStart}">
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; align-items:center; margin-bottom:5px; font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">
+                        <span>Phase</span><span>Start</span><span>End</span><span>Est. Hrs</span>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;">
+                        <span style="align-self:center; color:var(--text-bright);">Kickoff</span>
+                        <input type="date" id="p1-start" class="form-control" value="${defDates.pmStart}">
+                        <input type="date" id="p1-end" class="form-control" value="${defDates.pmEnd}">
+                        <input type="number" id="p1-hrs" class="form-control" value="5">
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;">
+                        <span style="align-self:center; color:var(--text-bright);">Design</span>
+                        <input type="date" id="p2-start" class="form-control" value="${defDates.cadStart}">
+                        <input type="date" id="p2-end" class="form-control" value="${defDates.cadEnd}">
+                        <input type="number" id="p2-hrs" class="form-control" value="20">
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;">
+                        <span style="align-self:center; color:var(--text-bright);">Fabrication</span>
+                        <input type="date" id="p3-start" class="form-control" value="${defDates.fabStart}">
+                        <input type="date" id="p3-end" class="form-control" value="${defDates.fabEnd}">
+                        <input type="number" id="p3-hrs" class="form-control" value="80">
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;">
+                        <span style="align-self:center; color:var(--text-bright);">Installation</span>
+                        <input type="date" id="p4-start" class="form-control" value="${defDates.instStart}">
+                        <input type="date" id="p4-end" class="form-control" value="${defDates.instEnd}">
+                        <input type="number" id="p4-hrs" class="form-control" value="24">
+                    </div>
                 </div>
             `, async () => {
+                // CONFIRM ACTION
                 const sel = document.getElementById('launch-deal');
-                const start = document.getElementById('launch-start').value;
-                const end = document.getElementById('launch-end').value;
-                
-                if (!sel.value) { alert("Please select a deal."); return; }
+                if(!sel.value) return;
 
-                // Safe Data Extraction
                 const name = sel.options[sel.selectedIndex].dataset.name;
                 const amt = sel.options[sel.selectedIndex].dataset.amt;
+                
+                // Harvest Inputs
+                const dates = {
+                    p1s: document.getElementById('p1-start').value, p1e: document.getElementById('p1-end').value, p1h: document.getElementById('p1-hrs').value,
+                    p2s: document.getElementById('p2-start').value, p2e: document.getElementById('p2-end').value, p2h: document.getElementById('p2-hrs').value,
+                    p3s: document.getElementById('p3-start').value, p3e: document.getElementById('p3-end').value, p3h: document.getElementById('p3-hrs').value,
+                    p4s: document.getElementById('p4-start').value, p4e: document.getElementById('p4-end').value, p4h: document.getElementById('p4-hrs').value,
+                };
 
                 // 1. Create Project Container
                 const { data: proj, error: projError } = await supabase.from('projects').insert([{
-                    deal_id: sel.value, 
-                    name: name, 
-                    start_date: start, 
-                    end_date: end, 
-                    project_value: amt, 
-                    status: 'Pre-Production'
+                    deal_id: sel.value, name, start_date: dates.p1s, end_date: dates.p4e, project_value: amt, status: 'Pre-Production'
                 }]).select();
-
+                
                 if(projError) { alert(projError.message); return; }
                 const pid = proj[0].id;
-                const s = dayjs(start);
 
-                // 2. CHAINED TASK CREATION (Waterfall Dependencies)
-                // A. Kickoff (Parent)
-                const { data: t1 } = await supabase.from('project_tasks').insert({
-                    project_id: pid, trade_id: state.trades[0]?.id || 1, name: 'Kickoff & Plan', 
-                    start_date: start, end_date: s.add(2,'day').format('YYYY-MM-DD'), estimated_hours: 5
+                // 2. Create Tasks (With explicit user-defined dates & hours)
+                const { data: t1 } = await supabase.from('project_tasks').insert({ 
+                    project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff & Plan', 
+                    start_date: dates.p1s, end_date: dates.p1e, estimated_hours: dates.p1h 
                 }).select();
 
-                // B. Design (Child of A)
-                const { data: t2 } = await supabase.from('project_tasks').insert({
-                    project_id: pid, trade_id: state.trades[1]?.id || 2, name: 'CAD Drawings', 
-                    start_date: s.add(3,'day').format('YYYY-MM-DD'), end_date: s.add(10,'day').format('YYYY-MM-DD'), estimated_hours: 20,
-                    dependency_task_id: t1[0].id
+                const { data: t2 } = await supabase.from('project_tasks').insert({ 
+                    project_id: pid, trade_id: state.trades[1]?.id||2, name: 'CAD Drawings', 
+                    start_date: dates.p2s, end_date: dates.p2e, estimated_hours: dates.p2h, 
+                    dependency_task_id: t1[0].id 
                 }).select();
 
-                // C. Fabrication (Child of B)
-                const { data: t3 } = await supabase.from('project_tasks').insert({
-                    project_id: pid, trade_id: state.trades[2]?.id || 3, name: 'Fabrication', 
-                    start_date: s.add(11,'day').format('YYYY-MM-DD'), end_date: s.add(25,'day').format('YYYY-MM-DD'), estimated_hours: 80,
-                    dependency_task_id: t2[0].id
+                const { data: t3 } = await supabase.from('project_tasks').insert({ 
+                    project_id: pid, trade_id: state.trades[2]?.id||3, name: 'Fabrication', 
+                    start_date: dates.p3s, end_date: dates.p3e, estimated_hours: dates.p3h, 
+                    dependency_task_id: t2[0].id 
                 }).select();
 
-                // D. Installation (Child of C)
-                await supabase.from('project_tasks').insert({
-                    project_id: pid, trade_id: state.trades[4]?.id || 5, name: 'Installation', 
-                    start_date: s.add(26,'day').format('YYYY-MM-DD'), end_date: end, estimated_hours: 24,
-                    dependency_task_id: t3[0].id
+                await supabase.from('project_tasks').insert({ 
+                    project_id: pid, trade_id: state.trades[4]?.id||5, name: 'Installation', 
+                    start_date: dates.p4s, end_date: dates.p4e, estimated_hours: dates.p4h, 
+                    dependency_task_id: t3[0].id 
                 });
 
-                // Refresh Grid
                 loadShopData();
+            });
+            
+            // SMART AUTO-UPDATER (Recalculate waterfall if Master Start changes)
+            document.getElementById('master-start-date').addEventListener('change', (e) => {
+                const start = dayjs(e.target.value);
+                document.getElementById('p1-start').value = start.format('YYYY-MM-DD');
+                document.getElementById('p1-end').value = start.add(2, 'day').format('YYYY-MM-DD');
+                document.getElementById('p2-start').value = start.add(3, 'day').format('YYYY-MM-DD');
+                document.getElementById('p2-end').value = start.add(10, 'day').format('YYYY-MM-DD');
+                document.getElementById('p3-start').value = start.add(11, 'day').format('YYYY-MM-DD');
+                document.getElementById('p3-end').value = start.add(25, 'day').format('YYYY-MM-DD');
+                document.getElementById('p4-start').value = start.add(26, 'day').format('YYYY-MM-DD');
+                document.getElementById('p4-end').value = start.add(30, 'day').format('YYYY-MM-DD');
             });
         });
     }
-
-    // Start!
+    
+    // START
     loadShopData();
 });
