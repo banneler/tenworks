@@ -16,11 +16,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 1. INITIALIZATION & AUTH
     // ------------------------------------------------------------------------
     await loadSVGs(); 
-    
-    // Auth Check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = 'index.html'; return; }
-    
     await setupUserMenuAndAuth(supabase, { currentUser: user });
     await setupGlobalSearch(supabase, user);
 
@@ -32,31 +29,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         trades: [],         
         skills: [],         
         availability: [],   
-        assignments: [],    // Daily assignments container
+        assignments: [],    
         activeTasks: [],    
+        unassignedTasks: [], // For Bottom Lane
         viewDate: dayjs(),  
         daysToShow: 30,
         filterTradeId: null 
     };
 
-    // ------------------------------------------------------------------------
-    // 3. COLOR PALETTES
-    // ------------------------------------------------------------------------
     const TRADE_COLORS = {
-        1: '#546E7A', // Kickoff
-        2: '#1E88E5', // Design
-        3: '#D4AF37', // Fabrication
-        4: '#8D6E63', // Woodworking
-        5: '#66BB6A', // Installation
-        6: '#7E57C2'  // Finishing
+        1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 
+        4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2'
     };
 
-    function getTradeColor(id) {
-        return TRADE_COLORS[id] || 'var(--primary-gold)'; 
-    }
+    function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
 
     // ------------------------------------------------------------------------
-    // 4. LISTENERS & SYNC
+    // 3. LISTENERS & SYNC
     // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
@@ -64,15 +53,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (prevBtn) prevBtn.addEventListener('click', () => { state.viewDate = state.viewDate.subtract(7, 'day'); renderMatrix(); });
     if (nextBtn) nextBtn.addEventListener('click', () => { state.viewDate = state.viewDate.add(7, 'day'); renderMatrix(); });
-    
-    if (filterEl) {
-        filterEl.addEventListener('change', (e) => {
-            state.filterTradeId = e.target.value ? parseInt(e.target.value) : null;
-            renderMatrix(); 
-        });
-    }
+    if (filterEl) filterEl.addEventListener('change', (e) => { state.filterTradeId = e.target.value ? parseInt(e.target.value) : null; renderMatrix(); });
 
-    // Sync Engine
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
     const dateHeader = document.getElementById('matrix-date-header');
@@ -85,7 +67,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. DATA FETCHING
+    // 4. DATA FETCHING
     // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
@@ -95,18 +77,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             supabase.from('shop_trades').select('*').order('name'),
             supabase.from('talent_skills').select('*'),
             supabase.from('talent_availability').select('*'),
-            // Fetch Daily Assignments
-            supabase.from('task_assignments').select(`
-                *, 
-                project_tasks (id, name, trade_id, projects(name))
-            `),
-            supabase.from('project_tasks').select('*, projects(name)').in('status', ['Pending', 'In Progress'])
+            supabase.from('task_assignments').select(`*, project_tasks (id, name, trade_id, projects(name))`),
+            supabase.from('project_tasks').select('*, projects(name), shop_trades(name)').in('status', ['Pending', 'In Progress'])
         ]);
-
-        if (assignRes.error) {
-            console.error("Critical Error loading assignments:", assignRes.error);
-            alert("Database Error: Could not load 'task_assignments' table. Did you run the SQL update?");
-        }
 
         state.talent = talentRes.data || [];
         state.trades = tradeRes.data || [];
@@ -115,8 +88,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.assignments = assignRes.data || [];
         state.activeTasks = activeRes.data || [];
 
+        // Filter for Unassigned Tasks (No 'assigned_talent_id')
+        state.unassignedTasks = state.activeTasks.filter(t => !t.assigned_talent_id)
+            .sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date))); // Sort by Date
+
         populateFilterDropdown();
         renderMatrix();
+        renderStagingLane(); // NEW
     }
 
     function populateFilterDropdown() {
@@ -131,23 +109,63 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. RENDER ENGINE (DAILY PRECISION)
+    // 5. RENDER STAGING LANE (BOTTOM DOCK)
+    // ------------------------------------------------------------------------
+    function renderStagingLane() {
+        const list = document.getElementById('unassigned-pool-list');
+        const count = document.getElementById('pool-count');
+        if(!list) return;
+
+        list.innerHTML = '';
+        count.textContent = `${state.unassignedTasks.length} Pending`;
+
+        state.unassignedTasks.forEach(task => {
+            const card = document.createElement('div');
+            card.className = 'pool-card';
+            card.draggable = true; 
+            
+            const color = getTradeColor(task.trade_id);
+            card.style.borderTopColor = color; // Colored Top Border
+
+            // Format Date Range
+            const s = dayjs(task.start_date).format('MMM D');
+            
+            card.innerHTML = `
+                <div>
+                    <div style="font-size:0.7rem; color:${color}; font-weight:bold; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px;">
+                        ${task.shop_trades?.name || 'Task'}
+                    </div>
+                    <div style="font-weight:700; color:var(--text-bright); line-height:1.2; font-size:0.95rem;">${task.name}</div>
+                    <div style="font-size:0.75rem; color:var(--text-dim); margin-top:3px;">${task.projects?.name}</div>
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-bright); margin-top:10px; display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">
+                    <span><i class="far fa-calendar"></i> ${s}</span>
+                    <span>${task.estimated_hours}h</span>
+                </div>
+            `;
+
+            // Attach Drag Events
+            card.addEventListener('dragstart', (e) => handleDragStart(e, task));
+            card.addEventListener('dragend', handleDragEnd);
+
+            list.appendChild(card);
+        });
+    }
+
+    // ------------------------------------------------------------------------
+    // 6. RENDER MATRIX (WITH DROP ZONES)
     // ------------------------------------------------------------------------
     function renderMatrix() {
-        // A. FILTER LOGIC
         let visibleTalent = state.talent;
         if (state.filterTradeId) {
-            const skilledTalentIds = state.skills
-                .filter(s => s.trade_id === state.filterTradeId)
-                .map(s => s.talent_id);
+            const skilledTalentIds = state.skills.filter(s => s.trade_id === state.filterTradeId).map(s => s.talent_id);
             visibleTalent = state.talent.filter(t => skilledTalentIds.includes(t.id));
         }
 
-        // B. Header Date
         const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
         document.getElementById('current-week-label').textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
 
-        // C. Dynamic Row Height
+        // Auto-Size Height
         const containerEl = document.getElementById('matrix-grid-canvas');
         const containerHeight = containerEl ? containerEl.clientHeight : 600;
         const totalRows = visibleTalent.length || 1;
@@ -155,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (calculatedHeight < 50) calculatedHeight = 50; 
         const rowHeightStyle = `${calculatedHeight}px`;
 
-        // D. Render Header
+        // HEADER
         const dateHeaderEl = document.getElementById('matrix-date-header');
         let headerHtml = '';
         const colWidth = 120; 
@@ -166,10 +184,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            // Bookings Count (Daily Load)
             const bookings = state.assignments.filter(a => a.assigned_date === dateStr).length;
-            
-            // Capacity Calculation
             const visibleIds = visibleTalent.map(t => t.id);
             const ptoCount = state.availability.filter(a => a.date === dateStr && a.status === 'PTO' && visibleIds.includes(a.talent_id)).length;
             const capacity = visibleTalent.length - ptoCount;
@@ -195,7 +210,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         dateHeaderEl.innerHTML = headerHtml;
 
-        // E. Render Rows
+        // GRID & SIDEBAR
         const resList = document.getElementById('matrix-resource-list');
         const gridCanvas = document.getElementById('matrix-grid-canvas');
         resList.innerHTML = '';
@@ -204,21 +219,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         visibleTalent.forEach((person) => {
             const rowBg = 'rgba(255,255,255,0.02)';
 
-            // Sidebar
+            // Sidebar Row
             const sidebarItem = document.createElement('div');
+            sidebarItem.className = 'talent-row-item'; // For drag highlighting
+            sidebarItem.dataset.talentId = person.id;
             sidebarItem.style.height = rowHeightStyle;
             sidebarItem.style.backgroundColor = rowBg;
             sidebarItem.style.display = 'flex';
             sidebarItem.style.alignItems = 'center';
             sidebarItem.style.padding = '0 15px';
             sidebarItem.style.borderBottom = '1px solid var(--border-color)';
+            sidebarItem.style.transition = 'opacity 0.2s';
             
-            const personSkills = state.skills
-                .filter(s => s.talent_id === person.id)
-                .map(s => {
-                    const t = state.trades.find(tr => tr.id === s.trade_id);
-                    return t ? t.name : '';
-                }).join(', ');
+            const personSkills = state.skills.filter(s => s.talent_id === person.id).map(s => {
+                const t = state.trades.find(tr => tr.id === s.trade_id);
+                return t ? t.name : '';
+            }).join(', ');
 
             sidebarItem.innerHTML = `
                 <div style="width:30px; height:30px; min-width:30px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">
@@ -229,11 +245,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="font-size:0.7rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${personSkills || 'No Skills'}</div>
                 </div>
             `;
-            
             sidebarItem.querySelector('.talent-name-clickable').addEventListener('click', () => openSkillsModal(person));
             resList.appendChild(sidebarItem);
 
-            // Grid Cells
+            // Grid Row
             const gridRow = document.createElement('div');
             gridRow.className = 'matrix-grid-row';
             gridRow.style.height = rowHeightStyle;
@@ -245,11 +260,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const dateStr = d.format('YYYY-MM-DD');
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
-                // Lookup Data
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
                 const assignment = state.assignments.find(a => a.talent_id === person.id && a.assigned_date === dateStr);
 
                 const cell = document.createElement('div');
+                cell.className = 'grid-cell'; // For drop targeting
+                cell.dataset.date = dateStr;
+                
                 cell.style.minWidth = `${colWidth}px`;
                 cell.style.width = `${colWidth}px`;
                 cell.style.height = '100%';
@@ -277,21 +294,118 @@ document.addEventListener("DOMContentLoaded", async () => {
                     cell.title = `${task.name} (${task.projects?.name})`;
                 }
 
+                // Interaction
                 cell.addEventListener('mouseenter', () => { if(!assignment && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
                 cell.addEventListener('mouseleave', () => { if(!assignment && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
-                
-                // Click
                 cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, assignment));
+
+                // DROP HANDLERS (Crucial)
+                cell.addEventListener('dragover', handleDragOver);
+                cell.addEventListener('dragenter', handleDragEnter);
+                cell.addEventListener('dragleave', handleDragLeave);
+                cell.addEventListener('drop', (e) => handleDrop(e, person, dateStr));
+
                 gridRow.appendChild(cell);
             }
             gridCanvas.appendChild(gridRow);
         });
     }
 
+    // ------------------------------------------------------------------------
+    // 7. DRAG & DROP LOGIC (KANBAN TO MATRIX)
+    // ------------------------------------------------------------------------
+    let draggingTask = null;
+
+    function handleDragStart(e, task) {
+        draggingTask = task;
+        e.dataTransfer.setData('text/plain', JSON.stringify(task));
+        e.dataTransfer.effectAllowed = 'copy';
+
+        // VISUALS: Highlight rows that have the required skill
+        const allSidebarItems = document.querySelectorAll('.talent-row-item');
+        
+        // Find people with this skill
+        const matchingTalentIds = state.skills
+            .filter(s => s.trade_id === task.trade_id)
+            .map(s => s.talent_id);
+
+        allSidebarItems.forEach(item => {
+            const tId = parseInt(item.dataset.talentId);
+            if (matchingTalentIds.includes(tId)) {
+                item.classList.add('talent-row-highlight');
+            } else {
+                item.classList.add('talent-row-dimmed');
+            }
+        });
+    }
+
+    function handleDragEnd(e) {
+        draggingTask = null;
+        // Reset Visuals
+        document.querySelectorAll('.talent-row-item').forEach(item => {
+            item.classList.remove('talent-row-highlight', 'talent-row-dimmed');
+        });
+        document.querySelectorAll('.grid-cell').forEach(cell => {
+            cell.classList.remove('grid-cell-droppable');
+        });
+    }
+
+    function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+
+    function handleDragEnter(e) {
+        e.preventDefault();
+        if (e.target.classList.contains('grid-cell')) {
+            e.target.classList.add('grid-cell-droppable');
+        }
+    }
+
+    function handleDragLeave(e) {
+        if (e.target.classList.contains('grid-cell')) {
+            e.target.classList.remove('grid-cell-droppable');
+        }
+    }
+
+    async function handleDrop(e, person, dateStr) {
+        e.preventDefault();
+        e.target.classList.remove('grid-cell-droppable');
+
+        if (!draggingTask) return;
+
+        // Optional: Warn if skill mismatch
+        const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
+        if (!hasSkill) {
+            const confirmAssign = confirm(`${person.name} is not tagged for '${draggingTask.shop_trades?.name || 'this trade'}'. Assign anyway?`);
+            if (!confirmAssign) return;
+        }
+
+        // 1. Assign Task Ownership (if not set)
+        if (!draggingTask.assigned_talent_id) {
+            await supabase.from('project_tasks').update({ assigned_talent_id: person.id }).eq('id', draggingTask.id);
+        }
+
+        // 2. Create Daily Assignment
+        const { error } = await supabase.from('task_assignments').insert({
+            task_id: draggingTask.id,
+            talent_id: person.id,
+            assigned_date: dateStr
+        });
+
+        if (error) {
+            // Usually duplicate key error if dragged to same spot
+            console.warn("Assignment issue:", error.message);
+        } else {
+            // Clear PTO to prevent conflict
+            await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
+        }
+
+        // Refresh to remove from pool and show on grid
+        loadTalentData();
+    }
+
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
 
     // ------------------------------------------------------------------------
-    // 7. SKILLS MODAL
+    // 8. SKILLS MODAL
     // ------------------------------------------------------------------------
     function openSkillsModal(person) {
         const currentSkillIds = state.skills.filter(s => s.talent_id === person.id).map(s => s.trade_id);
@@ -320,12 +434,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 8. ASSIGNMENT MODAL (UPDATED FOR DAILY/RANGE)
+    // 9. ASSIGNMENT MODAL
     // ------------------------------------------------------------------------
     function handleCellClick(person, dateStr, avail, currentAssignment) {
         const d = dayjs(dateStr);
-        
-        // Filter tasks active on this date
         const viableTasks = state.activeTasks.filter(t => {
             const active = (d.isSame(dayjs(t.start_date)) || d.isAfter(dayjs(t.start_date))) && 
                            (d.isSame(dayjs(t.end_date)) || d.isBefore(dayjs(t.end_date)));
@@ -334,12 +446,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         const assignedTaskId = currentAssignment ? currentAssignment.task_id : '';
-
-        // Loose equality (==) used to match string ID to int ID if necessary
-        const taskOptions = viableTasks.map(t => 
-            `<option value="${t.id}" ${assignedTaskId == t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`
-        ).join('');
-        
+        const taskOptions = viableTasks.map(t => `<option value="${t.id}" ${assignedTaskId == t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`).join('');
         const isPTO = avail && avail.status === 'PTO';
 
         showModal(`Schedule: ${person.name}`, `
@@ -353,23 +460,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <input type="date" id="assign-start" class="form-control" value="${dateStr}" style="flex:1;">
                         <input type="date" id="assign-end" class="form-control" value="${dateStr}" style="flex:1;">
                     </div>
-                    ${viableTasks.length > 0 ? `
-                        <select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;">
-                            <option value="">-- No Assignment --</option>${taskOptions}
-                        </select>
-                        <button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>
-                    ` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found for this trade/date.</div>`}
+                    ${viableTasks.length > 0 ? `<select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found for this trade/date.</div>`}
                 </div>
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
                     <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">PTO Range</label>
-                    <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="flex:1;">
-                        <input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="flex:1;">
-                    </div>
-                    <div style="display:flex; gap:10px;">
-                        <button id="btn-mark-avail" style="flex:1; padding:10px; background:${!isPTO ? 'rgba(76,175,80,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Clear</button>
-                        <button id="btn-mark-pto" style="flex:1; padding:10px; background:${isPTO ? 'rgba(244,67,54,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Mark PTO</button>
-                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:15px;"><input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="flex:1;"><input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="flex:1;"></div>
+                    <div style="display:flex; gap:10px;"><button id="btn-mark-avail" style="flex:1; padding:10px; background:${!isPTO ? 'rgba(76,175,80,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Clear</button><button id="btn-mark-pto" style="flex:1; padding:10px; background:${isPTO ? 'rgba(244,67,54,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Mark PTO</button></div>
                 </div>
             </div>
         `, async () => {});
@@ -379,52 +475,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             const ptoBtn = document.getElementById('btn-mark-pto');
             const availBtn = document.getElementById('btn-mark-avail');
 
-            // ASSIGNMENT LOGIC (RANGE SUPPORT)
             if(assignBtn) assignBtn.onclick = async () => {
                 const taskId = document.getElementById('assign-task-select').value;
                 const start = dayjs(document.getElementById('assign-start').value);
                 const end = dayjs(document.getElementById('assign-end').value);
                 const diff = end.diff(start, 'day');
 
-                if (diff < 0) { alert("End date must be after start date."); return; }
-
-                // 1. Clear existing assignments for this range
-                const { error: delError } = await supabase.from('task_assignments')
-                    .delete()
-                    .eq('talent_id', person.id)
-                    .gte('assigned_date', start.format('YYYY-MM-DD'))
-                    .lte('assigned_date', end.format('YYYY-MM-DD'));
-
-                if(delError) { alert("Error clearing old data: " + delError.message); return; }
+                await supabase.from('task_assignments').delete().eq('talent_id', person.id).gte('assigned_date', start.format('YYYY-MM-DD')).lte('assigned_date', end.format('YYYY-MM-DD'));
 
                 if (taskId) {
-                    // 2. Insert new assignments for range
                     const inserts = [];
                     for(let i=0; i<=diff; i++) {
                         const day = start.add(i, 'day');
-                        // Optional: Check weekend? For now we allow manual override.
-                        inserts.push({
-                            task_id: parseInt(taskId),
-                            talent_id: person.id,
-                            assigned_date: day.format('YYYY-MM-DD')
-                        });
+                        if(day.day() !== 0 && day.day() !== 6) inserts.push({ task_id: parseInt(taskId), talent_id: person.id, assigned_date: day.format('YYYY-MM-DD') });
                     }
                     if(inserts.length > 0) {
-                        const { error: insError } = await supabase.from('task_assignments').insert(inserts);
-                        if(insError) { alert("Error saving assignment: " + insError.message); return; }
-                        
-                        // Also clear PTO for these days to prevent conflict
-                        await supabase.from('talent_availability')
-                            .delete()
-                            .eq('talent_id', person.id)
-                            .gte('date', start.format('YYYY-MM-DD'))
-                            .lte('date', end.format('YYYY-MM-DD'));
+                        await supabase.from('task_assignments').insert(inserts);
+                        await supabase.from('talent_availability').delete().eq('talent_id', person.id).gte('date', start.format('YYYY-MM-DD')).lte('date', end.format('YYYY-MM-DD'));
                     }
                 }
                 hideModal(); loadTalentData();
             };
 
-            // PTO LOGIC
             if(ptoBtn) ptoBtn.onclick = async () => {
                 const start = dayjs(document.getElementById('pto-start-date').value);
                 const end = dayjs(document.getElementById('pto-end-date').value);
@@ -432,12 +504,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const upsertData = [];
                 for(let i=0; i<=diff; i++) upsertData.push({ talent_id: person.id, date: start.add(i, 'day').format('YYYY-MM-DD'), status: 'PTO' });
                 await supabase.from('talent_availability').upsert(upsertData, { onConflict: 'talent_id, date' });
-                // Also remove task assignments
-                await supabase.from('task_assignments')
-                    .delete()
-                    .eq('talent_id', person.id)
-                    .gte('assigned_date', start.format('YYYY-MM-DD'))
-                    .lte('assigned_date', end.format('YYYY-MM-DD'));
+                await supabase.from('task_assignments').delete().eq('talent_id', person.id).gte('assigned_date', start.format('YYYY-MM-DD')).lte('assigned_date', end.format('YYYY-MM-DD'));
                 hideModal(); loadTalentData();
             };
 
