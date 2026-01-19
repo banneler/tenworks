@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Talent Matrix | Ten Works</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/projects.css"> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <style>
+        /* Matrix Specific Overrides */
+        .talent-grid-cell {
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+        .talent-grid-cell:hover { background: rgba(255,255,255,0.05); }
+        .status-pto { background: repeating-linear-gradient(45deg, #2d2d2d, #2d2d2d 10px, #3a3a3a 10px, #3a3a3a 20px); color: #aaa; }
+        .status-assigned { background: rgba(33, 150, 243, 0.2); border-left: 3px solid var(--primary-blue); color: white; }
+        .talent-avatar {
+            width: 32px; height: 32px; background: var(--bg-light); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--primary-blue);
+            margin-right: 10px; border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">TW</div>
+                <div class="logo-text">TEN WORKS</div>
+            </div>
+            <nav class="main-nav">
+                <a href="index.html" class="nav-item"><i class="fas fa-home"></i> <span>Dashboard</span></a>
+                <a href="projects.html" class="nav-item"><i class="fas fa-industry"></i> <span>Production</span></a>
+                <a href="talent.html" class="nav-item active"><i class="fas fa-users"></i> <span>Talent Matrix</span></a>
+                <a href="deals.html" class="nav-item"><i class="fas fa-dollar-sign"></i> <span>Deals</span></a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="breadcrumbs">
+                    <span class="crumb-root">Operations</span> <i class="fas fa-chevron-right"></i> <span class="crumb-current">Talent Matrix</span>
+                </div>
+                <div class="user-profile" id="user-menu-btn">
+                    <div class="avatar">TW</div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="header-action-area" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <div>
+                        <h2 style="font-size:2rem; margin:0;">Team Availability</h2>
+                        <span style="color:var(--text-dim);">Manage PTO and Assignments</span>
+                    </div>
+                    <div class="view-controls" style="background: var(--bg-medium); padding: 5px; border-radius: 8px;">
+                        <button id="prev-week-btn" class="btn-icon"><i class="fas fa-chevron-left"></i></button>
+                        <span id="current-week-label" style="margin:0 15px; font-weight:600; font-family:'Rajdhani';">This Week</span>
+                        <button id="next-week-btn" class="btn-icon"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+
+                <div class="gantt-container" style="height: calc(100vh - 200px); display:flex; flex-direction:column;">
+                    
+                    <div class="gantt-header" style="display:flex; height:50px; border-bottom:1px solid var(--border-color); background:var(--bg-medium);">
+                        <div class="gantt-sidebar-header" style="width:250px; padding:15px; font-weight:700; border-right:1px solid var(--border-color);">
+                            Talent / Role
+                        </div>
+                        <div id="matrix-date-header" style="flex:1; display:flex; overflow:hidden;">
+                            </div>
+                    </div>
+
+                    <div class="gantt-body" style="flex:1; display:flex; overflow:hidden;">
+                        <div id="matrix-resource-list" style="width:250px; background:var(--bg-dark); border-right:1px solid var(--border-color); overflow-y:auto;">
+                            </div>
+                        
+                        <div id="matrix-grid-canvas" style="flex:1; overflow:auto; position:relative; background:var(--bg-dark);">
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="modal-title">Title</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-content"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary modal-close">Cancel</button>
+                <button class="btn-primary" id="modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/talent.js"></script>
+</body>
+</html>
