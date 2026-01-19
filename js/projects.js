@@ -113,9 +113,32 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateMetrics();
     }
 
+    // --- HELPER: LANE PACKING ALGORITHM ---
+    function packTasks(tasks) {
+        const sorted = [...tasks].sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date)));
+        const lanes = []; 
+
+        sorted.forEach(task => {
+            let placed = false;
+            for(let i=0; i<lanes.length; i++) {
+                if (dayjs(lanes[i]).isBefore(dayjs(task.start_date))) {
+                    task.laneIndex = i;
+                    lanes[i] = task.end_date;
+                    placed = true;
+                    break;
+                }
+            }
+            if(!placed) {
+                task.laneIndex = lanes.length;
+                lanes.push(task.end_date);
+            }
+        });
+        return lanes.length; 
+    }
     // ------------------------------------------------------------------------
     // 5. THE RENDER ENGINE (Grid, Rows, and Bars)
     // ------------------------------------------------------------------------
+    // --- RENDER ENGINE (With Stacking) ---
     function renderGantt() {
         const resourceList = document.getElementById('gantt-resource-list');
         const gridCanvas = document.getElementById('gantt-grid-canvas');
@@ -123,17 +146,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (!resourceList || !gridCanvas || !dateHeader) return;
 
-        // --- A. TIMELINE GENERATION ---
+        // A. TIMELINE
         let dateHtml = '';
-        const startDate = dayjs().subtract(5, 'day'); // Start 5 days in the past
-        const daysToRender = 60; // 2 Month View
-        const dayWidth = 100; // Fixed width per day (px)
+        const startDate = dayjs().subtract(5, 'day');
+        const daysToRender = 60;
+        const dayWidth = 100;
 
         for (let i = 0; i < daysToRender; i++) {
             const current = startDate.add(i, 'day');
             const isWeekend = current.day() === 0 || current.day() === 6;
             const isToday = current.isSame(dayjs(), 'day');
-            
             dateHtml += `
                 <div class="date-cell ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}">
                     <span style="font-weight:700;">${current.format('DD')}</span>
@@ -142,93 +164,99 @@ document.addEventListener("DOMContentLoaded", async () => {
             `;
         }
         dateHeader.innerHTML = dateHtml;
-        
-        // Set dynamic widths
         const totalWidth = daysToRender * dayWidth;
         dateHeader.style.width = `${totalWidth}px`;
         gridCanvas.style.width = `${totalWidth}px`;
+        
+        // Remove fixed grid background to allow dynamic row heights
+        gridCanvas.style.backgroundImage = 'linear-gradient(90deg, var(--border-color) 1px, transparent 1px)';
+        gridCanvas.style.backgroundSize = '100px 100%'; 
 
-        // --- B. ROW GENERATION ---
+        // B. ROWS & BARS
         resourceList.innerHTML = '';
         gridCanvas.innerHTML = '';
 
-        // Determine which list to use as rows
         const rows = state.currentView === 'resource' ? state.trades : state.projects;
+        let currentY = 0; 
 
         rows.forEach((rowItem, index) => {
-            // 1. Sidebar Row Element
-            const rowEl = document.createElement('div');
-            rowEl.className = 'resource-row';
-            
-            if (state.currentView === 'resource') {
-                // Resource Mode: Show Trade Name & Rate
-                rowEl.innerHTML = `
-                    <div class="resource-name">${rowItem.name}</div>
-                    <div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>
-                `;
-            } else {
-                // Project Mode: Show Project Name & Status
-                let statusColor = '#888';
-                if(rowItem.status === 'Fabrication') statusColor = 'var(--primary-blue)';
-                if(rowItem.status === 'Installation') statusColor = 'var(--warning-yellow)';
-                if(rowItem.status === 'Completed') statusColor = '#4CAF50';
-                
-                rowEl.innerHTML = `
-                    <div class="resource-name">${rowItem.name}</div>
-                    <div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>
-                `;
-            }
-            resourceList.appendChild(rowEl);
-
-            // 2. Filter Tasks for this Row
+            // 1. Get Tasks for this Row
             const rowTasks = state.tasks.filter(t => {
                 if (state.currentView === 'resource') return t.trade_id === rowItem.id;
                 else return t.project_id === rowItem.id;
             });
 
-            // 3. Render Bars for this Row
+            // 2. Calculate Stacking
+            const numLanes = packTasks(rowTasks);
+            const barHeight = 26;
+            const barMargin = 6;
+            const rowPadding = 20;
+            const calculatedHeight = Math.max(70, (numLanes * (barHeight + barMargin)) + rowPadding);
+
+            // 3. Render Sidebar Row
+            const rowEl = document.createElement('div');
+            rowEl.className = 'resource-row';
+            rowEl.style.height = `${calculatedHeight}px`; 
+            
+            if (state.currentView === 'resource') {
+                rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>`;
+            } else {
+                let statusColor = '#888';
+                if(rowItem.status === 'Fabrication') statusColor = 'var(--primary-blue)';
+                if(rowItem.status === 'Installation') statusColor = 'var(--warning-yellow)';
+                if(rowItem.status === 'Completed') statusColor = '#4CAF50';
+                rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>`;
+            }
+            resourceList.appendChild(rowEl);
+
+            // 4. Render Grid Row Background
+            const rowBg = document.createElement('div');
+            rowBg.style.position = 'absolute';
+            rowBg.style.top = `${currentY}px`;
+            rowBg.style.left = '0';
+            rowBg.style.width = '100%';
+            rowBg.style.height = `${calculatedHeight}px`;
+            rowBg.style.borderBottom = '1px solid var(--border-color)';
+            rowBg.style.zIndex = '0';
+            gridCanvas.appendChild(rowBg);
+
+            // 5. Render Bars
             rowTasks.forEach(task => {
                 const start = dayjs(task.start_date);
                 const end = dayjs(task.end_date);
-                
-                // Calculate Position based on timeline start
                 const diff = start.diff(startDate, 'day');
-                const duration = end.diff(start, 'day') + 1; // +1 to include the end day
+                const duration = end.diff(start, 'day') + 1;
 
-                // Skip if entirely off-screen to the left
                 if (diff + duration < 0) return;
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-task-bar';
                 
-                // CSS Positioning: Row is 70px high. Top padding 15px.
-                bar.style.top = `${(index * 70) + 15}px`; 
+                const laneOffset = (task.laneIndex || 0) * (barHeight + barMargin);
+                bar.style.top = `${currentY + 10 + laneOffset}px`; 
                 bar.style.left = `${diff * dayWidth}px`;
-                bar.style.width = `${(duration * dayWidth) - 10}px`; // -10px for gap
-                bar.style.cursor = 'grab'; // Indicates draggable
+                bar.style.width = `${(duration * dayWidth) - 10}px`;
+                bar.style.height = `${barHeight}px`;
+                bar.style.fontSize = '0.7rem';
+                bar.style.cursor = 'grab';
 
-                // Logic: Burn Line (Actual vs Estimated)
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
                 const burnColor = percent > 1 ? '#ff4444' : 'var(--warning-yellow)';
-                
-                // Logic: Label Text
-                const label = state.currentView === 'resource' 
-                    ? task.projects?.name // In Resource view, see Project Name
-                    : task.shop_trades?.name; // In Project view, see Trade Phase
+                const label = state.currentView === 'resource' ? task.projects?.name : task.shop_trades?.name;
 
                 bar.innerHTML = `
-                    <span class="gantt-task-info" style="pointer-events:none;">${label || task.name}</span>
+                    <span class="gantt-task-info" style="pointer-events:none; line-height:${barHeight}px;">${label || task.name}</span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
-                
-                // Attach Physics Listener
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
-
                 gridCanvas.appendChild(bar);
             });
-        });
-    }
 
+            currentY += calculatedHeight;
+        });
+        
+        gridCanvas.style.height = `${currentY}px`;
+    }
     // ------------------------------------------------------------------------
     // 6. PHYSICS ENGINE (Drag & Cascade Logic)
     // ------------------------------------------------------------------------
