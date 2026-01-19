@@ -13,9 +13,11 @@ const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
-    // 1. INITIALIZATION
+    // 1. INITIALIZATION & AUTH
     // ------------------------------------------------------------------------
     await loadSVGs(); 
+    
+    // Auth Check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = 'index.html'; return; }
     
@@ -23,29 +25,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setupGlobalSearch(supabase, user);
 
     // ------------------------------------------------------------------------
-    // 2. STATE
+    // 2. GLOBAL STATE
     // ------------------------------------------------------------------------
     let state = {
         talent: [],         
         trades: [],         
         skills: [],         
         availability: [],   
-        assignments: [], // NOW HOLDS DAILY ASSIGNMENTS
+        assignments: [],    // Daily assignments container
         activeTasks: [],    
         viewDate: dayjs(),  
         daysToShow: 30,
         filterTradeId: null 
     };
 
+    // ------------------------------------------------------------------------
+    // 3. COLOR PALETTES
+    // ------------------------------------------------------------------------
     const TRADE_COLORS = {
-        1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 
-        4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2'
+        1: '#546E7A', // Kickoff
+        2: '#1E88E5', // Design
+        3: '#D4AF37', // Fabrication
+        4: '#8D6E63', // Woodworking
+        5: '#66BB6A', // Installation
+        6: '#7E57C2'  // Finishing
     };
 
-    function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
+    function getTradeColor(id) {
+        return TRADE_COLORS[id] || 'var(--primary-gold)'; 
+    }
 
     // ------------------------------------------------------------------------
-    // 3. LISTENERS
+    // 4. LISTENERS & SYNC
     // ------------------------------------------------------------------------
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
@@ -61,6 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    // Sync Engine
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
     const dateHeader = document.getElementById('matrix-date-header');
@@ -73,7 +85,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 4. DATA LOADING (UPDATED FOR DAILY ASSIGNMENTS)
+    // 5. DATA FETCHING
     // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
@@ -83,13 +95,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             supabase.from('shop_trades').select('*').order('name'),
             supabase.from('talent_skills').select('*'),
             supabase.from('talent_availability').select('*'),
-            // FETCH DAILY ASSIGNMENTS JOINED WITH TASKS
+            // Fetch Daily Assignments
             supabase.from('task_assignments').select(`
                 *, 
                 project_tasks (id, name, trade_id, projects(name))
             `),
             supabase.from('project_tasks').select('*, projects(name)').in('status', ['Pending', 'In Progress'])
         ]);
+
+        if (assignRes.error) {
+            console.error("Critical Error loading assignments:", assignRes.error);
+            alert("Database Error: Could not load 'task_assignments' table. Did you run the SQL update?");
+        }
 
         state.talent = talentRes.data || [];
         state.trades = tradeRes.data || [];
@@ -114,10 +131,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. RENDER ENGINE (DAILY PRECISION)
+    // 6. RENDER ENGINE (DAILY PRECISION)
     // ------------------------------------------------------------------------
     function renderMatrix() {
-        // Filter Logic
+        // A. FILTER LOGIC
         let visibleTalent = state.talent;
         if (state.filterTradeId) {
             const skilledTalentIds = state.skills
@@ -126,10 +143,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             visibleTalent = state.talent.filter(t => skilledTalentIds.includes(t.id));
         }
 
-        // Setup Dimensions
+        // B. Header Date
         const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
         document.getElementById('current-week-label').textContent = `${state.viewDate.format('MMM D')} - ${endViewDate.format('MMM D')}`;
 
+        // C. Dynamic Row Height
         const containerEl = document.getElementById('matrix-grid-canvas');
         const containerHeight = containerEl ? containerEl.clientHeight : 600;
         const totalRows = visibleTalent.length || 1;
@@ -137,7 +155,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (calculatedHeight < 50) calculatedHeight = 50; 
         const rowHeightStyle = `${calculatedHeight}px`;
 
-        // Render Header
+        // D. Render Header
         const dateHeaderEl = document.getElementById('matrix-date-header');
         let headerHtml = '';
         const colWidth = 120; 
@@ -148,23 +166,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            // --- CAPACITY MATH ---
-            // 1. Demand: Sum of daily assignments for visible talent on this date
-            // Note: This is "Booked Hours" logic now, simpler than generic task demand
+            // Bookings Count (Daily Load)
             const bookings = state.assignments.filter(a => a.assigned_date === dateStr).length;
             
-            // 2. Capacity: Visible Talent - PTO
+            // Capacity Calculation
             const visibleIds = visibleTalent.map(t => t.id);
             const ptoCount = state.availability.filter(a => a.date === dateStr && a.status === 'PTO' && visibleIds.includes(a.talent_id)).length;
             const capacity = visibleTalent.length - ptoCount;
 
-            const load = bookings; 
             let metricColor = 'var(--text-dim)';
-            
-            // Logic: If bookings > capacity, we are overbooked
             if (bookings > capacity) metricColor = '#ff4444'; 
-            else if (bookings === capacity) metricColor = 'var(--warning-yellow)'; 
-            else metricColor = '#4CAF50';
+            else if (bookings === capacity && capacity > 0) metricColor = 'var(--warning-yellow)'; 
+            else if (bookings < capacity) metricColor = '#4CAF50';
 
             const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : '';
             const borderStyle = isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '';
@@ -175,14 +188,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
                     <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
                     <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
-                        BOOKED: ${load} / ${capacity}
+                        BOOKED: ${bookings} / ${capacity}
                     </div>
                 </div>
             `;
         }
         dateHeaderEl.innerHTML = headerHtml;
 
-        // Render Grid
+        // E. Render Rows
         const resList = document.getElementById('matrix-resource-list');
         const gridCanvas = document.getElementById('matrix-grid-canvas');
         resList.innerHTML = '';
@@ -234,12 +247,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // Lookup Data
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
-                
-                // NEW: Lookup Daily Assignment
-                const assignment = state.assignments.find(a => 
-                    a.talent_id === person.id && 
-                    a.assigned_date === dateStr
-                );
+                const assignment = state.assignments.find(a => a.talent_id === person.id && a.assigned_date === dateStr);
 
                 const cell = document.createElement('div');
                 cell.style.minWidth = `${colWidth}px`;
@@ -259,7 +267,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
                     cell.innerHTML = '<i class="fas fa-plane" style="color:var(--text-dim);"></i>';
                 } else if (assignment && assignment.project_tasks) {
-                    // Render Assignment
                     const task = assignment.project_tasks;
                     const tradeColor = getTradeColor(task.trade_id);
                     
@@ -273,7 +280,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.addEventListener('mouseenter', () => { if(!assignment && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
                 cell.addEventListener('mouseleave', () => { if(!assignment && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
                 
-                // Click passes assignment (if exists) or null
+                // Click
                 cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, assignment));
                 gridRow.appendChild(cell);
             }
@@ -284,7 +291,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
 
     // ------------------------------------------------------------------------
-    // 6. SKILLS MODAL
+    // 7. SKILLS MODAL
     // ------------------------------------------------------------------------
     function openSkillsModal(person) {
         const currentSkillIds = state.skills.filter(s => s.talent_id === person.id).map(s => s.trade_id);
@@ -313,7 +320,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. ASSIGNMENT MODAL (UPDATED FOR DAILY/RANGE)
+    // 8. ASSIGNMENT MODAL (UPDATED FOR DAILY/RANGE)
     // ------------------------------------------------------------------------
     function handleCellClick(person, dateStr, avail, currentAssignment) {
         const d = dayjs(dateStr);
@@ -328,8 +335,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const assignedTaskId = currentAssignment ? currentAssignment.task_id : '';
 
+        // Loose equality (==) used to match string ID to int ID if necessary
         const taskOptions = viableTasks.map(t => 
-            `<option value="${t.id}" ${assignedTaskId === t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`
+            `<option value="${t.id}" ${assignedTaskId == t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`
         ).join('');
         
         const isPTO = avail && avail.status === 'PTO';
@@ -339,7 +347,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
             </div>
             <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
-                
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
                     <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task (Range)</label>
                     <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -353,7 +360,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>
                     ` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found for this trade/date.</div>`}
                 </div>
-
                 <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
                     <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">PTO Range</label>
                     <div style="display:flex; gap:10px; margin-bottom:15px;">
@@ -380,29 +386,33 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const end = dayjs(document.getElementById('assign-end').value);
                 const diff = end.diff(start, 'day');
 
+                if (diff < 0) { alert("End date must be after start date."); return; }
+
                 // 1. Clear existing assignments for this range
-                await supabase.from('task_assignments')
+                const { error: delError } = await supabase.from('task_assignments')
                     .delete()
                     .eq('talent_id', person.id)
                     .gte('assigned_date', start.format('YYYY-MM-DD'))
                     .lte('assigned_date', end.format('YYYY-MM-DD'));
+
+                if(delError) { alert("Error clearing old data: " + delError.message); return; }
 
                 if (taskId) {
                     // 2. Insert new assignments for range
                     const inserts = [];
                     for(let i=0; i<=diff; i++) {
                         const day = start.add(i, 'day');
-                        // Optional: Skip weekends here if desired, but manual override is flexible
-                        if(day.day() !== 0 && day.day() !== 6) {
-                            inserts.push({
-                                task_id: taskId,
-                                talent_id: person.id,
-                                assigned_date: day.format('YYYY-MM-DD')
-                            });
-                        }
+                        // Optional: Check weekend? For now we allow manual override.
+                        inserts.push({
+                            task_id: parseInt(taskId),
+                            talent_id: person.id,
+                            assigned_date: day.format('YYYY-MM-DD')
+                        });
                     }
                     if(inserts.length > 0) {
-                        await supabase.from('task_assignments').insert(inserts);
+                        const { error: insError } = await supabase.from('task_assignments').insert(inserts);
+                        if(insError) { alert("Error saving assignment: " + insError.message); return; }
+                        
                         // Also clear PTO for these days to prevent conflict
                         await supabase.from('talent_availability')
                             .delete()
@@ -422,7 +432,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const upsertData = [];
                 for(let i=0; i<=diff; i++) upsertData.push({ talent_id: person.id, date: start.add(i, 'day').format('YYYY-MM-DD'), status: 'PTO' });
                 await supabase.from('talent_availability').upsert(upsertData, { onConflict: 'talent_id, date' });
-                // Also remove task assignments for these days
+                // Also remove task assignments
                 await supabase.from('task_assignments')
                     .delete()
                     .eq('talent_id', person.id)
