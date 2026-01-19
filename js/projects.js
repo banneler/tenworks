@@ -57,6 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         while (added < daysToAdd) {
             d = d.add(1, 'day');
+            // 0 = Sunday, 6 = Saturday. Skip them.
             if (d.day() !== 0 && d.day() !== 6) {
                 added++;
             }
@@ -200,6 +201,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = current.day() === 0 || current.day() === 6;
             const isToday = current.isSame(dayjs(), 'day');
             
+            // Grey out weekends
             const bgStyle = isWeekend ? 'background:rgba(255,255,255,0.05);' : '';
 
             dateHtml += `
@@ -252,7 +254,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if(rowItem.status === 'In Progress') statusColor = 'var(--primary-blue)';
                 if(rowItem.status === 'Completed') statusColor = '#4CAF50';
                 
-                // Make Project Name clickable for adding steps/editing target
+                // Clickable Project Name
                 rowEl.innerHTML = `
                     <div class="resource-name" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:4px;" title="Manage Project">
                         ${rowItem.name} <i class="fas fa-pencil-alt" style="font-size:0.7rem; margin-left:5px; opacity:0.5;"></i>
@@ -260,7 +262,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>
                 `;
                 
-                // Bind Click Event for Project Management
                 rowEl.querySelector('.resource-name').addEventListener('click', () => openProjectModal(rowItem));
             }
             resourceList.appendChild(rowEl);
@@ -277,12 +278,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             rowBg.style.zIndex = '0';
             gridCanvas.appendChild(rowBg);
 
-            // --- 3. TARGET COMPLETION (ROW SPECIFIC) ---
+            // --- 3. TARGET COMPLETION (CRDD) WITH OVERRUN CALC ---
+            let targetPixel = null; // Store this to calculate overruns on tasks
+
             if (state.currentView === 'project' && rowItem.end_date) {
                 const targetDate = dayjs(rowItem.end_date);
                 const targetDiff = targetDate.diff(startDate, 'day');
                 
                 if (targetDiff >= 0 && targetDiff < daysToRender) {
+                    targetPixel = (targetDiff + 1) * dayWidth; // The pixel X coordinate of the deadline
+
                     const targetCell = document.createElement('div');
                     targetCell.style.position = 'absolute';
                     targetCell.style.top = `${currentY}px`;
@@ -309,7 +314,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             }
 
-            // 4. Render Task Bars
+            // 4. Render Task Bars (With Alert Logic)
             rowTasks.forEach(task => {
                 const start = dayjs(task.start_date);
                 const end = dayjs(task.end_date);
@@ -322,24 +327,38 @@ document.addEventListener("DOMContentLoaded", async () => {
                 bar.className = 'gantt-task-bar';
                 
                 const laneOffset = (task.laneIndex || 0) * (barHeight + barMargin);
+                const barLeft = diff * dayWidth;
+                const barWidth = (duration * dayWidth) - 10;
+
                 bar.style.top = `${currentY + 10 + laneOffset}px`; 
-                bar.style.left = `${diff * dayWidth}px`;
-                bar.style.width = `${(duration * dayWidth) - 10}px`;
+                bar.style.left = `${barLeft}px`;
+                bar.style.width = `${barWidth}px`;
                 bar.style.height = `${barHeight}px`;
                 bar.style.fontSize = '0.7rem';
                 bar.style.cursor = 'grab';
 
-                let barColor;
-                if (state.currentView === 'project') {
-                    barColor = getTradeColor(task.trade_id);
+                // --- COLOR LOGIC (RESTORED) ---
+                const baseColor = state.currentView === 'project' ? getTradeColor(task.trade_id) : getProjectColor(task.project_id);
+                
+                // --- OVERRUN LOGIC (RESTORED) ---
+                if (targetPixel !== null && (barLeft + barWidth) > targetPixel) {
+                    // This task crosses the deadline!
+                    // Calculate percentage where the "Safe" zone ends
+                    const safeWidth = Math.max(0, targetPixel - barLeft);
+                    const safePercent = (safeWidth / barWidth) * 100;
+                    
+                    // Gradient: Safe Color -> Sharp Transition -> Alert Red
+                    bar.style.background = `linear-gradient(90deg, ${baseColor} ${safePercent}%, #ff4444 ${safePercent}%)`;
+                    bar.style.border = '1px solid #ff4444'; // Red Border
                 } else {
-                    barColor = getProjectColor(task.project_id);
+                    // Safe Task
+                    bar.style.backgroundColor = baseColor;
+                    bar.style.backgroundImage = 'linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1))';
+                    bar.style.border = '1px solid rgba(255,255,255,0.15)';
                 }
-                bar.style.backgroundColor = barColor;
-                bar.style.backgroundImage = 'linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1))';
-                bar.style.border = '1px solid rgba(255,255,255,0.15)';
 
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
+                // Burn line is red if budget exceeded, otherwise subtle white
                 const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.5)';
                 const label = state.currentView === 'resource' ? task.projects?.name : task.shop_trades?.name;
 
@@ -453,14 +472,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 8. PROJECT MANAGER MODAL (NEW: ADD STEPS + EDIT TARGET)
+    // 8. PROJECT MANAGER MODAL
     // ------------------------------------------------------------------------
     function openProjectModal(project) {
         const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
         
         showModal(`Manage: ${project.name}`, `
             <div style="margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:15px;">
-                <label style="color:var(--text-dim); font-size:0.8rem;">Target Completion (CRDD)</label>
+                <label style="color:var(--text-dim); font-size:0.8rem;">Customer Requested Due Date (CRDD)</label>
                 <div style="display:flex; gap:10px; margin-top:5px;">
                     <input type="date" id="edit-proj-target" class="form-control" value="${project.end_date || ''}" style="flex:1;">
                     <button id="btn-update-target" class="btn-primary" style="background:var(--bg-medium); border:1px solid var(--border-color);">Update Date</button>
@@ -489,61 +508,45 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </div>
                 <button id="btn-add-step" class="btn-primary" style="width:100%; margin-top:15px;">Insert Step</button>
             </div>
-        `, async () => { /* No Default Action, buttons handled below */ });
+        `, async () => {});
 
         setTimeout(() => {
-            // Update Target Date
             const btnUpdate = document.getElementById('btn-update-target');
             if (btnUpdate) btnUpdate.onclick = async () => {
                 const newDate = document.getElementById('edit-proj-target').value;
                 await supabase.from('projects').update({ end_date: newDate }).eq('id', project.id);
-                hideModal();
-                loadShopData();
+                hideModal(); loadShopData();
             };
 
-            // Add New Task
             const btnAdd = document.getElementById('btn-add-step');
             if (btnAdd) btnAdd.onclick = async () => {
                 const tradeId = document.getElementById('new-task-trade').value;
                 const name = document.getElementById('new-task-name').value;
                 const startVal = document.getElementById('new-task-start').value;
                 const daysVal = parseInt(document.getElementById('new-task-days').value) || 1;
-
-                if (!name) { alert("Please enter a task name"); return; }
-
-                // Calculate End Date using 5-Day Logic
+                
+                if (!name) return;
+                
                 const start = dayjs(startVal);
-                // Subtract 1 because adding 1 day to Monday = Tuesday (2 days total span)
-                // If duration is 1 day, start == end
                 const end = addBusinessDays(start, daysVal > 0 ? daysVal - 1 : 0);
 
-                const { error } = await supabase.from('project_tasks').insert({
-                    project_id: project.id,
-                    trade_id: tradeId,
-                    name: name,
-                    start_date: start.format('YYYY-MM-DD'),
-                    end_date: end.format('YYYY-MM-DD'),
-                    estimated_hours: daysVal * 8, // Rough default
-                    status: 'Pending'
+                await supabase.from('project_tasks').insert({
+                    project_id: project.id, trade_id: tradeId, name: name,
+                    start_date: start.format('YYYY-MM-DD'), end_date: end.format('YYYY-MM-DD'),
+                    estimated_hours: daysVal * 8, status: 'Pending'
                 });
-
-                if (error) alert("Error adding task: " + error.message);
-                else {
-                    hideModal();
-                    loadShopData();
-                }
+                hideModal(); loadShopData();
             };
         }, 100);
     }
 
     // ------------------------------------------------------------------------
-    // 9. EDIT TASK MODAL (UPDATED WITH DURATION CALC)
+    // 9. EDIT TASK MODAL
     // ------------------------------------------------------------------------
     function openTaskModal(task) {
-        // Pre-calculate duration in days for display
         const s = dayjs(task.start_date);
         const e = dayjs(task.end_date);
-        const dur = e.diff(s, 'day') + 1; // Calendar days approximation for display
+        const dur = e.diff(s, 'day') + 1; // Approx calendar duration
 
         showModal(`Edit Task: ${task.name}`, `
             <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
@@ -579,7 +582,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const newStatus = document.getElementById('edit-status').value;
             const newActual = document.getElementById('edit-actual').value;
             const newStart = document.getElementById('edit-start').value;
-            const newEnd = document.getElementById('edit-end').value; // Hidden input driven by logic below
+            const newEnd = document.getElementById('edit-end').value;
 
             const { error } = await supabase.from('project_tasks').update({ 
                 status: newStatus, 
@@ -592,27 +595,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             else loadShopData();
         });
 
-        // Smart Duration Logic
         setTimeout(() => {
             const startInput = document.getElementById('edit-start');
             const durInput = document.getElementById('edit-duration');
-            const endDisplay = document.getElementById('calc-end-date');
             const endInput = document.getElementById('edit-end');
+            const endDisplay = document.getElementById('calc-end-date');
 
             function updateEnd() {
                 const s = dayjs(startInput.value);
                 const d = parseInt(durInput.value) || 1;
-                // Use 5-Day logic to project end date
                 const finalDate = addBusinessDays(s, d > 0 ? d - 1 : 0);
                 const fmt = finalDate.format('YYYY-MM-DD');
-                endDisplay.textContent = fmt;
                 endInput.value = fmt;
+                endDisplay.textContent = fmt;
             }
-
             startInput.addEventListener('change', updateEnd);
             durInput.addEventListener('change', updateEnd);
 
-            // Delete Logic
             const delBtn = document.getElementById('delete-task-btn');
             if(delBtn) delBtn.onclick = async () => {
                 if(confirm("Are you sure you want to delete this task?")) {
@@ -649,7 +648,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 10. MISSION PLANNER (With 5-Day Logic & CRDD)
+    // 10. MISSION PLANNER
     // ------------------------------------------------------------------------
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
@@ -667,7 +666,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const today = dayjs();
             const start = today; 
             
-            // 5-Day Work Week Waterfall
             const p1End = addBusinessDays(start, 2);  
             const p2Start = addBusinessDays(p1End, 1);
             const p2End = addBusinessDays(p2Start, 7); 
