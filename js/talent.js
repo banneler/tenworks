@@ -28,11 +28,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         assignments: [],    // Tasks currently assigned
         activeTasks: [],    // All pending work (for demand calculation)
         viewDate: dayjs(),  // Start date of the sliding window
-        daysToShow: 14      // 2-Week Rolling Window
+        daysToShow: 30      // UPDATED: 30-Day Rolling Window
     };
 
     // --- 3. EVENT LISTENERS ---
-    // Navigation Buttons
+    // Navigation Buttons (Shift by 7 days still feels natural for navigation)
     const prevBtn = document.getElementById('prev-week-btn');
     const nextBtn = document.getElementById('next-week-btn');
     
@@ -115,18 +115,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const isShort = demand > capacity;
             
-            // NEW: Metric Color Logic (Red if short, Green if good, Yellow if tight)
+            // Metric Color Logic
             let metricColor = 'var(--text-dim)';
             if (isShort) metricColor = '#ff4444'; 
             else if (demand === capacity) metricColor = 'var(--warning-yellow)'; 
             else if (demand < capacity) metricColor = '#4CAF50';
 
-            // Styling
+            // Styling - UPDATED: Weekend Red Tint
+            // Slight red background for weekends to indicate "No Fly Zone"
+            const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : ''; 
+            
             const borderStyle = isShort ? 'border-bottom: 3px solid #ff4444;' : (isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '');
-            const bgStyle = isWeekend ? 'background:rgba(255,255,255,0.03);' : '';
             const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
 
-            // NEW: Always show the Load Requirement (Req / Cap)
             headerHtml += `
                 <div style="min-width:${colWidth}px; width:${colWidth}px; border-right:1px solid var(--border-color); padding:10px; text-align:center; display:flex; flex-direction:column; justify-content:center; ${bgStyle} ${borderStyle}">
                     <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
@@ -183,7 +184,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             for(let i = 0; i < state.daysToShow; i++) {
                 const d = state.viewDate.add(i, 'day');
                 const dateStr = d.format('YYYY-MM-DD');
-                
+                const isWeekend = d.day() === 0 || d.day() === 6;
+
                 // DATA LOOKUP
                 // a. Check Availability
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
@@ -207,8 +209,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cell.style.fontSize = '0.75rem';
                 cell.style.transition = 'background 0.2s';
                 
-                // Weekend Dimming
-                if (d.day() === 0 || d.day() === 6) cell.style.backgroundColor = 'rgba(255,255,255,0.015)';
+                // UPDATED: Weekend "No Fly Zone" Dimming (Matches Header)
+                if (isWeekend) cell.style.backgroundColor = 'rgba(255, 50, 50, 0.08)';
 
                 // Cell Content Logic
                 if (avail && avail.status === 'PTO') {
@@ -230,7 +232,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 // Hover Effect
                 cell.addEventListener('mouseenter', () => { if(!task && !avail) cell.style.backgroundColor = 'var(--bg-medium)'; });
-                cell.addEventListener('mouseleave', () => { if(!task && !avail) cell.style.backgroundColor = (d.day()===0||d.day()===6) ? 'rgba(255,255,255,0.015)' : 'transparent'; });
+                cell.addEventListener('mouseleave', () => { if(!task && !avail) cell.style.backgroundColor = isWeekend ? 'rgba(255, 50, 50, 0.08)' : 'transparent'; });
 
                 // Click Action
                 cell.addEventListener('click', () => handleCellClick(person, dateStr, avail, task));
@@ -247,7 +249,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- 6. INTERACTIVITY (Modal Logic) ---
     function handleCellClick(person, dateStr, avail, currentTask) {
-        // Find viable tasks for this specific date
         const d = dayjs(dateStr);
         
         // Filter: Task must overlap this date AND not be completed
@@ -265,7 +266,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const isPTO = avail && avail.status === 'PTO';
 
-        // NEW: Modal HTML with Date Range Picker for PTO
+        // Modal HTML
         showModal(`Schedule: ${person.name}`, `
             <div style="text-align:center; margin-bottom:20px;">
                 <h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4>
@@ -333,19 +334,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const taskId = document.getElementById('assign-task-select').value;
                     
                     if (taskId) {
-                        // 1. Assign Person to Task
                         const { error } = await supabase.from('project_tasks')
                             .update({ assigned_talent_id: person.id })
                             .eq('id', taskId);
                         
                         if (!error) {
-                            // 2. Clear PTO if exists (Logic: You can't work if you are on PTO)
                             await supabase.from('talent_availability')
                                 .delete()
                                 .match({ talent_id: person.id, date: dateStr });
                         }
                     } else {
-                        // Unassign
                         if (currentTask) {
                             await supabase.from('project_tasks')
                                 .update({ assigned_talent_id: null })
@@ -357,41 +355,32 @@ document.addEventListener("DOMContentLoaded", async () => {
                 };
             }
 
-            // B. MARK PTO (BULK LOGIC)
+            // B. MARK PTO (BULK)
             if(ptoBtn) {
                 ptoBtn.onclick = async () => {
                     const startVal = document.getElementById('pto-start-date').value;
                     const endVal = document.getElementById('pto-end-date').value;
 
                     if (!startVal || !endVal) { alert("Please select a date range."); return; }
-
                     const start = dayjs(startVal);
                     const end = dayjs(endVal);
                     const diff = end.diff(start, 'day');
-
                     if (diff < 0) { alert("End date cannot be before start date."); return; }
 
-                    // Generate array of rows to upsert
                     const upsertData = [];
                     for(let i = 0; i <= diff; i++) {
-                        const d = start.add(i, 'day').format('YYYY-MM-DD');
                         upsertData.push({
                             talent_id: person.id,
-                            date: d,
+                            date: start.add(i, 'day').format('YYYY-MM-DD'),
                             status: 'PTO'
                         });
                     }
 
-                    // Bulk Upsert
                     const { error } = await supabase.from('talent_availability')
                         .upsert(upsertData, { onConflict: 'talent_id, date' });
 
-                    if (error) {
-                        alert("Error saving PTO: " + error.message);
-                    } else {
-                        hideModal(); 
-                        loadTalentData();
-                    }
+                    if (error) alert("Error saving PTO: " + error.message);
+                    else { hideModal(); loadTalentData(); }
                 };
             }
 
@@ -401,10 +390,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                      const startVal = document.getElementById('pto-start-date').value;
                      const endVal = document.getElementById('pto-end-date').value;
 
-                    // Delete range logic involves checking the date column
-                    // Supabase delete with multiple filters is tricky, simpler to loop or use 'in' if possible
-                    // For simplicity and safety, we will just delete the range using >= and <= logic
-                    
                     const { error } = await supabase.from('talent_availability')
                         .delete()
                         .eq('talent_id', person.id)
