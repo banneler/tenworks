@@ -48,19 +48,20 @@ document.addEventListener("DOMContentLoaded", async () => {
             .filter(p => p.name.toLowerCase().includes(filter))
             .forEach(p => {
                 const el = document.createElement('div');
-                el.className = 'project-list-item';
+                el.className = 'item-list-row';
                 if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
                 
-                let statusColor = '#888';
-                if (p.status === 'In Progress') statusColor = 'var(--primary-blue)';
-                if (p.status === 'Completed') statusColor = '#4CAF50';
-
-                // CLEAN LAYOUT (No Icon)
+                const initial = p.name.charAt(0).toUpperCase();
+                
+                // EXACT ACCOUNT PAGE STRUCTURE
                 el.innerHTML = `
-                    <div class="item-main">${p.name}</div>
-                    <div class="item-sub">
-                        <span style="color:${statusColor};">${p.status}</span>
-                        <span>${formatCurrency(p.project_value)}</span>
+                    <div class="item-icon">${initial}</div>
+                    <div class="item-details">
+                        <div class="item-main">${p.name}</div>
+                        <div class="item-sub">
+                            <span>${p.status}</span>
+                            <span>${formatCurrency(p.project_value)}</span>
+                        </div>
                     </div>
                 `;
                 el.onclick = () => loadDetail(p.id);
@@ -81,10 +82,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (deal) state.currentProject.deal_name = deal.deal_name;
         }
 
+        // Updated Contact Query to get PHONE
         const [taskRes, logRes, contactRes, fileRes] = await Promise.all([
             supabase.from('project_tasks').select('*, shop_talent(name)').eq('project_id', id),
             supabase.from('project_notes').select('*').eq('project_id', id).order('created_at', { ascending: false }),
-            supabase.from('project_contacts').select('*, contacts(first_name, last_name, email)').eq('project_id', id),
+            supabase.from('project_contacts').select('*, contacts(id, first_name, last_name, email, phone)').eq('project_id', id),
             supabase.storage.from('project_files').list(`${id}`)
         ]);
 
@@ -92,10 +94,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.logs = logRes.data || [];
         state.projectContacts = contactRes.data || [];
         
-        // Handle File Error Gracefully
         if (fileRes.error && fileRes.error.message.includes('not found')) {
             state.files = [];
-            console.warn("Storage Bucket missing.");
         } else {
             state.files = fileRes.data || [];
         }
@@ -113,6 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('detail-name').value = p.name;
         document.getElementById('detail-status').textContent = p.status;
         document.getElementById('detail-dates').textContent = `${dayjs(p.start_date).format('MMM D')} - ${dayjs(p.end_date).format('MMM D')}`;
+        document.getElementById('detail-value').textContent = formatCurrency(p.project_value);
         document.getElementById('detail-scope').value = p.description || '';
         document.getElementById('detail-due-date').value = p.end_date || '';
 
@@ -141,7 +142,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderLogs();
         renderFiles();
         
-        // Render Timeline if active
         if(document.querySelector('.tab-btn.active').dataset.tab === 'timeline') renderMiniGantt();
     }
 
@@ -149,12 +149,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderContacts() {
         const list = document.getElementById('project-contacts-list');
         list.innerHTML = state.projectContacts.map(c => `
-            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); margin-bottom:5px; border-radius:4px;">
+            <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); margin-bottom:5px; border-radius:4px;">
                 <div>
-                    <div style="font-weight:600; color:var(--text-bright);">${c.contacts.first_name} ${c.contacts.last_name}</div>
-                    <div style="font-size:0.8rem; color:var(--text-dim);">${c.role || 'Stakeholder'}</div>
+                    <a href="contacts.html?id=${c.contacts.id}" class="talent-name-clickable" style="font-weight:600; color:var(--text-bright); text-decoration:none;">${c.contacts.first_name} ${c.contacts.last_name}</a>
+                    <div style="font-size:0.8rem; color:var(--text-dim); text-transform:uppercase; margin-top:2px;">${c.role || 'Stakeholder'}</div>
                 </div>
-                <div style="font-size:0.8rem; color:var(--text-dim); align-self:center;">${c.contacts.email || ''}</div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.8rem; color:var(--text-dim);">${c.contacts.email || ''}</div>
+                    <div style="font-size:0.8rem; color:var(--text-dim);">${c.contacts.phone || ''}</div>
+                </div>
             </div>
         `).join('');
     }
@@ -177,20 +180,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderFiles() {
         const list = document.getElementById('file-list');
         if(state.files.length === 0) { list.innerHTML = ''; return; }
+        
         list.innerHTML = state.files.map(f => {
-            const url = supabase.storage.from('project_files').getPublicUrl(`${state.currentProject.id}/${f.name}`).data.publicUrl;
             return `
                 <div class="file-item-card">
                     <div class="file-icon-box"><i class="fas fa-file-alt"></i></div>
-                    <div style="flex:1;">
+                    <div style="flex:1; cursor:pointer;" onclick="previewFile('${f.name}')">
                         <div style="color:var(--text-bright); font-weight:600;">${f.name}</div>
                         <div style="color:var(--text-dim); font-size:0.75rem;">${(f.metadata.size / 1024).toFixed(1)} KB</div>
                     </div>
-                    <a href="${url}" target="_blank" class="btn-text" style="color:var(--primary-blue);"><i class="fas fa-download"></i></a>
+                    <button onclick="previewFile('${f.name}')" class="btn-text" style="color:var(--primary-blue); margin-right:10px;"><i class="fas fa-eye"></i></button>
                 </div>
             `;
         }).join('');
     }
+
+    window.previewFile = async (fileName) => {
+        const { data } = supabase.storage.from('project_files').getPublicUrl(`${state.currentProject.id}/${fileName}`);
+        if(data) {
+            document.getElementById('file-preview-container').classList.remove('hidden');
+            document.getElementById('file-preview-frame').src = data.publicUrl;
+        }
+    };
+
+    document.getElementById('close-preview').addEventListener('click', () => {
+        document.getElementById('file-preview-container').classList.add('hidden');
+        document.getElementById('file-preview-frame').src = '';
+    });
 
     function renderMiniGantt() {
         const scrollArea = document.getElementById('gantt-scroll-area');
@@ -208,7 +224,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dayWidth = 50; 
         const totalWidth = totalDays * dayWidth;
 
-        // Force container width
         scrollArea.style.width = `${totalWidth}px`;
         header.style.minWidth = `${totalWidth}px`; 
         body.style.minWidth = `${totalWidth}px`;
@@ -216,7 +231,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         header.innerHTML = '';
         body.innerHTML = '';
 
-        // HEADER & GRID
         for(let i=0; i<totalDays; i++) {
             const d = start.add(i, 'day');
             
@@ -236,7 +250,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             body.appendChild(line);
         }
 
-        // TASKS
         state.tasks.forEach((t, index) => {
             const tStart = dayjs(t.start_date);
             const tEnd = dayjs(t.end_date);
@@ -248,7 +261,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             row.style.top = `${index * 55}px`;
 
             const bar = document.createElement('div');
-            bar.className = 'gantt-bar';
+            bar.className = 'gantt-task-bar'; // Renamed to match Schedule Page CSS
             bar.style.left = `${offset * dayWidth}px`;
             bar.style.width = `${(duration * dayWidth) - 10}px`;
             bar.style.backgroundColor = getTradeColor(t.trade_id);
@@ -259,7 +272,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 assigneeHtml = `<div class="gantt-assignee" title="${t.shop_talent.name}">${initials}</div>`;
             }
 
-            // BURN LINE
             const est = t.estimated_hours || 1;
             const act = t.actual_hours || 0;
             const pct = Math.min((act/est)*100, 100);
@@ -276,7 +288,41 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // INTERACTION HANDLERS
+    // --- MAIN SAVE HANDLER (Updates Everything) ---
+    document.getElementById('btn-save-changes').addEventListener('click', async () => {
+        const newName = document.getElementById('detail-name').value;
+        const newScope = document.getElementById('detail-scope').value;
+        const newDueDate = document.getElementById('detail-due-date').value;
+        const oldDueDate = state.currentProject.end_date;
+
+        const updates = {
+            name: newName,
+            description: newScope,
+            end_date: newDueDate || null
+        };
+
+        // Update Project
+        const { error } = await supabase.from('projects').update(updates).eq('id', state.currentProject.id);
+        
+        if (error) {
+            alert("Error saving: " + error.message);
+        } else {
+            // Check for Due Date Change & Log it
+            if (newDueDate !== oldDueDate) {
+                const initials = user.email.substring(0,2).toUpperCase();
+                const msg = `Due Date updated to ${newDueDate || 'None'}`;
+                await supabase.from('project_notes').insert({ 
+                    project_id: state.currentProject.id, 
+                    content: msg, 
+                    author_name: initials 
+                });
+            }
+            alert("Project saved successfully.");
+            loadDetail(state.currentProject.id); // Refresh view
+        }
+    });
+
+    // TABS
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -294,6 +340,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         await supabase.from('project_notes').insert({ project_id: state.currentProject.id, content: input.value, author_name: initials });
         input.value = '';
         loadDetail(state.currentProject.id); 
+    });
+
+    // ADD CONTACT
+    document.getElementById('btn-add-contact').addEventListener('click', async () => {
+        const { data: contacts } = await supabase.from('contacts').select('*').order('last_name');
+        const options = contacts.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
+        showModal('Add Project Contact', `
+            <div class="form-group"><label>Select Contact</label><select id="new-contact-select" class="form-control" style="background:var(--bg-dark); color:white; padding:10px;">${options}</select></div>
+            <div class="form-group"><label>Role</label><input type="text" id="new-contact-role" class="form-control" placeholder="e.g. Architect"></div>
+            <button id="btn-save-contact" class="btn-primary" style="width:100%; margin-top:15px;">Add</button>
+        `, async () => {});
+        setTimeout(() => {
+            document.getElementById('btn-save-contact').onclick = async () => {
+                const contactId = document.getElementById('new-contact-select').value;
+                const role = document.getElementById('new-contact-role').value;
+                await supabase.from('project_contacts').insert({ project_id: state.currentProject.id, contact_id: contactId, role });
+                hideModal(); loadDetail(state.currentProject.id);
+            };
+        }, 100);
     });
 
     const dropZone = document.getElementById('drop-zone');
@@ -317,25 +382,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         loadDetail(state.currentProject.id);
     }
-
-    // ADD CONTACT (Missing from previous response)
-    document.getElementById('btn-add-contact').addEventListener('click', async () => {
-        const { data: contacts } = await supabase.from('contacts').select('*').order('last_name');
-        const options = contacts.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
-        showModal('Add Project Contact', `
-            <div class="form-group"><label>Select Contact</label><select id="new-contact-select" class="form-control" style="background:var(--bg-dark); color:white; padding:10px;">${options}</select></div>
-            <div class="form-group"><label>Role</label><input type="text" id="new-contact-role" class="form-control" placeholder="e.g. Architect"></div>
-            <button id="btn-save-contact" class="btn-primary" style="width:100%; margin-top:15px;">Add</button>
-        `, async () => {});
-        setTimeout(() => {
-            document.getElementById('btn-save-contact').onclick = async () => {
-                const contactId = document.getElementById('new-contact-select').value;
-                const role = document.getElementById('new-contact-role').value;
-                await supabase.from('project_contacts').insert({ project_id: state.currentProject.id, contact_id: contactId, role });
-                hideModal(); loadDetail(state.currentProject.id);
-            };
-        }, 100);
-    });
 
     loadProjects();
 });
