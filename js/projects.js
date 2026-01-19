@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         trades: [],
         projects: [],
         tasks: [],
-        availability: [], // <--- ADDED: Store PTO records
+        availability: [], // Store PTO records
         
         // Physics Engine State (Drag & Drop)
         isDragging: false,
@@ -50,7 +50,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // ------------------------------------------------------------------------
-    // 3. VIEW CONTROL LOGIC (Toggle Buttons)
+    // 3. COLOR PALETTES (NEW)
+    // ------------------------------------------------------------------------
+    
+    // Fixed colors for specific Trades (Adjust IDs to match your DB if needed)
+    const TRADE_COLORS = {
+        1: '#607D8B', // Kickoff/PM (Grey Blue)
+        2: '#2196F3', // Design/CAD (Material Blue)
+        3: '#FF9800', // Fabrication (Orange - Hot work)
+        4: '#795548', // Woodworking (Brown)
+        5: '#4CAF50', // Installation (Green - Go time)
+        6: '#9C27B0'  // Finishing (Purple)
+    };
+
+    // Helper to generate consistent colors for Projects based on their ID
+    function getProjectColor(id) {
+        const colors = [
+            '#009688', // Teal
+            '#E91E63', // Pink
+            '#3F51B5', // Indigo
+            '#CDDC39', // Lime (Darkened for text visibility)
+            '#FF5722', // Deep Orange
+            '#673AB7'  // Deep Purple
+        ];
+        return colors[id % colors.length];
+    }
+
+    function getTradeColor(id) {
+        return TRADE_COLORS[id] || 'var(--primary-gold)'; // Default to Gold if unknown
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. VIEW CONTROL LOGIC (Toggle Buttons)
     // ------------------------------------------------------------------------
     const btnResource = document.getElementById('view-resource-btn');
     const btnProject = document.getElementById('view-project-btn');
@@ -87,7 +118,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 4. ROBUST DATA LOADING (Parallel Processing)
+    // 5. ROBUST DATA LOADING (Parallel Processing)
     // ------------------------------------------------------------------------
     async function loadShopData() {
         console.log("Loading Ten Works Production Data...");
@@ -97,7 +128,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             supabase.from('shop_trades').select('*').order('id'),
             supabase.from('project_tasks').select(`*, projects(name), shop_trades(name)`),
             supabase.from('projects').select('*').order('start_date'),
-            supabase.from('talent_availability').select('*') // <--- ADDED: Fetch PTO
+            supabase.from('talent_availability').select('*') // Fetch PTO
         ]);
 
         if (tradesRes.error) console.error("Error loading trades:", tradesRes.error);
@@ -109,7 +140,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.trades = tradesRes.data || [];
         state.tasks = tasksRes.data || [];
         state.projects = projectsRes.data || [];
-        state.availability = availRes.data || []; // <--- ADDED
+        state.availability = availRes.data || []; 
 
         // Update UI
         renderGantt();
@@ -139,7 +170,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return lanes.length; 
     }
 
-    // --- HELPER: CHECK AVAILABILITY CONFLICT (ADDED) ---
+    // --- HELPER: CHECK AVAILABILITY CONFLICT ---
     function checkAvailabilityConflict(taskId, newStartDate, newEndDate) {
         // 1. Find the task to get the assigned person
         const task = state.tasks.find(t => t.id === taskId);
@@ -277,12 +308,27 @@ document.addEventListener("DOMContentLoaded", async () => {
                 bar.style.fontSize = '0.7rem';
                 bar.style.cursor = 'grab';
 
+                // --- NEW: DYNAMIC COLOR LOGIC ---
+                let barColor;
+                if (state.currentView === 'project') {
+                    // In Project View, color by TRADE to show phases
+                    barColor = getTradeColor(task.trade_id);
+                } else {
+                    // In Resource View, color by PROJECT to distinguish jobs
+                    barColor = getProjectColor(task.project_id);
+                }
+                bar.style.backgroundColor = barColor;
+                bar.style.border = '1px solid rgba(255,255,255,0.2)';
+                // --------------------------------
+
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
-                const burnColor = percent > 1 ? '#ff4444' : 'var(--warning-yellow)';
+                // If over budget, burn line is bright red. Otherwise, a lighter tint.
+                const burnColor = percent > 1 ? '#ff0000' : 'rgba(255,255,255,0.6)';
+                
                 const label = state.currentView === 'resource' ? task.projects?.name : task.shop_trades?.name;
 
                 bar.innerHTML = `
-                    <span class="gantt-task-info" style="pointer-events:none; line-height:${barHeight}px;">${label || task.name}</span>
+                    <span class="gantt-task-info" style="pointer-events:none; line-height:${barHeight}px; text-shadow:0 1px 2px black;">${label || task.name}</span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
@@ -295,7 +341,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         gridCanvas.style.height = `${currentY}px`;
     }
     // ------------------------------------------------------------------------
-    // 6. PHYSICS ENGINE (Drag & Cascade Logic)
+    // 7. PHYSICS ENGINE (Drag & Cascade Logic)
     // ------------------------------------------------------------------------
     function handleDragStart(e, task, element) {
         if (e.button !== 0) return; // Only Left Click
@@ -424,7 +470,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. EDIT MODAL (Update Hours, Status, Delete)
+    // 8. EDIT MODAL (Update Hours, Status, Delete)
     // ------------------------------------------------------------------------
     function openTaskModal(task) {
         showModal(`Edit Task: ${task.name}`, `
@@ -486,7 +532,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 8. METRICS DASHBOARD
+    // 9. METRICS DASHBOARD
     // ------------------------------------------------------------------------
     function updateMetrics() {
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
@@ -514,7 +560,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 9. MISSION PLANNER (Dynamic Launch Modal)
+    // 10. MISSION PLANNER (Dynamic Launch Modal)
     // ------------------------------------------------------------------------
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
