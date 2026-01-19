@@ -28,7 +28,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         projectContacts: []
     };
 
-    // 1. Load List
+    // --- TRADE COLORS (Matches Schedule Page) ---
+    const TRADE_COLORS = { 1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2' };
+    function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
+
+    // 1. LIST LOADER
     async function loadProjects() {
         const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
         if (error) console.error(error);
@@ -66,37 +70,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById('project-search').addEventListener('input', renderList);
 
-    // 2. Load Detail (SAFE FETCH)
+    // 2. DETAIL LOADER
     async function loadDetail(id) {
-        // Safe fetch - decouple relationships
+        // Safe fetch
         const { data: proj } = await supabase.from('projects').select('*').eq('id', id).single();
         state.currentProject = proj;
+        if (!proj) return;
 
-        if (!proj) return; // Prevent crash if deleted
-
-        // Fetch Deal Name Separately (Prevents 400 Bad Request if relation undefined)
         if (proj.deal_id) {
             const { data: deal } = await supabase.from('deals_tw').select('deal_name').eq('id', proj.deal_id).single();
             if (deal) state.currentProject.deal_name = deal.deal_name;
         }
 
-        const [taskRes, logRes, contactRes] = await Promise.all([
-            supabase.from('project_tasks').select('*').eq('project_id', id),
+        const [taskRes, logRes, contactRes, fileRes] = await Promise.all([
+            supabase.from('project_tasks').select('*, shop_talent(name)').eq('project_id', id),
             supabase.from('project_notes').select('*').eq('project_id', id).order('created_at', { ascending: false }),
-            supabase.from('project_contacts').select('*, contacts(first_name, last_name, email)').eq('project_id', id)
+            supabase.from('project_contacts').select('*, contacts(first_name, last_name, email)').eq('project_id', id),
+            supabase.storage.from('project_files').list(`${id}`) // LIST FILES
         ]);
 
         state.tasks = taskRes.data || [];
         state.logs = logRes.data || [];
         state.projectContacts = contactRes.data || [];
+        state.files = fileRes.data || [];
 
         renderDetail();
-        renderList(); // Update active highlights
+        renderList();
     }
 
     function renderDetail() {
         if (!state.currentProject) return;
-
         document.querySelector('.empty-state').classList.add('hidden');
         document.getElementById('detail-content').classList.remove('hidden');
 
@@ -108,10 +111,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('detail-deal-name').textContent = p.deal_name ? `via ${p.deal_name}` : '';
         document.getElementById('detail-scope').value = p.description || '';
 
-        // KPIs
+        // PROGRESS CALCULATION
         const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
         const totalAct = state.tasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
-        const progress = totalEst > 0 ? Math.round((totalAct / totalEst) * 100) : 0;
+        const progress = totalEst > 0 ? Math.min(Math.round((totalAct / totalEst) * 100), 100) : 0;
 
         document.getElementById('kpi-est-hours').textContent = totalEst;
         document.getElementById('kpi-act-hours').textContent = totalAct;
@@ -119,18 +122,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         renderContacts();
         renderLogs();
+        renderFiles();
         
         const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
         if(activeTab === 'timeline') renderMiniGantt();
     }
 
+    // 3. RENDERERS
     function renderContacts() {
         const list = document.getElementById('project-contacts-list');
         list.innerHTML = state.projectContacts.map(c => `
-            <div style="display:flex; justify-content:space-between; padding:8px; background:var(--bg-dark); border:1px solid var(--border-color); margin-bottom:5px; border-radius:4px;">
+            <div style="display:flex; justify-content:space-between; padding:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); margin-bottom:8px; border-radius:6px;">
                 <div>
                     <div style="font-weight:600; color:var(--text-bright);">${c.contacts.first_name} ${c.contacts.last_name}</div>
-                    <div style="font-size:0.8rem; color:var(--text-dim);">${c.role || 'Stakeholder'}</div>
+                    <div style="font-size:0.8rem; color:var(--text-dim); text-transform:uppercase;">${c.role || 'Stakeholder'}</div>
                 </div>
                 <div style="font-size:0.8rem; color:var(--text-dim); align-self:center;">${c.contacts.email || ''}</div>
             </div>
@@ -140,14 +145,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderLogs() {
         const list = document.getElementById('log-feed');
         list.innerHTML = state.logs.map(l => `
-            <div class="log-entry">
-                <div class="log-meta">
-                    <span class="log-initials">${l.author_name || 'SYS'}</span>
-                    <span>${dayjs(l.created_at).format('MMM D, h:mm A')}</span>
+            <div class="log-entry-card">
+                <div class="log-avatar">${l.author_name || 'TW'}</div>
+                <div class="log-content-wrapper">
+                    <div class="log-header">
+                        <span>${dayjs(l.created_at).format('MMM D, h:mm A')}</span>
+                    </div>
+                    <div class="log-body">${l.content}</div>
                 </div>
-                <div style="color:var(--text-bright); font-size:0.9rem;">${l.content}</div>
             </div>
         `).join('');
+    }
+
+    function renderFiles() {
+        const list = document.getElementById('file-list');
+        if(state.files.length === 0) {
+            list.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:10px;">No drawings uploaded yet.</div>';
+            return;
+        }
+        
+        list.innerHTML = state.files.map(f => {
+            const url = supabase.storage.from('project_files').getPublicUrl(`${state.currentProject.id}/${f.name}`).data.publicUrl;
+            return `
+                <div class="file-item-card">
+                    <div class="file-icon-box"><i class="fas fa-file-alt"></i></div>
+                    <div style="flex:1;">
+                        <div style="color:var(--text-bright); font-weight:600;">${f.name}</div>
+                        <div style="color:var(--text-dim); font-size:0.75rem;">${(f.metadata.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                    <a href="${url}" target="_blank" class="btn-text" style="color:var(--primary-blue);"><i class="fas fa-download"></i></a>
+                </div>
+            `;
+        }).join('');
     }
 
     function renderMiniGantt() {
@@ -163,51 +192,76 @@ document.addEventListener("DOMContentLoaded", async () => {
         const start = dayjs(state.currentProject.start_date).subtract(2, 'day');
         const end = dayjs(state.currentProject.end_date).add(5, 'day');
         const totalDays = end.diff(start, 'day');
-        const dayWidth = 40;
+        const dayWidth = 50; // Wider columns
 
         header.innerHTML = '';
         body.innerHTML = '';
         header.style.width = `${totalDays * dayWidth}px`;
         body.style.width = `${totalDays * dayWidth}px`;
 
+        // DRAW GRID & HEADER
         for(let i=0; i<totalDays; i++) {
             const d = start.add(i, 'day');
+            
+            // Header Cell
             const cell = document.createElement('div');
             cell.style.width = `${dayWidth}px`;
             cell.style.borderRight = '1px solid var(--border-color)';
-            cell.style.fontSize = '0.7rem';
+            cell.style.fontSize = '0.75rem';
             cell.style.textAlign = 'center';
             cell.style.paddingTop = '10px';
-            cell.style.color = 'var(--text-dim)';
-            cell.textContent = d.format('D');
+            cell.style.color = d.day()===0||d.day()===6 ? 'rgba(255,255,255,0.1)' : 'var(--text-dim)';
+            cell.textContent = d.format('DD');
             header.appendChild(cell);
+
+            // Vertical Grid Line
+            const line = document.createElement('div');
+            line.className = 'gantt-grid-line';
+            line.style.left = `${(i+1) * dayWidth}px`;
+            body.appendChild(line);
         }
 
+        // RENDER TASKS
         state.tasks.forEach((t, index) => {
             const tStart = dayjs(t.start_date);
             const tEnd = dayjs(t.end_date);
             const offset = tStart.diff(start, 'day');
             const duration = tEnd.diff(tStart, 'day') + 1;
+            
+            const row = document.createElement('div');
+            row.className = 'gantt-task-row';
+            row.style.top = `${index * 40}px`; // Spaced out rows
 
             const bar = document.createElement('div');
-            bar.style.position = 'absolute';
+            bar.className = 'gantt-bar';
             bar.style.left = `${offset * dayWidth}px`;
-            bar.style.top = `${index * 30 + 10}px`;
-            bar.style.width = `${duration * dayWidth}px`;
-            bar.style.height = '20px';
-            bar.style.background = 'var(--primary-blue)';
-            bar.style.borderRadius = '4px';
-            bar.style.fontSize = '0.7rem';
-            bar.style.paddingLeft = '5px';
-            bar.style.color = 'white';
-            bar.style.whiteSpace = 'nowrap';
-            bar.textContent = t.name;
+            bar.style.width = `${(duration * dayWidth) - 10}px`;
+            bar.style.backgroundColor = getTradeColor(t.trade_id);
             
-            body.appendChild(bar);
+            // Assignee Badge
+            let assigneeHtml = '';
+            if(t.shop_talent) {
+                const initials = t.shop_talent.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+                assigneeHtml = `<div class="gantt-assignee" title="${t.shop_talent.name}">${initials}</div>`;
+            }
+
+            // Progress Fill
+            const est = t.estimated_hours || 1;
+            const act = t.actual_hours || 0;
+            const pct = Math.min((act/est)*100, 100);
+
+            bar.innerHTML = `
+                <div class="gantt-progress-fill" style="width:${pct}%"></div>
+                <span style="position:relative; z-index:2;">${t.name}</span>
+                ${assigneeHtml}
+            `;
+            
+            row.appendChild(bar);
+            body.appendChild(row);
         });
     }
 
-    // Interaction Handlers
+    // 4. INTERACTION HANDLERS
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -222,16 +276,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         const input = document.getElementById('new-log-input');
         const content = input.value;
         if(!content) return;
-
-        const initials = user.email.substring(0,2).toUpperCase(); 
-        await supabase.from('project_notes').insert({
-            project_id: state.currentProject.id,
-            content,
-            author_name: initials
-        });
+        const initials = user.email.substring(0,2).toUpperCase();
+        await supabase.from('project_notes').insert({ project_id: state.currentProject.id, content, author_name: initials });
         input.value = '';
         loadDetail(state.currentProject.id); 
     });
+
+    // FILE UPLOAD LOGIC
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary-gold)'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border-color)'; });
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    async function handleFiles(files) {
+        if(!files || files.length === 0) return;
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const filePath = `${state.currentProject.id}/${file.name}`;
+            const { error } = await supabase.storage.from('project_files').upload(filePath, file);
+            if(error) alert(`Error uploading ${file.name}: ` + error.message);
+        }
+        loadDetail(state.currentProject.id); // Refresh list
+    }
 
     loadProjects();
 });
