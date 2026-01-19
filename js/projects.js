@@ -1,149 +1,174 @@
 import { 
-    supabase, 
+    SUPABASE_URL, 
+    SUPABASE_ANON_KEY, 
     formatCurrency, 
     showModal, 
     setupUserMenuAndAuth, 
-    loadSVGs,
-    setupGlobalSearch
+    loadSVGs, 
+    setupGlobalSearch 
 } from './shared_constants.js';
 
-// Ensure DayJS is available
+// --- 1. INITIALIZE SUPABASE CLIENT ---
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // --- 2. AUTH & UI SETUP ---
     await loadSVGs();
-    await setupUserMenuAndAuth(supabase, { currentUser: (await supabase.auth.getUser()).data.user });
-    await setupGlobalSearch(supabase, (await supabase.auth.getUser()).data.user);
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+        window.location.href = 'index.html';
+        return;
+    }
 
-    // --- STATE ---
+    await setupUserMenuAndAuth(supabase, { currentUser: user });
+    await setupGlobalSearch(supabase, user);
+
+    // --- 3. STATE MANAGEMENT ---
     let state = {
-        trades: [],      // The Y-Axis (Resources)
-        projects: [],    // The Context
-        allTasks: []     // The Bars
+        trades: [],
+        projects: [],
+        tasks: []
     };
 
-    // --- LOAD DATA ---
+    // --- 4. DATA LOADING ---
     async function loadShopData() {
-        // 1. Get Trades (Rows)
-        const { data: trades } = await supabase.from('shop_trades').select('*').order('id');
+        console.log("Loading Shop Data...");
+        
+        // A. Load Trades (Y-Axis)
+        const { data: trades, error: tradeError } = await supabase
+            .from('shop_trades')
+            .select('*')
+            .order('id');
+        
+        if (tradeError) console.error("Trade Error:", tradeError);
         state.trades = trades || [];
 
-        // 2. Get Tasks (Bars) - linked to Projects
-        const { data: tasks } = await supabase
+        // B. Load Tasks (Gantt Bars)
+        const { data: tasks, error: taskError } = await supabase
             .from('project_tasks')
-            .select(`*, projects(name)`) // Join project name for the bar label
-            .order('start_date');
-        state.allTasks = tasks || [];
+            .select(`*, projects(name, project_value)`);
 
-        // 3. Get Projects (For Metrics)
+        if (taskError) console.error("Task Error:", taskError);
+        state.tasks = tasks || [];
+
+        // C. Load Projects (For Launch List & Metrics)
         const { data: projects } = await supabase.from('projects').select('*');
         state.projects = projects || [];
 
-        renderShopLoadGantt();
-        updateShopMetrics();
+        renderGantt();
+        updateMetrics();
     }
 
-    // --- RENDER GANTT ---
-    function renderShopLoadGantt() {
-        const resourceList = document.getElementById('gantt-resource-list'); // Sidebar
-        const gridCanvas = document.getElementById('gantt-grid-canvas');     // Grid
-        const dateHeader = document.getElementById('gantt-date-header');     // Dates
+    // --- 5. RENDER FUNCTIONS ---
+    function renderGantt() {
+        const resourceList = document.getElementById('gantt-resource-list');
+        const gridCanvas = document.getElementById('gantt-grid-canvas');
+        const dateHeader = document.getElementById('gantt-date-header');
 
-        // A. Render Sidebar (Trades)
+        // A. Render Sidebar (Rows)
         resourceList.innerHTML = '';
         state.trades.forEach(trade => {
             const row = document.createElement('div');
             row.className = 'resource-row';
-            row.style.height = '60px'; // Explicit height for alignment
             row.innerHTML = `
-                <div style="display:flex; flex-direction:column; justify-content:center;">
-                    <div class="resource-name">${trade.name}</div>
-                    <div class="resource-role" style="font-size:0.7rem; color:var(--text-dim);">$${trade.default_hourly_rate}/hr</div>
-                </div>
+                <div class="resource-name">${trade.name}</div>
+                <div class="resource-role">$${trade.default_hourly_rate}/hr</div>
             `;
             resourceList.appendChild(row);
         });
 
-        // B. Render Timeline Header (Next 30 Days)
+        // B. Render Timeline (Next 30 Days)
         let dateHtml = '';
         const startDate = dayjs().startOf('week'); 
-        const daysToRender = 30;
+        const daysToRender = 30; // 1 month view
+        const dayWidth = 100; // px
         
-        for(let i=0; i < daysToRender; i++) {
+        for (let i = 0; i < daysToRender; i++) {
             const current = startDate.add(i, 'day');
             const isWeekend = current.day() === 0 || current.day() === 6;
+            const isToday = current.isSame(dayjs(), 'day');
+            
             dateHtml += `
-                <div class="date-cell ${isWeekend ? 'weekend' : ''}">
+                <div class="date-cell ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}">
                     <span style="font-weight:700;">${current.format('DD')}</span>
                     <span>${current.format('ddd')}</span>
                 </div>
             `;
         }
         dateHeader.innerHTML = dateHtml;
-        const totalWidth = daysToRender * 100; // 100px per day
-        dateHeader.style.width = `${totalWidth}px`; 
+        
+        // Sync Widths
+        const totalWidth = daysToRender * dayWidth;
+        dateHeader.style.width = `${totalWidth}px`;
         gridCanvas.style.width = `${totalWidth}px`;
 
-        // C. Render Task Bars
+        // C. Render Tasks (Bars)
         gridCanvas.innerHTML = '';
-        state.allTasks.forEach(task => {
-            // 1. Find Vertical Position (Which Trade Row?)
+        state.tasks.forEach(task => {
+            // Find Row Index (Vertical)
             const tradeIndex = state.trades.findIndex(t => t.id === task.trade_id);
-            if (tradeIndex === -1) return; // Task has no valid trade
+            if (tradeIndex === -1) return;
 
-            // 2. Find Horizontal Position (Dates)
+            // Find Position (Horizontal)
             const start = dayjs(task.start_date);
             const end = dayjs(task.end_date);
-            const diffDays = start.diff(startDate, 'day');
-            const durationDays = end.diff(start, 'day') + 1;
+            const diff = start.diff(startDate, 'day');
+            const duration = end.diff(start, 'day') + 1;
 
-            if (diffDays + durationDays < 0) return; // Old task
+            if (diff + duration < 0) return; // Task is in past
 
-            // 3. Create Bar
+            // Create Bar
             const bar = document.createElement('div');
             bar.className = 'gantt-task-bar';
             
-            // Positioning
-            bar.style.top = `${(tradeIndex * 60) + 10}px`; // Centered in 60px row
-            bar.style.left = `${diffDays * 100}px`;
-            bar.style.width = `${(durationDays * 100) - 10}px`; // -10 gap
-            
-            // Style & Content
-            // Calculate Burn (Actual / Est)
-            const progress = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
-            const burnColor = progress > 1 ? '#ff4444' : 'var(--warning-yellow)';
-            
-            bar.innerHTML = `
-                <span class="gantt-task-info" style="font-size:0.7rem;">${task.projects?.name || 'Unknown'}</span>
-                <div class="burn-line" style="width: ${Math.min(progress * 100, 100)}%; background: ${burnColor};"></div>
-            `;
+            // CSS Math: 70px row height -> Top = (Index * 70) + 15 (padding)
+            bar.style.top = `${(tradeIndex * 70) + 15}px`; 
+            bar.style.left = `${diff * dayWidth}px`;
+            bar.style.width = `${(duration * dayWidth) - 10}px`; // Gap
 
-            // Tooltip
-            bar.title = `${task.name}: ${task.start_date} to ${task.end_date}`;
+            // Burn Logic
+            const percentUsed = task.estimated_hours > 0 ? (task.actual_hours / task.estimated_hours) : 0;
+            const burnColor = percentUsed > 1 ? '#ff4444' : 'var(--warning-yellow)'; // Red if over budget
+
+            bar.innerHTML = `
+                <span class="gantt-task-info">${task.projects?.name || 'Project'}</span>
+                <div class="burn-line" style="width: ${Math.min(percentUsed * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor};"></div>
+            `;
+            
+            // Simple Tooltip
+            bar.title = `${task.name}\nEst: ${task.estimated_hours}h | Act: ${task.actual_hours}h`;
 
             gridCanvas.appendChild(bar);
         });
     }
 
-    function updateShopMetrics() {
-        // Simple Capacity Logic: How many tasks active today?
+    function updateMetrics() {
+        const activeProjects = state.projects.filter(p => p.status !== 'Completed');
+        const totalRev = activeProjects.reduce((acc, p) => acc + (p.project_value || 0), 0);
+        
+        // Load Calculation: Active Tasks vs Total Trade Capacity
+        // Mock logic: If we have > 5 tasks active today, we are at 100%
         const today = dayjs();
-        const activeTasks = state.allTasks.filter(t => 
+        const activeTaskCount = state.tasks.filter(t => 
             dayjs(t.start_date).isBefore(today) && dayjs(t.end_date).isAfter(today)
         ).length;
-        
-        // Assume shop capacity is 5 concurrent large tasks
-        const capacity = 5; 
-        const load = Math.min((activeTasks / capacity) * 100, 100);
-        
-        const fill = document.querySelector('.progress-bar-fill');
-        if(fill) fill.style.width = `${load}%`;
-        
-        const val = document.querySelector('.metric-card .value');
-        if(val) val.textContent = `${Math.round(load)}% Load`;
+        const load = Math.min((activeTaskCount / 5) * 100, 100);
+
+        // Update DOM
+        const revenueEl = document.getElementById('metrics-revenue');
+        const countEl = document.getElementById('metrics-count');
+        const loadBar = document.getElementById('metrics-load-bar');
+        const loadText = document.getElementById('metrics-load-text');
+
+        if(revenueEl) revenueEl.textContent = formatCurrency(totalRev);
+        if(countEl) countEl.textContent = activeProjects.length;
+        if(loadBar) loadBar.style.width = `${load}%`;
+        if(loadText) loadText.textContent = `${Math.round(load)}%`;
     }
 
-    // --- LAUNCH PROJECT WIZARD ---
+    // --- 6. LAUNCH PROJECT MODAL ---
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
         launchBtn.addEventListener('click', async () => {
@@ -154,89 +179,55 @@ document.addEventListener("DOMContentLoaded", async () => {
                 .eq('stage', 'Closed Won');
 
             if (!deals || deals.length === 0) {
-                alert("No 'Closed Won' deals found!");
+                alert("No 'Closed Won' deals available to launch.");
                 return;
             }
 
-            const dealOptions = deals.map(d => `<option value="${d.id}" data-amount="${d.amount || 0}" data-name="${d.deal_name}">${d.deal_name} (${formatCurrency(d.amount)})</option>`).join('');
+            const options = deals.map(d => `<option value="${d.id}" data-name="${d.deal_name}" data-amt="${d.amount}">${d.deal_name} (${formatCurrency(d.amount)})</option>`).join('');
 
-            showModal('Launch Project Wizard', `
+            showModal('Launch Fabrication Project', `
                 <div class="form-group">
                     <label>Select Deal:</label>
-                    <select id="wiz-deal" class="form-control" style="background:var(--bg-dark); color:white; border:1px solid var(--border-color); padding:8px;">
-                        ${dealOptions}
-                    </select>
+                    <select id="launch-deal-id" class="form-control" style="background:var(--bg-dark); color:white; padding:10px; border:1px solid var(--border-color);">${options}</select>
                 </div>
                 <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div><label>Start Date:</label><input type="date" id="wiz-start" class="form-control" value="${dayjs().format('YYYY-MM-DD')}"></div>
-                    <div><label>Est. Delivery:</label><input type="date" id="wiz-end" class="form-control" value="${dayjs().add(4, 'week').format('YYYY-MM-DD')}"></div>
+                    <div><label>Start Date:</label><input type="date" id="launch-start" class="form-control" value="${dayjs().format('YYYY-MM-DD')}"></div>
+                    <div><label>Target Delivery:</label><input type="date" id="launch-end" class="form-control" value="${dayjs().add(4, 'week').format('YYYY-MM-DD')}"></div>
                 </div>
-                <div style="margin-top:15px; padding:10px; background:rgba(179,140,98,0.1); border-left:3px solid var(--primary-blue);">
-                    <small><strong>Auto-Scheduling:</strong> This will automatically generate tasks for PM, CAD, Fabrication, and Install based on the dates above.</small>
-                </div>
+                <p style="color:var(--text-dim); font-size:0.85rem; margin-top:10px;">
+                    <i class="fas fa-magic" style="color:var(--primary-blue);"></i> Auto-Schedule: Creating PM, CAD, Fab, and Install tasks.
+                </p>
             `, async () => {
-                const dealSelect = document.getElementById('wiz-deal');
-                const start = document.getElementById('wiz-start').value;
-                const end = document.getElementById('wiz-end').value;
-                const dealName = dealSelect.options[dealSelect.selectedIndex].dataset.name;
-                const amount = dealSelect.options[dealSelect.selectedIndex].dataset.amount;
+                const select = document.getElementById('launch-deal-id');
+                const dealId = select.value;
+                const name = select.options[select.selectedIndex].dataset.name;
+                const amt = select.options[select.selectedIndex].dataset.amt;
+                const start = document.getElementById('launch-start').value;
+                const end = document.getElementById('launch-end').value;
 
                 // 1. Create Project
-                const { data: projData, error } = await supabase.from('projects').insert([{
-                    deal_id: dealSelect.value,
-                    name: dealName,
-                    start_date: start,
-                    end_date: end,
-                    project_value: amount
+                const { data: proj, error } = await supabase.from('projects').insert([{
+                    deal_id: dealId, name: name, start_date: start, end_date: end, project_value: amt
                 }]).select();
 
-                if (error) { alert(error.message); return; }
-                const pid = projData[0].id;
+                if (error) { alert('Error: ' + error.message); return; }
+                const pid = proj[0].id;
 
-                // 2. Auto-Generate Tasks linked to Trades
-                // We estimate durations based on a standard 4-week flow
-                const startDate = dayjs(start);
-                
-                const tasksToCreate = [
-                    { 
-                        project_id: pid, 
-                        trade_id: state.trades.find(t => t.name.includes('Project'))?.id || 1, 
-                        name: 'Kickoff & Planning',
-                        start_date: start, 
-                        end_date: startDate.add(2, 'day').format('YYYY-MM-DD'),
-                        estimated_hours: 10
-                    },
-                    { 
-                        project_id: pid, 
-                        trade_id: state.trades.find(t => t.name.includes('CAD'))?.id || 2, 
-                        name: 'Design & Drawings',
-                        start_date: startDate.add(3, 'day').format('YYYY-MM-DD'), 
-                        end_date: startDate.add(7, 'day').format('YYYY-MM-DD'),
-                        estimated_hours: 20
-                    },
-                    { 
-                        project_id: pid, 
-                        trade_id: state.trades.find(t => t.name.includes('Fabrication'))?.id || 3, 
-                        name: 'Primary Fabrication',
-                        start_date: startDate.add(8, 'day').format('YYYY-MM-DD'), 
-                        end_date: startDate.add(20, 'day').format('YYYY-MM-DD'),
-                        estimated_hours: 80
-                    },
-                    { 
-                        project_id: pid, 
-                        trade_id: state.trades.find(t => t.name.includes('Installation'))?.id || 5, 
-                        name: 'Site Install',
-                        start_date: startDate.add(21, 'day').format('YYYY-MM-DD'), 
-                        end_date: end,
-                        estimated_hours: 16
-                    }
+                // 2. Auto-Generate Tasks (Waterfall)
+                const s = dayjs(start);
+                const tasks = [
+                    { project_id: pid, trade_id: state.trades[0]?.id || 1, name: 'Kickoff', start_date: start, end_date: s.add(2,'day').format('YYYY-MM-DD'), estimated_hours: 5 },
+                    { project_id: pid, trade_id: state.trades[1]?.id || 2, name: 'Drawings', start_date: s.add(3,'day').format('YYYY-MM-DD'), end_date: s.add(7,'day').format('YYYY-MM-DD'), estimated_hours: 15 },
+                    { project_id: pid, trade_id: state.trades[2]?.id || 3, name: 'Fabrication', start_date: s.add(8,'day').format('YYYY-MM-DD'), end_date: s.add(20,'day').format('YYYY-MM-DD'), estimated_hours: 60 },
+                    { project_id: pid, trade_id: state.trades[4]?.id || 5, name: 'Install', start_date: s.add(21,'day').format('YYYY-MM-DD'), end_date: end, estimated_hours: 10 }
                 ];
 
-                await supabase.from('project_tasks').insert(tasksToCreate);
+                await supabase.from('project_tasks').insert(tasks);
                 await loadShopData(); // Refresh Gantt
             });
         });
     }
 
+    // Go!
     loadShopData();
 });
