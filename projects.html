@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TenWorks Projects</title>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+            document.documentElement.className = 'theme-' + savedTheme;
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/projects.css"> 
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
+    
+    <style>
+        /* Specific Overrides for Project Detail */
+        .project-kpi-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; flex: 1; }
+        .project-kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .project-kpi-value { font-size: 1.2rem; font-weight: 700; color: var(--text-bright); font-family: 'Rajdhani', sans-serif; }
+        
+        .log-entry { padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+        .log-meta { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .log-initials { background: var(--primary-blue); color: white; padding: 2px 5px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; }
+        
+        .file-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; }
+        .file-icon { color: var(--primary-gold); margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <div class="global-search-container"><input type="text" id="global-search-input" placeholder="Search..."><div id="global-search-results" class="global-search-results hidden"></div></div>
+            <a href="command-center.html" class="nav-button">Fabrication Shop</a>
+            <a href="deals.html" class="nav-button">Deals</a>
+            <a href="schedule.html" class="nav-button">Schedule</a> <a href="projects.html" class="nav-button active">Projects</a> <a href="talent.html" class="nav-button">Talent Matrix</a>
+            <a href="contacts.html" class="nav-button">Contacts</a>
+            <a href="accounts.html" class="nav-button">Accounts</a>
+            <div class="nav-bottom-section">
+                <a href="social_hub.html" class="nav-button">Social Hub</a>
+                <div class="user-menu"><div class="user-menu-header"><div data-svg-loader="assets/user-icon.svg"></div><span id="user-name-display">Loading...</span></div></div>
+            </div>
+        </nav>
+
+        <main class="content-area split-view">
+            <div class="split-list-panel">
+                <div class="panel-header">
+                    <h2>Projects</h2>
+                    <button id="btn-new-project" class="btn-primary-icon"><i class="fas fa-plus"></i></button>
+                </div>
+                <div class="search-bar-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="project-search" placeholder="Search projects...">
+                </div>
+                <div id="project-list" class="record-list">
+                    </div>
+            </div>
+
+            <div class="split-detail-panel" id="project-detail-panel">
+                <div class="empty-state">
+                    <i class="fas fa-layer-group"></i>
+                    <h3>Select a Project</h3>
+                    <p>View timeline, drawings, and logs.</p>
+                </div>
+                
+                <div id="detail-content" class="detail-content hidden">
+                    <div class="detail-header">
+                        <div class="detail-title-row">
+                            <h1 id="detail-name">Project Name</h1>
+                            <div class="detail-actions">
+                                <button class="btn-secondary" id="btn-view-deal"><i class="fas fa-dollar-sign"></i> View Deal</button>
+                                <button class="btn-primary" id="btn-save-changes">Save Changes</button>
+                            </div>
+                        </div>
+                        <div class="detail-meta-row">
+                            <span class="meta-tag" id="detail-status">Status</span>
+                            <span class="meta-item"><i class="far fa-calendar"></i> <span id="detail-dates">Nov 1 - Dec 15</span></span>
+                            <span class="meta-item"><i class="fas fa-coins"></i> <span id="detail-value">$0.00</span></span>
+                        </div>
+                    </div>
+
+                    <div class="detail-tabs">
+                        <button class="tab-btn active" data-tab="overview">Overview</button>
+                        <button class="tab-btn" data-tab="timeline">Timeline</button>
+                        <button class="tab-btn" data-tab="files">Drawings & Files</button>
+                        <button class="tab-btn" data-tab="log">Project Log</button>
+                    </div>
+
+                    <div class="tab-content-area">
+                        
+                        <div id="tab-overview" class="tab-pane active">
+                            <div style="display:flex; gap:15px; margin-bottom:20px;">
+                                <div class="project-kpi-card">
+                                    <div class="project-kpi-label">Progress</div>
+                                    <div class="project-kpi-value" id="kpi-progress">0%</div>
+                                </div>
+                                <div class="project-kpi-card">
+                                    <div class="project-kpi-label">Est. Hours</div>
+                                    <div class="project-kpi-value" id="kpi-est-hours">0</div>
+                                </div>
+                                <div class="project-kpi-card">
+                                    <div class="project-kpi-label">Actual Hours</div>
+                                    <div class="project-kpi-value" id="kpi-act-hours" style="color:var(--primary-blue)">0</div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <label>Scope / Notes</label>
+                                <textarea id="detail-scope" class="form-control" rows="6" placeholder="Project scope..."></textarea>
+                            </div>
+
+                            <div class="form-section" style="margin-top:20px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                                    <label>Project Team</label>
+                                    <button class="btn-text" id="btn-add-contact">+ Add Contact</button>
+                                </div>
+                                <div id="project-contacts-list">
+                                    </div>
+                            </div>
+                        </div>
+
+                        <div id="tab-timeline" class="tab-pane">
+                            <div id="project-gantt-container" style="height:400px; position:relative; overflow:auto; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-dark);">
+                                <div id="mini-gantt-header" style="height:40px; background:var(--bg-medium); border-bottom:1px solid var(--border-color); display:flex;"></div>
+                                <div id="mini-gantt-body" style="position:relative;"></div>
+                            </div>
+                        </div>
+
+                        <div id="tab-files" class="tab-pane">
+                            <div class="upload-zone" id="drop-zone" style="border:2px dashed var(--border-color); padding:20px; text-align:center; border-radius:6px; margin-bottom:15px; cursor:pointer;">
+                                <i class="fas fa-cloud-upload-alt" style="font-size:24px; color:var(--text-dim);"></i>
+                                <p style="margin:5px 0; color:var(--text-dim);">Click or Drag to Upload Drawings</p>
+                                <input type="file" id="file-input" style="display:none" multiple>
+                            </div>
+                            <div id="file-list"></div>
+                        </div>
+
+                        <div id="tab-log" class="tab-pane">
+                            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                                <input type="text" id="new-log-input" class="form-control" placeholder="Add a note..." style="flex:1;">
+                                <button id="btn-add-log" class="btn-primary">Post</button>
+                            </div>
+                            <div id="log-feed" style="max-height:400px; overflow-y:auto;"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content"><h3 id="modal-title"></h3><div id="modal-body"></div><div id="modal-actions" class="modal-actions"></div></div>
+    </div>
+
+    <script type="module" src="js/project_detail.js"></script>
+</body>
+</html>
