@@ -146,24 +146,29 @@
         <main class="content-area">
             <div class="projects-view"> 
                 
-                <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px;">
-                    <div style="display:flex; align-items:center; gap:20px;">
-                        <div>
-                            <h2 class="contact-name" style="font-size: 1.8rem; margin: 0;">Talent Availability</h2>
-                        </div>
-                        <select id="trade-filter" class="trade-filter-select"><option value="">ALL FUNCTIONS</option></select>
-                    </div>
-                    
-                    <div class="matrix-header-controls">
-                        <button id="prev-week-btn" class="date-nav-btn"><i class="fas fa-chevron-left"></i></button>
-                        <span id="current-week-label" style="font-family:'Rajdhani', sans-serif; font-weight:600; font-size:1.1rem; min-width:140px; text-align:center;">Loading...</span>
-                        <button id="next-week-btn" class="date-nav-btn"><i class="fas fa-chevron-right"></i></button>
-                    </div>
+     <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px;">
+    <div style="display:flex; align-items:center; gap:20px;">
+        <div>
+            <h2 class="contact-name" style="font-size: 1.8rem; margin: 0;">Talent Availability</h2>
+        </div>
+        <select id="trade-filter" class="trade-filter-select"><option value="">ALL FUNCTIONS</option></select>
+    </div>
+    
+    <div class="matrix-header-controls">
+        <button id="prev-week-btn" class="date-nav-btn"><i class="fas fa-chevron-left"></i></button>
+        <span id="current-week-label" style="font-family:'Rajdhani', sans-serif; font-weight:600; font-size:1.1rem; min-width:140px; text-align:center;">Loading...</span>
+        <button id="next-week-btn" class="date-nav-btn"><i class="fas fa-chevron-right"></i></button>
+    </div>
 
-                    <button onclick="window.location.reload()" class="btn-primary" style="padding: 10px 20px; font-size: 0.9rem;">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
+    <div style="display:flex; gap:10px;">
+        <button id="btn-internal-task" class="btn-primary" style="padding: 10px 15px; font-size: 0.9rem; background: var(--bg-medium); border:1px solid var(--border-color);">
+            <i class="fas fa-wrench"></i> Internal Task
+        </button>
+        <button onclick="window.location.reload()" class="btn-primary" style="padding: 10px 20px; font-size: 0.9rem;">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+</div>
 
                 <div id="matrix-container" class="gantt-container-frame">
                     <div class="gantt-sidebar" style="width: 260px; min-width: 260px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 2; background: var(--bg-dark);">
