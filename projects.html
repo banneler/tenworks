@@ -1,35 +1,114 @@
-<div class="projects-container">
-    <header class="project-metrics-bar">
-        <div class="metric-card">
-            <span class="label">Shop Load</span>
-            <div class="progress-bar"><div id="shop-load-fill" style="width: 75%;"></div></div>
-            <span class="value">75% Capacity</span>
-        </div>
-        <div class="metric-card">
-            <span class="label">Revenue Realization (MTD)</span>
-            <span class="value text-warning" id="mtd-revenue">$0.00</span>
-        </div>
-        <div class="metric-card">
-            <span class="label">Efficiency Rating</span>
-            <span class="value" id="efficiency-score">92%</span>
-        </div>
-    </header>
+<!DOCTYPE html>
+<html lang="en">
 
-    <div class="project-controls">
-        <div class="view-toggle">
-            <button id="gantt-view-btn" class="active">Resource Gantt</button>
-            <button id="active-list-btn">Project List</button>
-        </div>
-        <button id="launch-new-project-btn" class="btn-primary">+ Launch Project from Deal</button>
-    </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TenWorks Production</title>
+    
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+            document.documentElement.className = 'theme-' + savedTheme;
+            if (!localStorage.getItem('crm-theme')) localStorage.setItem('crm-theme', 'dark');
+        })();
+    </script>
 
-    <div id="project-canvas" class="gantt-wrapper">
-        <div class="gantt-sidebar" id="resource-sidebar">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/projects.css"> <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Search Projects...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
             </div>
-        <div class="gantt-timeline" id="gantt-timeline">
-            <div class="timeline-header" id="timeline-dates"></div>
-            <div class="timeline-grid" id="gantt-grid">
+            
+            <div class="nav-group">
+                <a href="command-center.html" class="nav-button">Fabrication Shop</a>
+                <a href="deals.html" class="nav-button">Deals</a>
+                <a href="projects.html" class="nav-button active">Projects</a> <a href="contacts.html" class="nav-button">Contacts</a>
+                <a href="accounts.html" class="nav-button">Accounts</a>
+            </div>
+
+            <div class="nav-bottom-section">
+                <div class="user-menu">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
                 </div>
+            </div>
+        </nav>
+
+        <main class="content-area">
+            <div class="projects-view">
+                
+                <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2 class="contact-name" style="font-size: 2rem; margin: 0;">Production Schedule</h2>
+                        <span class="account-name" style="color: var(--text-dim);">Real-time Shop Floor Status</span>
+                    </div>
+                    <button id="launch-new-project-btn" class="btn-primary" style="padding: 12px 24px; font-size: 1rem;">
+                        <i class="fas fa-rocket"></i> &nbsp;Launch Project
+                    </button>
+                </div>
+
+                <div class="project-metrics-bar">
+                    <div class="metric-card">
+                        <span class="label">Shop Capacity</span>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: 78%;"></div>
+                        </div>
+                        <span class="value">78% Load</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label">Revenue Realization (MTD)</span>
+                        <span class="value" style="color: var(--warning-yellow);">$142,500</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label">Active Crews</span>
+                        <span class="value">3 Welding / 2 Install</span>
+                    </div>
+                </div>
+
+                <div class="gantt-container-frame">
+                    <div class="gantt-sidebar">
+                        <div class="gantt-header-cell">Resource / Project</div>
+                        <div id="gantt-resource-list">
+                            </div>
+                    </div>
+
+                    <div class="gantt-timeline-wrapper">
+                        <div class="gantt-timeline-header" id="gantt-date-header">
+                            </div>
+                        <div class="gantt-grid-body" id="gantt-grid-canvas">
+                            </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
-</div>
+
+    <script type="module" src="js/projects.js"></script>
+</body>
+</html>
