@@ -31,15 +31,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 2. STATE MANAGEMENT
     // ------------------------------------------------------------------------
     let state = {
-        // View Mode: 'resource' (Capacity) or 'project' (Timeline)
-        currentView: 'resource', 
-        
-        // Data Containers
+        currentView: 'resource', // 'resource' or 'project'
         trades: [],
         projects: [],
         tasks: [],
         
-        // Drag & Drop Physics State
+        // Drag Engine State
         isDragging: false,
         dragTask: null,
         dragEl: null,
@@ -62,7 +59,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function switchView(view) {
         state.currentView = view;
         
-        // Toggle Active Classes & Styles
         if(view === 'resource') {
             btnResource.classList.add('active');
             btnResource.style.background = 'var(--primary-blue)';
@@ -81,7 +77,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             btnResource.style.color = 'var(--text-dim)';
         }
         
-        // Re-render the grid with the new perspective
         renderGantt();
     }
 
@@ -91,15 +86,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadShopData() {
         console.log("Loading Ten Works Production Data...");
         
-        // Use Promise.all to fetch everything at once for speed
         const [tradesRes, tasksRes, projectsRes] = await Promise.all([
-            // 1. Trades (Rows for Resource View)
             supabase.from('shop_trades').select('*').order('id'),
-            
-            // 2. Tasks (The Bars) - Join with Projects and Trades for labels
             supabase.from('project_tasks').select(`*, projects(name), shop_trades(name)`),
-            
-            // 3. Projects (Rows for Project View)
             supabase.from('projects').select('*').order('start_date')
         ]);
 
@@ -116,7 +105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. RENDER ENGINE (The Grid & Bars)
+    // 5. RENDER ENGINE
     // ------------------------------------------------------------------------
     function renderGantt() {
         const resourceList = document.getElementById('gantt-resource-list');
@@ -125,11 +114,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (!resourceList || !gridCanvas || !dateHeader) return;
 
-        // A. TIMELINE SETUP (Header)
+        // A. TIMELINE HEADER
         let dateHtml = '';
-        const startDate = dayjs().subtract(5, 'day'); // Start 5 days in the past
+        const startDate = dayjs().subtract(5, 'day'); // Start 5 days ago
         const daysToRender = 60; // 2 Month View
-        const dayWidth = 100; // px per day
+        const dayWidth = 100; // px
 
         for (let i = 0; i < daysToRender; i++) {
             const current = startDate.add(i, 'day');
@@ -145,31 +134,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         dateHeader.innerHTML = dateHtml;
         
-        // Set dynamic widths to enable scrolling
         const totalWidth = daysToRender * dayWidth;
         dateHeader.style.width = `${totalWidth}px`;
         gridCanvas.style.width = `${totalWidth}px`;
 
-        // B. RENDER ROWS (Sidebar + Grid)
+        // B. ROWS & BARS
         resourceList.innerHTML = '';
         gridCanvas.innerHTML = '';
 
-        // Decide which list to use for rows based on view
         const rows = state.currentView === 'resource' ? state.trades : state.projects;
 
         rows.forEach((rowItem, index) => {
-            // 1. Create Sidebar Row
+            // 1. Sidebar Row
             const rowEl = document.createElement('div');
             rowEl.className = 'resource-row';
             
             if (state.currentView === 'resource') {
-                // Trade View: Show Trade Name & Rate
                 rowEl.innerHTML = `
                     <div class="resource-name">${rowItem.name}</div>
                     <div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>
                 `;
             } else {
-                // Project View: Show Project Name & Status
                 let statusColor = '#888';
                 if(rowItem.status === 'Fabrication') statusColor = 'var(--primary-blue)';
                 if(rowItem.status === 'Installation') statusColor = 'var(--warning-yellow)';
@@ -182,48 +167,44 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             resourceList.appendChild(rowEl);
 
-            // 2. Filter Tasks belonging to this Row
+            // 2. Filter Tasks
             const rowTasks = state.tasks.filter(t => {
                 if (state.currentView === 'resource') return t.trade_id === rowItem.id;
                 else return t.project_id === rowItem.id;
             });
 
-            // 3. Render Bars for this Row
+            // 3. Render Bars
             rowTasks.forEach(task => {
                 const start = dayjs(task.start_date);
                 const end = dayjs(task.end_date);
                 
-                // Calculate Position
                 const diff = start.diff(startDate, 'day');
-                const duration = end.diff(start, 'day') + 1; // +1 to include end day
+                const duration = end.diff(start, 'day') + 1;
 
-                // Skip if entirely off-screen to left
-                if (diff + duration < 0) return;
+                if (diff + duration < 0) return; // Skip off-screen
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-task-bar';
-                
-                // CSS Math: Row is 70px high. Top padding 15px.
                 bar.style.top = `${(index * 70) + 15}px`; 
                 bar.style.left = `${diff * dayWidth}px`;
-                bar.style.width = `${(duration * dayWidth) - 10}px`; // -10px for gap
-                bar.style.cursor = 'grab'; // Indicates draggable
+                bar.style.width = `${(duration * dayWidth) - 10}px`;
+                bar.style.cursor = 'grab';
 
-                // Burn Line Logic (Actual vs Est)
+                // Status/Burn Colors
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
                 const burnColor = percent > 1 ? '#ff4444' : 'var(--warning-yellow)';
                 
-                // Label Logic (Context-Aware)
+                // Labels
                 const label = state.currentView === 'resource' 
-                    ? task.projects?.name // In Resource view, see Project Name
-                    : task.shop_trades?.name; // In Project view, see Trade Phase
+                    ? task.projects?.name 
+                    : task.shop_trades?.name;
 
                 bar.innerHTML = `
                     <span class="gantt-task-info" style="pointer-events:none;">${label || task.name}</span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
                 
-                // Attach Physics Engine Listener
+                // Attach Physics
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
 
                 gridCanvas.appendChild(bar);
@@ -232,10 +213,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. PHYSICS ENGINE (Drag & Cascade Logic)
+    // 6. PHYSICS ENGINE (Drag & Cascade)
     // ------------------------------------------------------------------------
     function handleDragStart(e, task, element) {
-        if (e.button !== 0) return; // Only Left Click
+        if (e.button !== 0) return;
 
         state.isDragging = true;
         state.dragTask = task;
@@ -244,12 +225,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.dragStartLeft = parseInt(element.style.left || 0);
         state.hasMoved = false;
 
-        // Visual feedback
         element.style.cursor = 'grabbing';
         element.style.zIndex = 1000;
-        element.style.transition = 'none'; // Disable transition for instant follow
+        element.style.transition = 'none'; // Instant follow
 
-        // Global listeners for smooth dragging outside the bar
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragEnd);
     }
@@ -258,9 +237,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!state.isDragging) return;
         
         const deltaX = e.clientX - state.dragStartX;
-        
-        // Threshold to distinguish Click vs Drag
-        if (Math.abs(deltaX) > 5) state.hasMoved = true;
+        if (Math.abs(deltaX) > 5) state.hasMoved = true; // Drag threshold
 
         state.dragEl.style.left = `${state.dragStartLeft + deltaX}px`;
     }
@@ -272,22 +249,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.isDragging = false;
         state.dragEl.style.cursor = 'grab';
         state.dragEl.style.zIndex = '';
-        state.dragEl.style.transition = 'all 0.2s'; // Re-enable smoothing
+        state.dragEl.style.transition = 'all 0.2s';
         
         document.removeEventListener('mousemove', handleDragMove);
         document.removeEventListener('mouseup', handleDragEnd);
 
-        // CASE A: It was a Click -> Open Edit Modal
+        // CASE A: Click -> Edit
         if (!state.hasMoved) {
-            state.dragEl.style.left = `${state.dragStartLeft}px`; // Snap back
+            state.dragEl.style.left = `${state.dragStartLeft}px`; 
             openTaskModal(state.dragTask);
             return;
         }
 
-        // CASE B: It was a Drag -> Calculate Snap & Cascade
+        // CASE B: Drag -> Move & Cascade
         const currentLeft = parseInt(state.dragEl.style.left || 0);
         const snapLeft = Math.round(currentLeft / 100) * 100; // Snap to 100px grid
-        state.dragEl.style.left = `${snapLeft}px`; // Visual snap
+        state.dragEl.style.left = `${snapLeft}px`; 
 
         const pixelShift = snapLeft - state.dragStartLeft;
         const dayShift = Math.round(pixelShift / 100);
@@ -295,16 +272,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (dayShift !== 0) {
             console.log(`Shifting task ${state.dragTask.name} by ${dayShift} days.`);
 
-            // 1. Calculate New Dates for Parent
+            // 1. Optimistic Update (Visual)
+            const oldStart = state.dragTask.start_date;
             const newStart = dayjs(state.dragTask.start_date).add(dayShift, 'day').format('YYYY-MM-DD');
             const newEnd = dayjs(state.dragTask.end_date).add(dayShift, 'day').format('YYYY-MM-DD');
 
-            // Optimistic UI Update (Update local state immediately)
-            const oldStart = state.dragTask.start_date;
             state.dragTask.start_date = newStart;
             state.dragTask.end_date = newEnd;
 
-            // 2. Update Parent in DB
+            // 2. Database Update (Parent)
             const { error } = await supabase.from('project_tasks')
                 .update({ start_date: newStart, end_date: newEnd })
                 .eq('id', state.dragTask.id);
@@ -312,12 +288,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (error) {
                 console.error("Move failed, reverting...", error);
                 state.dragTask.start_date = oldStart; 
-                loadShopData(); // Hard refresh to fix UI
+                loadShopData(); // Revert UI
                 return;
             }
 
-            // 3. THE DOMINO EFFECT (Update Children)
-            // Find dependent tasks
+            // 3. Database Update (Children - Cascade)
             const { data: children } = await supabase
                 .from('project_tasks')
                 .select('*')
@@ -326,11 +301,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (children && children.length > 0) {
                 console.log(`Cascading move to ${children.length} downstream tasks...`);
                 
-                // Use Promise.all to update children concurrently
+                // Parallel updates for speed
                 const updatePromises = children.map(child => {
                     const cStart = dayjs(child.start_date).add(dayShift, 'day').format('YYYY-MM-DD');
                     const cEnd = dayjs(child.end_date).add(dayShift, 'day').format('YYYY-MM-DD');
-                    
                     return supabase.from('project_tasks')
                         .update({ start_date: cStart, end_date: cEnd })
                         .eq('id', child.id);
@@ -339,13 +313,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 await Promise.all(updatePromises);
             }
 
-            // Reload to ensure full sync
+            // Final Refresh
             loadShopData();
         }
     }
 
     // ------------------------------------------------------------------------
-    // 7. EDIT MODAL (Update Hours, Status, Delete)
+    // 7. EDIT MODAL
     // ------------------------------------------------------------------------
     function openTaskModal(task) {
         showModal(`Edit Task: ${task.name}`, `
@@ -361,7 +335,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div>
                     <label>Actual Hours (Burn)</label>
                     <input type="number" id="edit-actual" class="form-control" value="${task.actual_hours}">
-                    <small style="color:var(--text-dim)">Est: ${task.estimated_hours} hrs</small>
                 </div>
                 <div>
                     <label>Start Date</label>
@@ -376,7 +349,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <button id="delete-task-btn" style="background:#773030; color:white; border:none; padding:8px 12px; border-radius:4px; float:left;">Delete Task</button>
             </div>
         `, async () => {
-            // SAVE LOGIC
+            // Save
             const newStatus = document.getElementById('edit-status').value;
             const newActual = document.getElementById('edit-actual').value;
             const newStart = document.getElementById('edit-start').value;
@@ -390,7 +363,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             else loadShopData();
         });
 
-        // Delete Logic (Attached after render)
+        // Delete
         setTimeout(() => {
             const delBtn = document.getElementById('delete-task-btn');
             if(delBtn) delBtn.onclick = async () => {
@@ -404,10 +377,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 8. METRICS DASHBOARD
+    // 8. METRICS
     // ------------------------------------------------------------------------
     function updateMetrics() {
-        // Revenue Calculation
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
         const totalRev = activeProjects.reduce((acc, p) => acc + (p.project_value || 0), 0);
         
@@ -419,14 +391,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(revenueEl) revenueEl.textContent = formatCurrency(totalRev);
         if(countEl) countEl.textContent = activeProjects.length;
 
-        // Shop Load Calculation
         const today = dayjs();
         const activeTasks = state.tasks.filter(t => 
             dayjs(t.start_date).isBefore(today) && dayjs(t.end_date).isAfter(today)
         ).length;
         
-        // Assume Shop Capacity is 5 concurrent major tasks (Adjustable)
-        const capacity = 5;
+        const capacity = 5; // Adjustable shop capacity
         const load = Math.min((activeTasks / capacity) * 100, 100);
         
         if(loadBar) loadBar.style.width = `${load}%`;
@@ -434,12 +404,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 9. LAUNCH NEW PROJECT (Waterfall Logic)
+    // 9. LAUNCH NEW PROJECT (Waterfall)
     // ------------------------------------------------------------------------
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
         launchBtn.addEventListener('click', async () => {
-            // Fetch deals from 'deals_tw' (Using loose filter to ensure we get data)
+            // 1. Fetch Deals (Safe & Robust)
             const { data: deals, error } = await supabase
                 .from('deals_tw')
                 .select('*')
@@ -448,7 +418,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (error) { alert("Error fetching deals: " + error.message); return; }
             if (!deals || deals.length === 0) { alert("No deals found in 'deals_tw' table."); return; }
 
-            const options = deals.map(d => `<option value="${d.id}" data-name="${d.deal_name}" data-amt="${d.amount || 0}">${d.deal_name} (${formatCurrency(d.amount || 0)}) - ${d.stage}</option>`).join('');
+            // Safe Option Building
+            const options = deals.map(d => {
+                const safeName = d.deal_name || d.name || 'Unnamed Deal';
+                const safeAmt = d.amount || 0;
+                const safeStage = d.stage || 'Unknown Stage';
+                return `<option value="${d.id}" data-name="${safeName}" data-amt="${safeAmt}">
+                    ${safeName} (${formatCurrency(safeAmt)}) - ${safeStage}
+                </option>`;
+            }).join('');
 
             showModal('Launch Production Project', `
                 <div class="form-group">
@@ -467,9 +445,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const start = document.getElementById('launch-start').value;
                 const end = document.getElementById('launch-end').value;
                 
-                // Safety check
                 if (!sel.value) { alert("Please select a deal."); return; }
 
+                // Safe Data Extraction
                 const name = sel.options[sel.selectedIndex].dataset.name;
                 const amt = sel.options[sel.selectedIndex].dataset.amt;
 
@@ -488,46 +466,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const s = dayjs(start);
 
                 // 2. CHAINED TASK CREATION (Waterfall Dependencies)
-                // A. Kickoff (Parent of Design)
+                // A. Kickoff (Parent)
                 const { data: t1 } = await supabase.from('project_tasks').insert({
-                    project_id: pid, 
-                    trade_id: state.trades[0]?.id || 1, 
-                    name: 'Kickoff & Plan', 
-                    start_date: start, 
-                    end_date: s.add(2,'day').format('YYYY-MM-DD'), 
-                    estimated_hours: 5
+                    project_id: pid, trade_id: state.trades[0]?.id || 1, name: 'Kickoff & Plan', 
+                    start_date: start, end_date: s.add(2,'day').format('YYYY-MM-DD'), estimated_hours: 5
                 }).select();
 
-                // B. Design (Depends on A)
+                // B. Design (Child of A)
                 const { data: t2 } = await supabase.from('project_tasks').insert({
-                    project_id: pid, 
-                    trade_id: state.trades[1]?.id || 2, 
-                    name: 'CAD Drawings', 
-                    start_date: s.add(3,'day').format('YYYY-MM-DD'), 
-                    end_date: s.add(10,'day').format('YYYY-MM-DD'), 
-                    estimated_hours: 20,
+                    project_id: pid, trade_id: state.trades[1]?.id || 2, name: 'CAD Drawings', 
+                    start_date: s.add(3,'day').format('YYYY-MM-DD'), end_date: s.add(10,'day').format('YYYY-MM-DD'), estimated_hours: 20,
                     dependency_task_id: t1[0].id
                 }).select();
 
-                // C. Fabrication (Depends on B)
+                // C. Fabrication (Child of B)
                 const { data: t3 } = await supabase.from('project_tasks').insert({
-                    project_id: pid, 
-                    trade_id: state.trades[2]?.id || 3, 
-                    name: 'Fabrication', 
-                    start_date: s.add(11,'day').format('YYYY-MM-DD'), 
-                    end_date: s.add(25,'day').format('YYYY-MM-DD'), 
-                    estimated_hours: 80,
+                    project_id: pid, trade_id: state.trades[2]?.id || 3, name: 'Fabrication', 
+                    start_date: s.add(11,'day').format('YYYY-MM-DD'), end_date: s.add(25,'day').format('YYYY-MM-DD'), estimated_hours: 80,
                     dependency_task_id: t2[0].id
                 }).select();
 
-                // D. Installation (Depends on C)
+                // D. Installation (Child of C)
                 await supabase.from('project_tasks').insert({
-                    project_id: pid, 
-                    trade_id: state.trades[4]?.id || 5, 
-                    name: 'Installation', 
-                    start_date: s.add(26,'day').format('YYYY-MM-DD'), 
-                    end_date: end, 
-                    estimated_hours: 24,
+                    project_id: pid, trade_id: state.trades[4]?.id || 5, name: 'Installation', 
+                    start_date: s.add(26,'day').format('YYYY-MM-DD'), end_date: end, estimated_hours: 24,
                     dependency_task_id: t3[0].id
                 });
 
