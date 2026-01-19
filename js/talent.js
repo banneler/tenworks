@@ -365,41 +365,66 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    async function handleDrop(e, person, dateStr) {
+async function handleDrop(e, person, dateStr) {
         e.preventDefault();
-        e.target.classList.remove('grid-cell-droppable');
+        if (e.target.classList.contains('grid-cell')) {
+            e.target.classList.remove('grid-cell-droppable');
+        }
 
         if (!draggingTask) return;
 
-        // Optional: Warn if skill mismatch
+        // 1. Skill Check
         const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
         if (!hasSkill) {
             const confirmAssign = confirm(`${person.name} is not tagged for '${draggingTask.shop_trades?.name || 'this trade'}'. Assign anyway?`);
             if (!confirmAssign) return;
         }
 
-        // 1. Assign Task Ownership (if not set)
-        if (!draggingTask.assigned_talent_id) {
-            await supabase.from('project_tasks').update({ assigned_talent_id: person.id }).eq('id', draggingTask.id);
-        }
+        console.log(`Attempting to drop Task ${draggingTask.id} on ${person.name} for ${dateStr}`);
 
-        // 2. Create Daily Assignment
-        const { error } = await supabase.from('task_assignments').insert({
-            task_id: draggingTask.id,
-            talent_id: person.id,
+        // 2. Optimistic Update (Make it feel instant)
+        // We temporarily update state locally while DB crunches
+        // (Optional, but good for UX. For now, let's rely on the reload to be safe)
+
+        // 3. DATABASE TRANSACTION LOGIC
+        // A. Insert the Daily Record FIRST. If this fails, we stop.
+        const { error: insertError } = await supabase.from('task_assignments').upsert({
+            task_id: parseInt(draggingTask.id),
+            talent_id: parseInt(person.id),
             assigned_date: dateStr
-        });
+        }, { onConflict: 'task_id, talent_id, assigned_date' });
 
-        if (error) {
-            // Usually duplicate key error if dragged to same spot
-            console.warn("Assignment issue:", error.message);
-        } else {
-            // Clear PTO to prevent conflict
-            await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
+        if (insertError) {
+            console.error("Drop failed:", insertError);
+            alert("Error scheduling task: " + insertError.message);
+            return; // Stop here. Task stays in pool.
         }
 
-        // Refresh to remove from pool and show on grid
-        loadTalentData();
+        // B. If Step A worked, NOW we assign ownership (which removes it from pool)
+        if (!draggingTask.assigned_talent_id) {
+            const { error: updateError } = await supabase
+                .from('project_tasks')
+                .update({ assigned_talent_id: parseInt(person.id) })
+                .eq('id', parseInt(draggingTask.id));
+            
+            if (updateError) {
+                console.error("Ownership update failed:", updateError);
+                // Rollback the daily assignment so we don't have orphan data
+                await supabase.from('task_assignments').delete().match({ 
+                    task_id: draggingTask.id, 
+                    talent_id: person.id, 
+                    assigned_date: dateStr 
+                });
+                alert("Could not update task owner.");
+                return;
+            }
+        }
+
+        // C. Clean up PTO conflicts if necessary
+        await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
+
+        console.log("Drop successful. Reloading...");
+        loadTalentData(); 
     }
 
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
