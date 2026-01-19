@@ -50,34 +50,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // ------------------------------------------------------------------------
-    // 3. COLOR PALETTES (NEW)
+    // 3. COLOR PALETTES (REFINED - INDUSTRIAL THEME)
     // ------------------------------------------------------------------------
     
-    // Fixed colors for specific Trades (Adjust IDs to match your DB if needed)
+    // Trade Colors: Muted, Professional Tones
+    // Used in Project View to show Phases
     const TRADE_COLORS = {
-        1: '#607D8B', // Kickoff/PM (Grey Blue)
-        2: '#2196F3', // Design/CAD (Material Blue)
-        3: '#FF9800', // Fabrication (Orange - Hot work)
-        4: '#795548', // Woodworking (Brown)
-        5: '#4CAF50', // Installation (Green - Go time)
-        6: '#9C27B0'  // Finishing (Purple)
+        1: '#546E7A', // Kickoff (Blue Grey)
+        2: '#42A5F5', // Design (Technical Blue)
+        3: '#FFA726', // Fabrication (Sparks/Bronze)
+        4: '#8D6E63', // Woodworking (Walnut)
+        5: '#66BB6A', // Installation (Safety Green)
+        6: '#AB47BC'  // Finishing (Purple)
     };
 
-    // Helper to generate consistent colors for Projects based on their ID
+    // Project Colors: Distinct but Dark/Muted
+    // Used in Resource View to distinguish Jobs
     function getProjectColor(id) {
         const colors = [
-            '#009688', // Teal
-            '#E91E63', // Pink
-            '#3F51B5', // Indigo
-            '#CDDC39', // Lime (Darkened for text visibility)
-            '#FF5722', // Deep Orange
-            '#673AB7'  // Deep Purple
+            '#37474F', // Slate
+            '#00695C', // Teal
+            '#BF360C', // Burnt Orange
+            '#4A148C', // Deep Purple
+            '#0D47A1', // Navy
+            '#827717'  // Olive
         ];
         return colors[id % colors.length];
     }
 
     function getTradeColor(id) {
-        return TRADE_COLORS[id] || 'var(--primary-gold)'; // Default to Gold if unknown
+        return TRADE_COLORS[id] || 'var(--primary-gold)'; 
     }
 
     // ------------------------------------------------------------------------
@@ -198,7 +200,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 6. RENDER ENGINE (With Stacking & Zebra Striping)
+    // 6. RENDER ENGINE (With Stacking, Colors, and Target Flags)
     // ------------------------------------------------------------------------
     function renderGantt() {
         const resourceList = document.getElementById('gantt-resource-list');
@@ -255,7 +257,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const calculatedHeight = Math.max(70, (numLanes * (barHeight + barMargin)) + rowPadding);
 
             // --- ZEBRA STRIPING LOGIC ---
-            // Alternating slight background for visual separation
             const isOdd = index % 2 === 1;
             const rowBackground = isOdd ? 'rgba(255, 255, 255, 0.025)' : 'transparent'; 
 
@@ -269,8 +270,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>`;
             } else {
                 let statusColor = '#888';
-                if(rowItem.status === 'Fabrication') statusColor = 'var(--primary-blue)';
-                if(rowItem.status === 'Installation') statusColor = 'var(--warning-yellow)';
+                if(rowItem.status === 'In Progress') statusColor = 'var(--primary-blue)';
                 if(rowItem.status === 'Completed') statusColor = '#4CAF50';
                 rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>`;
             }
@@ -288,7 +288,39 @@ document.addEventListener("DOMContentLoaded", async () => {
             rowBg.style.zIndex = '0';
             gridCanvas.appendChild(rowBg);
 
-            // 5. Render Bars
+            // --- 5. TARGET COMPLETION INDICATOR (Projects View Only) ---
+            if (state.currentView === 'project' && rowItem.end_date) {
+                const targetDate = dayjs(rowItem.end_date);
+                const targetDiff = targetDate.diff(startDate, 'day');
+                
+                // Only draw if within current view range
+                if (targetDiff >= 0 && targetDiff < daysToRender) {
+                    const targetLine = document.createElement('div');
+                    targetLine.style.position = 'absolute';
+                    targetLine.style.top = `${currentY}px`;
+                    targetLine.style.left = `${(targetDiff + 1) * dayWidth}px`; // +1 to place at end of day
+                    targetLine.style.height = `${calculatedHeight}px`;
+                    targetLine.style.borderLeft = '2px dashed var(--primary-gold)';
+                    targetLine.style.zIndex = '1';
+                    targetLine.style.opacity = '0.6';
+                    targetLine.title = `Target Completion: ${targetDate.format('MMM D')}`;
+                    
+                    // The "Flag" Icon at top
+                    const flag = document.createElement('div');
+                    flag.innerHTML = '<i class="fas fa-flag-checkered"></i>';
+                    flag.style.position = 'absolute';
+                    flag.style.top = '5px';
+                    flag.style.left = '-10px'; // Center over line
+                    flag.style.color = 'var(--primary-gold)';
+                    flag.style.fontSize = '12px';
+                    
+                    targetLine.appendChild(flag);
+                    gridCanvas.appendChild(targetLine);
+                }
+            }
+            // -----------------------------------------------------------
+
+            // 6. Render Bars
             rowTasks.forEach(task => {
                 const start = dayjs(task.start_date);
                 const end = dayjs(task.end_date);
@@ -308,27 +340,27 @@ document.addEventListener("DOMContentLoaded", async () => {
                 bar.style.fontSize = '0.7rem';
                 bar.style.cursor = 'grab';
 
-                // --- NEW: DYNAMIC COLOR LOGIC ---
+                // --- DYNAMIC COLOR LOGIC ---
                 let barColor;
                 if (state.currentView === 'project') {
-                    // In Project View, color by TRADE to show phases
+                    // In Project View, color by TRADE (Phase)
                     barColor = getTradeColor(task.trade_id);
                 } else {
-                    // In Resource View, color by PROJECT to distinguish jobs
+                    // In Resource View, color by PROJECT (Job)
                     barColor = getProjectColor(task.project_id);
                 }
                 bar.style.backgroundColor = barColor;
-                bar.style.border = '1px solid rgba(255,255,255,0.2)';
-                // --------------------------------
+                bar.style.border = '1px solid rgba(255,255,255,0.15)'; // Subtle border
+                // ---------------------------
 
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
                 // If over budget, burn line is bright red. Otherwise, a lighter tint.
-                const burnColor = percent > 1 ? '#ff0000' : 'rgba(255,255,255,0.6)';
+                const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.5)';
                 
                 const label = state.currentView === 'resource' ? task.projects?.name : task.shop_trades?.name;
 
                 bar.innerHTML = `
-                    <span class="gantt-task-info" style="pointer-events:none; line-height:${barHeight}px; text-shadow:0 1px 2px black;">${label || task.name}</span>
+                    <span class="gantt-task-info" style="pointer-events:none; line-height:${barHeight}px; text-shadow:0 1px 2px black; padding-left:5px;">${label || task.name}</span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
@@ -340,6 +372,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         gridCanvas.style.height = `${currentY}px`;
     }
+
     // ------------------------------------------------------------------------
     // 7. PHYSICS ENGINE (Drag & Cascade Logic)
     // ------------------------------------------------------------------------
