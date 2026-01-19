@@ -1,67 +1,91 @@
-import { supabase } from './shared_constants.js';
+import { setupUserMenuAndAuth, loadSVGs, setupGlobalSearch } from './shared_constants.js';
 
-async function loadProjectData() {
-    // Fetch Projects, Tasks, and Assignments in one go
-    const { data: projects, error } = await supabase
-        .from('projects')
-        .select(`
-            *,
-            project_tasks (*, shop_trades(*))
-        `);
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadSVGs();
+    
+    // --- Mock Data for the Pro Model View ---
+    // In production, this comes from your 'projects' and 'project_tasks' tables
+    const resources = [
+        { id: 1, name: "Shop Team A", role: "Fabrication" },
+        { id: 2, name: "CNC Waterjet", role: "Machine" },
+        { id: 3, name: "Install Crew 1", role: "Field" },
+        { id: 4, name: "Finishing Booth", role: "Station" }
+    ];
 
-    renderResourceGantt(projects);
-}
+    const tasks = [
+        { id: 101, resourceId: 1, name: "Project: Helix Stair - Stringer Weld", start: "2023-10-23", days: 4, progress: 0.7 },
+        { id: 102, resourceId: 2, name: "Project: Helix Stair - Treads Cut", start: "2023-10-25", days: 2, progress: 0.2 },
+        { id: 103, resourceId: 1, name: "Project: Loft Railing - Prep", start: "2023-10-27", days: 3, progress: 0.0 },
+        { id: 104, resourceId: 4, name: "Project: Helix Stair - Powder Coat", start: "2023-10-28", days: 2, progress: 0.0 },
+    ];
 
-function renderResourceGantt(projects) {
-    const grid = document.getElementById('gantt-grid');
-    grid.innerHTML = '';
-
-    projects.forEach(project => {
-        // Create a Project Row Group
-        const projectRow = document.createElement('div');
-        projectRow.className = 'gantt-project-group';
+    // --- Render Functions ---
+    
+    function renderGantt() {
+        const resourceList = document.getElementById('gantt-resource-list');
+        const gridCanvas = document.getElementById('gantt-grid-canvas');
+        const dateHeader = document.getElementById('gantt-date-header');
         
-        project.project_tasks.forEach(task => {
-            const taskBar = document.createElement('div');
-            taskBar.className = `task-bar ${task.status.toLowerCase()}`;
-            
-            // Calculate width/position based on dates
-            const startPos = calculateTimelinePosition(task.start_date);
-            const durationWidth = calculateTimelineWidth(task.start_date, task.end_date);
-            
-            taskBar.style.left = `${startPos}px`;
-            taskBar.style.width = `${durationWidth}px`;
-            
-            // Industrial Content
-            taskBar.innerHTML = `
-                <div class="task-inner">
-                    <span class="task-name">${task.name}</span>
-                    <span class="task-trade">${task.shop_trades.name}</span>
-                    <div class="burn-indicator" style="width: ${(task.actual_hours / task.estimated_hours) * 100}%"></div>
+        // 1. Render Sidebar Resources
+        resourceList.innerHTML = resources.map(res => `
+            <div class="resource-row">
+                <div class="resource-name">${res.name}</div>
+                <div class="resource-role">${res.role}</div>
+            </div>
+        `).join('');
+
+        // 2. Render Timeline Header (Next 14 Days)
+        let dateHtml = '';
+        const startDate = dayjs().startOf('week'); // Start on Sunday/Monday
+        for(let i=0; i<14; i++) {
+            const current = startDate.add(i, 'day');
+            const isWeekend = current.day() === 0 || current.day() === 6;
+            dateHtml += `
+                <div class="date-cell ${isWeekend ? 'weekend' : ''}">
+                    <span style="font-weight:700;">${current.format('DD')}</span>
+                    <span>${current.format('ddd')}</span>
                 </div>
             `;
+        }
+        dateHeader.innerHTML = dateHtml;
+        // Set canvas width explicitly to match dates
+        dateHeader.style.width = `${14 * 100}px`; 
+        gridCanvas.style.width = `${14 * 100}px`;
 
-            // Dependency Logic Hook
-            if (task.dependency_task_id) {
-                drawDependencyLine(task.dependency_task_id, task.id);
-            }
+        // 3. Render Tasks
+        // We use absolute positioning based on the 100px column width
+        gridCanvas.innerHTML = '';
+        tasks.forEach(task => {
+            const start = dayjs(task.start);
+            const diff = start.diff(startDate, 'day'); // Days from start of grid
+            
+            // 100px per day width
+            const left = diff * 100;
+            const width = task.days * 100;
+            
+            // 60px row height
+            // Find resource index to calculate top position
+            const resIndex = resources.findIndex(r => r.id === task.resourceId);
+            const top = (resIndex * 60) + 10; 
 
-            grid.appendChild(taskBar);
+            const el = document.createElement('div');
+            el.className = 'gantt-task-bar';
+            el.style.left = `${left}px`;
+            el.style.width = `${width - 10}px`; // -10 for gap
+            el.style.top = `${top}px`;
+            
+            // Calculate Burn Color
+            // If actual progress > expected progress (based on date), turn RED
+            const burnColor = task.progress > 0.8 ? '#ff4444' : 'var(--warning-yellow)';
+
+            el.innerHTML = `
+                <span class="gantt-task-info">${task.name}</span>
+                <div class="burn-line" style="width: ${task.progress * 100}%; background: ${burnColor}"></div>
+            `;
+            
+            gridCanvas.appendChild(el);
         });
-    });
-}
+    }
 
-// Revenue Realization Logic
-async function updateRevenueRealization() {
-    // Logic: Pull 'Completed' tasks * Trade Hourly Rate
-    const { data: completedWork } = await supabase
-        .from('project_tasks')
-        .select('actual_hours, shop_trades(default_hourly_rate)')
-        .eq('status', 'Completed');
-
-    const total = completedWork.reduce((acc, task) => {
-        return acc + (task.actual_hours * task.shop_trades.default_hourly_rate);
-    }, 0);
-
-    document.getElementById('mtd-revenue').textContent = formatCurrency(total);
-}
+    renderGantt();
+});
