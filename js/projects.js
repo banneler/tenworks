@@ -50,18 +50,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // ------------------------------------------------------------------------
-    // 3. COLOR PALETTES (REFINED - INDUSTRIAL THEME)
+    // 3. COLOR PALETTES (INDUSTRIAL THEME)
     // ------------------------------------------------------------------------
     
     // Trade Colors: Muted, Professional Tones
     // Used in Project View to show Phases
     const TRADE_COLORS = {
         1: '#546E7A', // Kickoff (Blue Grey)
-        2: '#42A5F5', // Design (Technical Blue)
-        3: '#FFA726', // Fabrication (Sparks/Bronze)
+        2: '#1E88E5', // Design (Engineering Blue)
+        3: '#D4AF37', // Fabrication (Metallic Gold/Bronze)
         4: '#8D6E63', // Woodworking (Walnut)
-        5: '#66BB6A', // Installation (Safety Green)
-        6: '#AB47BC'  // Finishing (Purple)
+        5: '#66BB6A', // Installation (Green)
+        6: '#7E57C2'  // Finishing (Purple)
     };
 
     // Project Colors: Distinct but Dark/Muted
@@ -209,7 +209,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (!resourceList || !gridCanvas || !dateHeader) return;
 
-        // A. TIMELINE
+        // PREP: Get all active project deadlines for the header check
+        const activeDeadlines = state.projects
+            .filter(p => p.status !== 'Completed' && p.end_date)
+            .map(p => dayjs(p.end_date).format('YYYY-MM-DD'));
+
+        // A. TIMELINE (HEADER)
         let dateHtml = '';
         const startDate = dayjs().subtract(5, 'day');
         const daysToRender = 60;
@@ -217,11 +222,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         for (let i = 0; i < daysToRender; i++) {
             const current = startDate.add(i, 'day');
+            const dateStr = current.format('YYYY-MM-DD');
             const isWeekend = current.day() === 0 || current.day() === 6;
             const isToday = current.isSame(dayjs(), 'day');
+            const isDeadline = activeDeadlines.includes(dateStr); // Check if DEADLINE
+
+            // Dynamic Styling for Header Square
+            let headerStyle = '';
+            let headerIcon = '';
+            
+            if (isDeadline) {
+                headerStyle = 'border-top: 3px solid var(--primary-gold); background: rgba(212, 175, 55, 0.1);';
+                headerIcon = '<i class="fas fa-flag-checkered" style="color:var(--primary-gold); font-size:0.8rem; margin-left:5px;"></i>';
+            }
+
             dateHtml += `
-                <div class="date-cell ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}">
-                    <span style="font-weight:700;">${current.format('DD')}</span>
+                <div class="date-cell ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}" style="${headerStyle}">
+                    <div style="display:flex; align-items:center; justify-content:center;">
+                        <span style="font-weight:700;">${current.format('DD')}</span>
+                        ${headerIcon} 
+                    </div>
                     <span>${current.format('ddd')}</span>
                 </div>
             `;
@@ -298,21 +318,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const targetLine = document.createElement('div');
                     targetLine.style.position = 'absolute';
                     targetLine.style.top = `${currentY}px`;
-                    targetLine.style.left = `${(targetDiff + 1) * dayWidth}px`; // +1 to place at end of day
+                    targetLine.style.left = `${(targetDiff + 1) * dayWidth}px`; // Right edge of day
                     targetLine.style.height = `${calculatedHeight}px`;
                     targetLine.style.borderLeft = '2px dashed var(--primary-gold)';
                     targetLine.style.zIndex = '1';
-                    targetLine.style.opacity = '0.6';
-                    targetLine.title = `Target Completion: ${targetDate.format('MMM D')}`;
+                    targetLine.style.opacity = '0.8'; // Increased visibility
+                    targetLine.style.pointerEvents = 'none'; // Click through
                     
-                    // The "Flag" Icon at top
+                    // The Checkered Flag Icon
                     const flag = document.createElement('div');
                     flag.innerHTML = '<i class="fas fa-flag-checkered"></i>';
                     flag.style.position = 'absolute';
-                    flag.style.top = '5px';
-                    flag.style.left = '-10px'; // Center over line
+                    flag.style.top = '2px';
+                    flag.style.left = '-9px'; // Center icon on line
                     flag.style.color = 'var(--primary-gold)';
-                    flag.style.fontSize = '12px';
+                    flag.style.fontSize = '14px';
+                    flag.style.textShadow = '0 0 3px black'; // Make it pop on dark bg
                     
                     targetLine.appendChild(flag);
                     gridCanvas.appendChild(targetLine);
@@ -350,6 +371,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     barColor = getProjectColor(task.project_id);
                 }
                 bar.style.backgroundColor = barColor;
+                bar.style.backgroundImage = 'linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1))';
                 bar.style.border = '1px solid rgba(255,255,255,0.15)'; // Subtle border
                 // ---------------------------
 
