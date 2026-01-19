@@ -52,26 +52,33 @@
             color: white;
         }
 
-        /* SCROLLBAR STYLING - Slim & Dark */
-        ::-webkit-scrollbar {
-            height: 10px;
-            width: 10px;
+        /* TRADE FILTER */
+        .trade-filter-select {
+            background: var(--bg-dark);
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            min-width: 200px;
         }
+
+        /* SCROLLBAR STYLING */
+        ::-webkit-scrollbar { height: 10px; width: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); border-left: 1px solid var(--border-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 5px; border: 2px solid var(--bg-dark); }
         
-        ::-webkit-scrollbar-track {
-            background: var(--bg-dark); 
-            border-left: 1px solid var(--border-color);
+        .matrix-grid-row { display: flex; width: max-content; }
+        
+        /* Interactive Name Styling */
+        .talent-name-clickable {
+            cursor: pointer;
+            transition: color 0.2s;
         }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color); 
-            border-radius: 5px;
-            border: 2px solid var(--bg-dark);
-        }
-        
-        .matrix-grid-row {
-            display: flex;
-            width: max-content; 
+        .talent-name-clickable:hover {
+            color: var(--primary-blue) !important;
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -120,9 +127,15 @@
             <div class="projects-view"> 
                 
                 <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div>
-                        <h2 class="contact-name" style="font-size: 2rem; margin: 0;">Talent Availability</h2>
-                        <span class="account-name" style="color: var(--text-dim);">Shop Capacity & Assignments</span>
+                    <div style="display:flex; align-items:center; gap:20px;">
+                        <div>
+                            <h2 class="contact-name" style="font-size: 2rem; margin: 0;">Talent Availability</h2>
+                            <span class="account-name" style="color: var(--text-dim);">Shop Capacity & Assignments</span>
+                        </div>
+                        
+                        <select id="trade-filter" class="trade-filter-select">
+                            <option value="">ALL FUNCTIONS</option>
+                            </select>
                     </div>
                     
                     <div class="matrix-header-controls">
@@ -144,17 +157,12 @@
                         <div class="gantt-header-cell" style="height: 60px; min-height: 60px; padding: 0 15px; display: flex; align-items: center; font-weight: bold; color: var(--text-dim); border-bottom: 1px solid var(--border-color); background: var(--bg-medium);">
                             Team Member
                         </div>
-                        <div id="matrix-resource-list" style="flex: 1; overflow: hidden; background: var(--bg-dark);">
-                            </div>
+                        <div id="matrix-resource-list" style="flex: 1; overflow: hidden; background: var(--bg-dark);"></div>
                     </div>
 
                     <div class="gantt-timeline-wrapper" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
-                        
-                        <div id="matrix-date-header" style="height: 60px; min-height: 60px; display: flex; background: var(--bg-medium); border-bottom: 1px solid var(--border-color); overflow: hidden; width: 100%;">
-                            </div>
-                        
-                        <div id="matrix-grid-canvas" style="flex: 1; overflow: auto; background: var(--bg-dark); position: relative;">
-                            </div>
+                        <div id="matrix-date-header" style="height: 60px; min-height: 60px; display: flex; background: var(--bg-medium); border-bottom: 1px solid var(--border-color); overflow: hidden; width: 100%;"></div>
+                        <div id="matrix-grid-canvas" style="flex: 1; overflow: auto; background: var(--bg-dark); position: relative;"></div>
                     </div>
                 </div>
 
