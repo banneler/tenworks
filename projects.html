@@ -1,132 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Projects</title>
+    
     <script>
         (function() {
             const savedTheme = localStorage.getItem('crm-theme') || 'dark';
             document.documentElement.className = 'theme-' + savedTheme;
         })();
     </script>
+
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/projects.css"> 
+    <link rel="stylesheet" href="css/projects.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
-    
+
     <style>
-        /* SPLIT VIEW LAYOUT */
-        .split-view { display: flex; height: calc(100vh - 80px); overflow: hidden; }
-        
-        .split-list-panel { 
-            width: 350px; 
-            min-width: 350px; 
-            border-right: 1px solid var(--border-color); 
-            display: flex; 
-            flex-direction: column; 
-            background: var(--bg-dark); 
-        }
-        
-        .split-detail-panel { 
-            flex: 1; 
-            background: #0f0f0f; /* Slightly darker contrast for the card to pop */
-            overflow-y: auto; 
-            padding: 30px;
-        }
-
-        /* CONTENT CARD (The "Account Page" Look) */
-        .content-card {
-            background: var(--bg-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            overflow: hidden;
-            margin-bottom: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .card-header {
-            padding: 25px 30px;
-            border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(180deg, var(--bg-medium) 0%, var(--bg-dark) 100%);
-        }
-
-        .card-body { padding: 30px; }
-
-        /* HEADER ELEMENTS */
-        .detail-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        .detail-title-row h1 { font-family: 'Rajdhani', sans-serif; font-size: 2.2rem; margin: 0; color: var(--text-bright); line-height: 1; text-transform: uppercase; letter-spacing: 1px; }
-        
-        .detail-meta-row { display: flex; gap: 20px; color: var(--text-dim); font-size: 0.9rem; align-items: center; }
-        .meta-tag { background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--primary-gold); }
-
-        /* TABS */
-        .detail-tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--border-color); margin-bottom: 0; padding: 0 30px; background: var(--bg-dark); }
-        .tab-btn { background: none; border: none; padding: 15px 0; color: var(--text-dim); cursor: pointer; font-size: 0.95rem; font-weight: 500; position: relative; transition: color 0.2s; text-transform: uppercase; letter-spacing: 1px; }
-        .tab-btn:hover { color: var(--text-bright); }
-        .tab-btn.active { color: var(--primary-gold); font-weight: 700; }
-        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--primary-gold); box-shadow: 0 -2px 8px rgba(212, 175, 55, 0.4); }
-        
-        .tab-pane { display: none; padding-top: 25px; }
-        .tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
-        
-        /* KPI GRID */
-        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
-        .project-kpi-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; }
-        .project-kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .project-kpi-value { font-size: 1.8rem; font-weight: 700; color: var(--text-bright); font-family: 'Rajdhani', sans-serif; }
-
-        /* TIMELINE (GANTT) STYLES */
-        .mini-gantt-wrapper { border: 1px solid var(--border-color); border-radius: 6px; background: #1a1a1a; overflow: hidden; }
-        .gantt-grid-line { position: absolute; top: 0; bottom: 0; border-right: 1px solid rgba(255,255,255,0.05); }
-        .gantt-task-row { position: relative; height: 36px; margin-bottom: 4px; }
-        .gantt-bar { 
-            position: absolute; height: 28px; top: 4px; border-radius: 4px; 
-            display: flex; align-items: center; padding-left: 8px; 
-            font-size: 0.75rem; color: white; font-weight: 600; text-shadow: 0 1px 2px black;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);
-            overflow: hidden;
-        }
-        .gantt-progress-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,0.2); pointer-events: none; }
-        .gantt-assignee { 
-            position: absolute; right: -30px; top: 4px; width: 24px; height: 24px; 
-            background: var(--bg-medium); border: 1px solid var(--border-color); 
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            font-size: 0.65rem; color: var(--text-dim); 
-        }
-
-        /* PROJECT LOG (Modern Look) */
-        .log-entry-card {
-            background: var(--bg-medium);
+        /* TIMELINE SPECIFIC OVERRIDES */
+        .mini-gantt-wrapper {
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 12px;
-            display: flex;
-            gap: 15px;
+            background: #1a1a1a;
+            overflow-x: auto; /* ENABLE HORIZONTAL SCROLL */
+            overflow-y: hidden;
+            position: relative;
         }
+        
+        .gantt-scroll-container {
+            min-width: 100%; /* Ensures grid fills space */
+            position: relative;
+        }
+
+        .gantt-grid-line { 
+            position: absolute; top: 0; bottom: 0; 
+            border-right: 1px solid rgba(255,255,255,0.05); 
+            pointer-events: none;
+        }
+
+        .gantt-task-row { 
+            position: relative; 
+            height: 40px; /* Taller rows */
+            margin-bottom: 2px;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+        }
+
+        .gantt-bar { 
+            position: absolute; 
+            height: 30px; /* Taller bars */
+            top: 5px; 
+            border-radius: 4px; 
+            display: flex; 
+            align-items: center; 
+            padding-left: 10px; 
+            font-size: 0.75rem; 
+            color: white; 
+            font-weight: 600; 
+            text-shadow: 0 1px 2px black;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+            border: 1px solid rgba(255,255,255,0.15);
+            overflow: hidden;
+            white-space: nowrap;
+            z-index: 2;
+        }
+
+        /* PROGRESS BAR INSIDE TASK */
+        .gantt-progress-fill { 
+            position: absolute; 
+            left: 0; top: 0; bottom: 0; 
+            background: rgba(255,255,255,0.3); /* Lighter shade indicates completion */
+            z-index: 1;
+        }
+
+        /* ASSIGNEE AVATAR */
+        .gantt-assignee { 
+            position: absolute; 
+            right: -32px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 26px; height: 26px; 
+            background: var(--bg-medium); 
+            border: 1px solid var(--border-color); 
+            border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 0.65rem; 
+            color: var(--text-bright);
+            font-weight: 700;
+            z-index: 3;
+        }
+
+        /* KPI & LOG STYLES */
+        .project-kpi-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; text-align: center; flex: 1; }
+        .project-kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .project-kpi-value { font-size: 1.5rem; font-weight: 700; color: var(--text-bright); font-family: 'Rajdhani', sans-serif; }
+
+        .log-entry-card { background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-bottom: 12px; display: flex; gap: 15px; }
         .log-avatar { width: 32px; height: 32px; background: var(--primary-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.8rem; }
         .log-content-wrapper { flex: 1; }
         .log-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.8rem; color: var(--text-dim); }
         .log-body { color: var(--text-bright); line-height: 1.4; font-size: 0.9rem; }
-
-        /* FILES */
+        
         .file-item-card { display: flex; align-items: center; padding: 15px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 10px; transition: background 0.2s; }
         .file-item-card:hover { background: rgba(255,255,255,0.05); }
         .file-icon-box { width: 40px; height: 40px; background: rgba(212, 175, 55, 0.1); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--primary-gold); font-size: 1.2rem; margin-right: 15px; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* TABS (Matching Accounts) */
+        .tabs-nav { display: flex; gap: 20px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
+        .tab-button { background: none; border: none; padding: 10px 0; color: var(--text-dim); cursor: pointer; font-size: 1rem; position: relative; }
+        .tab-button.active { color: var(--primary-gold); font-weight: 600; }
+        .tab-button.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--primary-gold); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
+
 <body>
     <div class="crm-container">
         <nav class="nav-sidebar">
             <div data-svg-loader="assets/logo.svg"></div>
-            <div class="global-search-container"><input type="text" id="global-search-input" placeholder="Search..."><div id="global-search-results" class="global-search-results hidden"></div></div>
+            <div class="global-search-container"><input type="text" id="global-search-input" placeholder="Global Search..."><div id="global-search-results" class="global-search-results hidden"></div></div>
             
             <a href="schedule.html" class="nav-button">Schedule</a>
             <a href="talent.html" class="nav-button">Talent Matrix</a>
@@ -143,117 +143,111 @@
             </div>
         </nav>
 
-        <main class="content-area split-view">
-            <div class="split-list-panel">
-                <div class="panel-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h2 style="margin:0; font-size:1.5rem;">Projects</h2>
-                        <button id="btn-new-project" class="btn-primary-icon" style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;"><i class="fas fa-plus"></i></button>
-                    </div>
-                    <div class="search-bar-container" style="position:relative;">
-                        <i class="fas fa-search search-icon" style="position:absolute; left:10px; top:10px; color:var(--text-dim);"></i>
-                        <input type="text" id="project-search" placeholder="Search projects..." class="form-control" style="padding-left:35px; width:100%;">
-                    </div>
-                </div>
-                <div id="project-list" class="record-list" style="flex:1; overflow-y:auto; padding:10px;">
-                    </div>
-            </div>
-
-            <div class="split-detail-panel" id="project-detail-panel">
-                <div class="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim);">
-                    <i class="fas fa-layer-group" style="font-size:64px; margin-bottom:20px; opacity:0.2;"></i>
-                    <h3>Select a Project</h3>
-                    <p>View timeline, drawings, logs, and financials.</p>
-                </div>
+        <main class="content-area">
+            <div id="projects" class="content-view active-view">
+                <h2>Projects</h2>
                 
-                <div id="detail-content" class="hidden">
+                <div class="split-view">
                     
-                    <div class="content-card">
-                        <div class="card-header">
-                            <div class="detail-title-row">
-                                <h1 id="detail-name">Project Name</h1>
-                                <div class="detail-actions">
-                                    <button class="btn-secondary" id="btn-view-deal" style="margin-right:10px;"><i class="fas fa-dollar-sign"></i> View Deal</button>
-                                    <button class="btn-primary" id="btn-save-changes">Save Changes</button>
-                                </div>
+                    <div class="item-list-container">
+                        <button id="btn-new-project" class="btn-primary full-width">Add New Project</button>
+                        <input type="text" id="project-search" placeholder="Search projects...">
+                        <div id="project-list" class="item-list">
                             </div>
-                            <div class="detail-meta-row">
-                                <span class="meta-tag" id="detail-status">Status</span>
-                                <span class="meta-item"><i class="far fa-calendar"></i> <span id="detail-dates">Nov 1 - Dec 15</span></span>
-                                <span class="meta-item"><i class="fas fa-coins"></i> <span id="detail-value">$0.00</span></span>
-                                <span class="meta-item" id="detail-deal-name" style="color:var(--primary-blue); font-style:italic;"></span>
-                            </div>
-                        </div>
-                        
-                        <div class="detail-tabs">
-                            <button class="tab-btn active" data-tab="overview">Overview</button>
-                            <button class="tab-btn" data-tab="timeline">Timeline</button>
-                            <button class="tab-btn" data-tab="files">Drawings & Files</button>
-                            <button class="tab-btn" data-tab="log">Project Log</button>
-                        </div>
-
-                        <div class="card-body">
-                            <div class="tab-content-area">
-                                
-                                <div id="tab-overview" class="tab-pane active">
-                                    <div class="kpi-grid">
-                                        <div class="project-kpi-card">
-                                            <div class="project-kpi-label">Progress</div>
-                                            <div class="project-kpi-value" id="kpi-progress" style="color:var(--primary-gold)">0%</div>
-                                        </div>
-                                        <div class="project-kpi-card">
-                                            <div class="project-kpi-label">Est. Hours</div>
-                                            <div class="project-kpi-value" id="kpi-est-hours">0</div>
-                                        </div>
-                                        <div class="project-kpi-card">
-                                            <div class="project-kpi-label">Actual Hours</div>
-                                            <div class="project-kpi-value" id="kpi-act-hours" style="color:var(--primary-blue)">0</div>
-                                        </div>
-                                    </div>
-
-                                    <div class="form-section">
-                                        <label style="display:block; margin-bottom:8px; color:var(--text-dim); font-weight:600;">Scope / Notes</label>
-                                        <textarea id="detail-scope" class="form-control" rows="6" placeholder="Project scope..." style="width:100%; background:var(--bg-medium); color:white; border:1px solid var(--border-color); padding:15px; border-radius:6px; line-height:1.5;"></textarea>
-                                    </div>
-
-                                    <div class="form-section" style="margin-top:30px;">
-                                        <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
-                                            <label style="color:var(--text-bright); font-weight:600;">Project Contacts</label>
-                                            <button class="btn-text" id="btn-add-contact" style="background:none; border:none; color:var(--primary-gold); cursor:pointer; font-weight:600;">+ Add Contact</button>
-                                        </div>
-                                        <div id="project-contacts-list"></div>
-                                    </div>
-                                </div>
-
-                                <div id="tab-timeline" class="tab-pane">
-                                    <div class="mini-gantt-wrapper">
-                                        <div id="mini-gantt-header" style="height:40px; background:var(--bg-medium); border-bottom:1px solid var(--border-color); display:flex; position:relative;"></div>
-                                        <div id="mini-gantt-body" style="position:relative; height:400px; overflow-y:auto; background:#111;"></div>
-                                    </div>
-                                </div>
-
-                                <div id="tab-files" class="tab-pane">
-                                    <div class="upload-zone" id="drop-zone" style="border:2px dashed var(--border-color); padding:40px; text-align:center; border-radius:6px; margin-bottom:20px; cursor:pointer; transition: all 0.2s;">
-                                        <i class="fas fa-cloud-upload-alt" style="font-size:32px; color:var(--text-dim); margin-bottom:10px;"></i>
-                                        <p style="margin:5px 0; color:var(--text-bright); font-weight:600;">Click or Drag to Upload Drawings</p>
-                                        <p style="margin:0; color:var(--text-dim); font-size:0.8rem;">Supports PDF, DXF, PNG, JPG</p>
-                                        <input type="file" id="file-input" style="display:none" multiple>
-                                    </div>
-                                    <div id="file-list"></div>
-                                </div>
-
-                                <div id="tab-log" class="tab-pane">
-                                    <div style="display:flex; gap:10px; margin-bottom:20px;">
-                                        <input type="text" id="new-log-input" class="form-control" placeholder="Add a note or update..." style="flex:1; padding:12px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); border-radius:6px;">
-                                        <button id="btn-add-log" class="btn-primary" style="padding:0 25px;">Post</button>
-                                    </div>
-                                    <div id="log-feed" style="max-height:500px; overflow-y:auto; padding-right:10px;"></div>
-                                </div>
-
-                            </div>
-                        </div>
                     </div>
 
+                    <div id="project-detail-panel" class="details-panel">
+                        <div class="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim);">
+                            <i class="fas fa-layer-group" style="font-size:48px; margin-bottom:20px; opacity:0.3;"></i>
+                            <h3>Select a Project</h3>
+                            <p>View timeline, drawings, logs, and financials.</p>
+                        </div>
+
+                        <div id="detail-content" class="hidden">
+                            <div style="margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:15px;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                    <div>
+                                        <h1 id="detail-name" style="margin:0; font-family:'Rajdhani'; font-size:2rem;">Project Name</h1>
+                                        <div style="display:flex; gap:15px; margin-top:5px; color:var(--text-dim); font-size:0.9rem;">
+                                            <span id="detail-status" style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-weight:600;">Status</span>
+                                            <span><i class="far fa-calendar"></i> <span id="detail-dates">Dates</span></span>
+                                            <span><i class="fas fa-coins"></i> <span id="detail-value">$0.00</span></span>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:10px;">
+                                        <button class="btn-secondary" id="btn-view-deal">View Deal</button>
+                                        <button class="btn-primary" id="btn-save-changes">Save</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tabs-nav">
+                                <button class="tab-button active" data-tab="overview">Overview</button>
+                                <button class="tab-button" data-tab="timeline">Timeline</button>
+                                <button class="tab-button" data-tab="files">Drawings & Files</button>
+                                <button class="tab-button" data-tab="log">Project Log</button>
+                            </div>
+
+                            <div class="tab-content active" id="tab-overview">
+                                <div style="display:flex; gap:15px; margin-bottom:20px;">
+                                    <div class="project-kpi-card">
+                                        <div class="project-kpi-label">Progress</div>
+                                        <div class="project-kpi-value" id="kpi-progress" style="color:var(--primary-gold)">0%</div>
+                                    </div>
+                                    <div class="project-kpi-card">
+                                        <div class="project-kpi-label">Est. Hours</div>
+                                        <div class="project-kpi-value" id="kpi-est-hours">0</div>
+                                    </div>
+                                    <div class="project-kpi-card">
+                                        <div class="project-kpi-label">Actual Hours</div>
+                                        <div class="project-kpi-value" id="kpi-act-hours" style="color:var(--primary-blue)">0</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-grid">
+                                    <div class="full-span-grid-item">
+                                        <label>Scope / Notes</label>
+                                        <textarea id="detail-scope" rows="6" style="width:100%; padding:10px; background:var(--bg-medium); border:1px solid var(--border-color); color:white; border-radius:6px;"></textarea>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top:20px;">
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:5px;">
+                                        <h4>Project Contacts</h4>
+                                        <button class="btn-text" id="btn-add-contact" style="color:var(--primary-gold); cursor:pointer; background:none; border:none;">+ Add</button>
+                                    </div>
+                                    <div id="project-contacts-list"></div>
+                                </div>
+                            </div>
+
+                            <div class="tab-content" id="tab-timeline">
+                                <div class="mini-gantt-wrapper">
+                                    <div class="gantt-scroll-container">
+                                        <div id="mini-gantt-header" style="height:40px; background:var(--bg-medium); border-bottom:1px solid var(--border-color); display:flex;"></div>
+                                        <div id="mini-gantt-body" style="position:relative; height:400px; overflow-y:hidden;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-content" id="tab-files">
+                                <div class="upload-zone" id="drop-zone" style="border:2px dashed var(--border-color); padding:40px; text-align:center; border-radius:6px; margin-bottom:20px; cursor:pointer;">
+                                    <i class="fas fa-cloud-upload-alt" style="font-size:32px; color:var(--text-dim); margin-bottom:10px;"></i>
+                                    <p style="margin:5px 0; color:var(--text-dim);">Click or Drag to Upload Drawings</p>
+                                    <input type="file" id="file-input" style="display:none" multiple>
+                                </div>
+                                <div id="file-list"></div>
+                            </div>
+
+                            <div class="tab-content" id="tab-log">
+                                <div style="display:flex; gap:10px; margin-bottom:20px;">
+                                    <input type="text" id="new-log-input" placeholder="Add a note or update..." style="flex:1; padding:12px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); border-radius:6px;">
+                                    <button id="btn-add-log" class="btn-primary">Post</button>
+                                </div>
+                                <div id="log-feed" style="max-height:500px; overflow-y:auto; padding-right:10px;"></div>
+                            </div>
+
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
