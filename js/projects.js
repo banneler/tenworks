@@ -136,9 +136,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         return lanes.length; 
     }
     // ------------------------------------------------------------------------
-    // 5. THE RENDER ENGINE (Grid, Rows, and Bars)
     // ------------------------------------------------------------------------
-    // --- RENDER ENGINE (With Stacking) ---
+    // 6. RENDER ENGINE (With Stacking & Zebra Striping)
+    // ------------------------------------------------------------------------
     function renderGantt() {
         const resourceList = document.getElementById('gantt-resource-list');
         const gridCanvas = document.getElementById('gantt-grid-canvas');
@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         let currentY = 0; 
 
         rows.forEach((rowItem, index) => {
-            // 1. Get Tasks for this Row
+            // 1. Get Tasks
             const rowTasks = state.tasks.filter(t => {
                 if (state.currentView === 'resource') return t.trade_id === rowItem.id;
                 else return t.project_id === rowItem.id;
@@ -193,10 +193,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             const rowPadding = 20;
             const calculatedHeight = Math.max(70, (numLanes * (barHeight + barMargin)) + rowPadding);
 
+            // --- ZEBRA STRIPING LOGIC ---
+            // Alternating slight background for visual separation
+            const isOdd = index % 2 === 1;
+            const rowBackground = isOdd ? 'rgba(255, 255, 255, 0.025)' : 'transparent'; 
+
             // 3. Render Sidebar Row
             const rowEl = document.createElement('div');
             rowEl.className = 'resource-row';
             rowEl.style.height = `${calculatedHeight}px`; 
+            rowEl.style.backgroundColor = rowBackground; // <--- Apply to Sidebar
             
             if (state.currentView === 'resource') {
                 rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>`;
@@ -216,6 +222,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             rowBg.style.left = '0';
             rowBg.style.width = '100%';
             rowBg.style.height = `${calculatedHeight}px`;
+            rowBg.style.backgroundColor = rowBackground; // <--- Apply to Grid
             rowBg.style.borderBottom = '1px solid var(--border-color)';
             rowBg.style.zIndex = '0';
             gridCanvas.appendChild(rowBg);
