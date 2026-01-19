@@ -14,18 +14,9 @@
     </script>
 
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/projects.css">
     
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
-
     <style>
-        /* --- TIMELINE PORTED FROM SCHEDULE PAGE --- */
+        /* TIMELINE CONTAINER */
         .mini-gantt-wrapper {
             border: 1px solid var(--border-color);
             border-radius: 6px;
@@ -33,12 +24,18 @@
             overflow-x: auto;
             overflow-y: hidden;
             position: relative;
-            height: 500px; /* Taller View */
+            height: 500px;
             margin-top: 15px;
         }
         
+        .gantt-scroll-content {
+            height: 100%;
+            position: relative;
+            min-width: 100%;
+        }
+
         .gantt-header-row {
-            height: 45px;
+            height: 40px;
             background: var(--bg-medium);
             border-bottom: 1px solid var(--border-color);
             display: flex;
@@ -47,27 +44,49 @@
             z-index: 10;
         }
 
-        /* TALLER ROWS & BARS */
-        .gantt-task-row { position: relative; height: 50px; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .gantt-grid-line { 
+            position: absolute; top: 0; bottom: 0; 
+            border-right: 1px solid rgba(255,255,255,0.05); 
+            pointer-events: none; 
+        }
+
+        .gantt-task-row { 
+            position: relative; 
+            height: 50px; /* Taller Rows */
+            margin-bottom: 5px; 
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+        }
         
+        /* THE BAR (Matches Schedule Page) */
         .gantt-bar { 
-            position: absolute; height: 34px; top: 8px; border-radius: 4px; 
-            display: flex; align-items: center; padding-left: 10px; 
-            font-size: 0.8rem; color: white; font-weight: 600; 
-            text-shadow: 0 1px 3px black; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.4); 
+            position: absolute; 
+            height: 32px; 
+            top: 9px; 
+            border-radius: 4px; 
+            display: flex; 
+            align-items: center; 
+            padding-left: 10px; 
+            font-size: 0.75rem; 
+            color: white; 
+            font-weight: 600; 
+            text-shadow: 0 1px 2px black;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
             border: 1px solid rgba(255,255,255,0.15);
-            /* Gradient from Schedule Page */
+            /* Gradient Texture */
             background-image: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1));
             overflow: hidden;
             z-index: 2;
+            cursor: default;
         }
 
-        /* BURN LINE (The red/white progress indicator) */
+        /* BURN LINE (The white/red progress indicator) */
         .burn-line {
-            position: absolute; bottom: 0; left: 0; height: 3px;
-            transition: width 0.3s ease;
+            position: absolute; 
+            bottom: 0; 
+            left: 0; 
+            height: 4px; 
             z-index: 3;
+            transition: width 0.3s ease;
         }
 
         .gantt-assignee { 
@@ -77,60 +96,49 @@
             font-size: 0.7rem; color: var(--text-bright); font-weight: 700; z-index: 3;
         }
 
-        /* --- PROJECT HEADER --- */
-        .header-editable-input {
-            background: transparent;
-            border: 1px solid transparent;
-            color: var(--text-bright);
-            font-size: 2.2rem;
+        /* PROJECT PICKER STYLES (Overrides) */
+        .project-list-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .project-list-item:hover { background: var(--bg-medium); }
+        .project-list-item.selected { background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--primary-gold); }
+        
+        .project-icon {
+            width: 40px; height: 40px;
+            background: var(--bg-medium);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
             font-family: 'Rajdhani', sans-serif;
             font-weight: 700;
-            padding: 5px;
+            font-size: 1.1rem;
+            color: var(--text-bright);
+            margin-right: 15px;
+        }
+
+        /* PREVIEW FRAME */
+        .file-preview-frame {
             width: 100%;
-            transition: all 0.2s;
+            height: 500px;
+            border: 1px solid var(--border-color);
+            background: #000;
+            margin-top: 15px;
             border-radius: 6px;
         }
-        .header-editable-input:hover { border-color: var(--border-color); background: rgba(255,255,255,0.02); }
-        .header-editable-input:focus { border-color: var(--primary-blue); background: var(--bg-dark); outline: none; }
-
-        /* COUNTDOWN WIDGET */
-        .countdown-badge {
-            display: inline-flex; align-items: center; gap: 8px;
-            padding: 5px 12px; border-radius: 20px;
-            font-weight: 700; font-size: 0.85rem;
-            border: 1px solid transparent;
-        }
-        .countdown-safe { background: rgba(76, 175, 80, 0.1); color: #4CAF50; border-color: rgba(76, 175, 80, 0.3); }
-        .countdown-warn { background: rgba(255, 193, 7, 0.1); color: #FFC107; border-color: rgba(255, 193, 7, 0.3); }
-        .countdown-danger { background: rgba(244, 67, 54, 0.1); color: #F44336; border-color: rgba(244, 67, 54, 0.3); }
-
-        /* KPI & LOGS */
-        .project-kpi-card { background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; text-align: center; flex: 1; }
-        .project-kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .project-kpi-value { font-size: 1.8rem; font-weight: 700; color: var(--text-bright); font-family: 'Rajdhani', sans-serif; }
-
-        .log-entry-card { background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-bottom: 12px; display: flex; gap: 15px; }
-        .log-avatar { width: 32px; height: 32px; background: var(--primary-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.8rem; }
-        .log-content-wrapper { flex: 1; }
-        .log-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.8rem; color: var(--text-dim); }
-        .log-body { color: var(--text-bright); line-height: 1.4; font-size: 0.9rem; }
-
-        /* FILES */
-        .file-item-card { display: flex; align-items: center; padding: 15px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 10px; transition: background 0.2s; }
-        .file-item-card:hover { background: rgba(255,255,255,0.05); }
-        .file-icon-box { width: 40px; height: 40px; background: rgba(212, 175, 55, 0.1); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--primary-gold); font-size: 1.2rem; margin-right: 15px; }
-
-        /* TABS */
-        .detail-tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--border-color); margin-bottom: 0; padding: 0 30px; background: var(--bg-dark); }
-        .tab-btn { background: none; border: none; padding: 15px 0; color: var(--text-dim); cursor: pointer; font-size: 1rem; position: relative; transition: color 0.2s; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; }
-        .tab-btn:hover { color: var(--text-bright); }
-        .tab-btn.active { color: var(--primary-gold); font-weight: 700; }
-        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--primary-gold); box-shadow: 0 -2px 8px rgba(212, 175, 55, 0.4); }
-        .tab-pane { display: none; padding-top: 25px; }
-        .tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
 </head>
 
 <body>
@@ -149,79 +157,95 @@
             </div>
         </nav>
 
-        <main class="content-area split-view">
-            <div class="item-list-container">
-                <div style="padding: 20px; border-bottom: 1px solid var(--border-color);">
-                    <button id="btn-new-project" class="btn-primary full-width" style="margin-bottom:15px;">Add New Project</button>
-                    <div style="position: relative;">
-                        <i class="fas fa-search" style="position: absolute; left: 10px; top: 10px; color: var(--text-dim);"></i>
-                        <input type="text" id="project-search" placeholder="Search projects..." class="form-control" style="padding-left: 35px; width: 100%; box-sizing: border-box;">
-                    </div>
-                </div>
-                <div id="project-list" class="item-list"></div>
-            </div>
-
-            <div id="project-detail-panel" class="details-panel" style="padding:30px; background:#0f0f0f;">
-                <div class="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim);">
-                    <i class="fas fa-layer-group" style="font-size:64px; margin-bottom:20px; opacity:0.2;"></i>
-                    <h3>Select a Project</h3>
-                    <p>View timeline, drawings, logs, and financials.</p>
-                </div>
+        <main class="content-area">
+            <div id="projects" class="content-view active-view">
+                <h2>Projects</h2>
                 
-                <div id="detail-content" class="hidden">
-                    <div class="content-card">
-                        <div class="card-header">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                                <div style="flex:1; margin-right:20px;">
-                                    <input type="text" id="detail-name" class="header-editable-input" value="Project Name">
-                                    <div style="display:flex; gap:15px; margin-top:10px; align-items:center;">
-                                        <span id="detail-status" style="background:rgba(255,255,255,0.1); padding:4px 10px; border-radius:4px; font-weight:600; color:var(--primary-gold); text-transform:uppercase; font-size:0.8rem;">Status</span>
-                                        <div id="countdown-widget"></div> <span style="color:var(--text-dim); font-size:0.9rem;"><i class="fas fa-coins"></i> <span id="detail-value">$0.00</span></span>
+                <div class="split-view">
+                    
+                    <div class="item-list-container">
+                        <button id="btn-new-project" class="btn-primary full-width">Add New Project</button>
+                        <input type="text" id="project-search" placeholder="Search projects...">
+                        <div class="filter-bar">
+                            <select id="project-status-filter">
+                                <option value="all">All Projects</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                        <div id="project-list" class="item-list">
+                            </div>
+                    </div>
+
+                    <div id="project-detail-panel" class="details-panel">
+                        
+                        <div class="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim);">
+                            <i class="fas fa-layer-group" style="font-size:64px; margin-bottom:20px; opacity:0.2;"></i>
+                            <h3>Select a Project</h3>
+                        </div>
+
+                        <div id="detail-content" class="hidden">
+                            <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; padding:25px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                    <div style="flex:1;">
+                                        <input type="text" id="detail-name" style="background:transparent; border:none; color:var(--text-bright); font-family:'Rajdhani'; font-size:2rem; font-weight:700; width:100%;" value="Project Name">
+                                        <div style="display:flex; gap:20px; margin-top:10px; color:var(--text-dim); font-size:0.9rem; align-items:center;">
+                                            <span id="detail-status" style="background:rgba(255,255,255,0.1); padding:4px 10px; border-radius:4px; font-weight:600; color:var(--primary-gold); text-transform:uppercase;">Status</span>
+                                            <span><i class="far fa-calendar"></i> <span id="detail-dates">Dates</span></span>
+                                            <span><i class="fas fa-coins"></i> <span id="detail-value">$0.00</span></span>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:10px;">
+                                        <button class="btn-secondary" id="btn-view-deal">View Deal</button>
+                                        <button class="btn-primary" id="btn-save-changes">Save</button>
                                     </div>
                                 </div>
-                                <div style="display:flex; gap:10px;">
-                                    <button class="btn-secondary" id="btn-view-deal"><i class="fas fa-external-link-alt"></i> View Deal</button>
-                                    <button class="btn-primary" id="btn-save-changes">Save Changes</button>
+                                <div style="margin-top:15px; padding-top:15px; border-top:1px solid var(--border-color); display:flex; align-items:center; gap:10px;">
+                                    <label style="color:var(--text-dim); font-size:0.9rem;">Due Date:</label>
+                                    <input type="date" id="detail-due-date" class="form-control" style="width:auto; padding:5px; background:rgba(0,0,0,0.2);">
+                                    <div id="countdown-widget" style="margin-left:auto;"></div>
                                 </div>
                             </div>
-                            
-                            <div style="margin-top:15px; display:flex; align-items:center; gap:10px; color:var(--text-dim); font-size:0.9rem;">
-                                <label><i class="far fa-calendar-alt"></i> Due Date:</label>
-                                <input type="date" id="detail-due-date" class="form-control" style="width:auto; padding:5px 10px; background:rgba(0,0,0,0.2); border:1px solid var(--border-color); color:var(--text-bright);">
+
+                            <div class="detail-tabs" style="display:flex; gap:30px; border-bottom:1px solid var(--border-color); margin-bottom:25px;">
+                                <button class="tab-button active" data-tab="overview" style="background:none; border:none; padding:10px 0; color:var(--text-dim); cursor:pointer; font-size:1rem; position:relative;">Overview</button>
+                                <button class="tab-button" data-tab="timeline" style="background:none; border:none; padding:10px 0; color:var(--text-dim); cursor:pointer; font-size:1rem; position:relative;">Timeline</button>
+                                <button class="tab-button" data-tab="files" style="background:none; border:none; padding:10px 0; color:var(--text-dim); cursor:pointer; font-size:1rem; position:relative;">Drawings</button>
+                                <button class="tab-button" data-tab="log" style="background:none; border:none; padding:10px 0; color:var(--text-dim); cursor:pointer; font-size:1rem; position:relative;">Log</button>
                             </div>
-                        </div>
 
-                        <div class="detail-tabs">
-                            <button class="tab-btn active" data-tab="overview">Overview</button>
-                            <button class="tab-btn" data-tab="timeline">Timeline</button>
-                            <button class="tab-btn" data-tab="files">Drawings & Files</button>
-                            <button class="tab-btn" data-tab="log">Project Log</button>
-                        </div>
-
-                        <div class="card-body">
-                            
-                            <div id="tab-overview" class="tab-pane active">
-                                <div class="kpi-grid">
-                                    <div class="project-kpi-card"><div class="project-kpi-label">Progress</div><div class="project-kpi-value" id="kpi-progress" style="color:var(--primary-gold)">0%</div></div>
-                                    <div class="project-kpi-card"><div class="project-kpi-label">Est. Hours</div><div class="project-kpi-value" id="kpi-est-hours">0</div></div>
-                                    <div class="project-kpi-card"><div class="project-kpi-label">Actual Hours</div><div class="project-kpi-value" id="kpi-act-hours" style="color:var(--primary-blue)">0</div></div>
+                            <div class="tab-content active" id="tab-overview">
+                                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:25px;">
+                                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:20px; text-align:center;">
+                                        <div style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:5px;">Progress</div>
+                                        <div id="kpi-progress" style="font-size:1.8rem; font-weight:700; color:var(--primary-gold); font-family:'Rajdhani';">0%</div>
+                                    </div>
+                                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:20px; text-align:center;">
+                                        <div style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:5px;">Est. Hours</div>
+                                        <div id="kpi-est-hours" style="font-size:1.8rem; font-weight:700; color:var(--text-bright); font-family:'Rajdhani';">0</div>
+                                    </div>
+                                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:6px; padding:20px; text-align:center;">
+                                        <div style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; margin-bottom:5px;">Actual Hours</div>
+                                        <div id="kpi-act-hours" style="font-size:1.8rem; font-weight:700; color:var(--primary-blue); font-family:'Rajdhani';">0</div>
+                                    </div>
                                 </div>
 
-                                <div style="margin-bottom:20px;">
-                                    <label style="display:block; color:var(--text-dim); margin-bottom:5px; font-weight:600;">Scope / Notes</label>
-                                    <textarea id="detail-scope" rows="6" style="width:100%; padding:15px; background:var(--bg-medium); border:1px solid var(--border-color); color:white; border-radius:6px;"></textarea>
+                                <div style="margin-bottom:25px;">
+                                    <label style="display:block; color:var(--text-bright); margin-bottom:8px; font-weight:600;">Scope & Notes</label>
+                                    <textarea id="detail-scope" rows="8" style="width:100%; padding:15px; background:var(--bg-medium); border:1px solid var(--border-color); color:white; border-radius:6px; line-height:1.5;"></textarea>
                                 </div>
 
                                 <div>
                                     <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:10px; align-items:center;">
-                                        <h4 style="margin:0; color:var(--text-bright);">Project Contacts</h4>
+                                        <h4 style="margin:0; color:var(--text-bright);">Project Team</h4>
                                         <button id="btn-add-contact" class="btn-secondary" style="padding:6px 12px; font-size:0.8rem;"><i class="fas fa-plus"></i> Add Contact</button>
                                     </div>
                                     <div id="project-contacts-list"></div>
                                 </div>
                             </div>
 
-                            <div id="tab-timeline" class="tab-pane">
+                            <div class="tab-content" id="tab-timeline">
                                 <div class="mini-gantt-wrapper">
                                     <div id="gantt-scroll-area" class="gantt-scroll-content">
                                         <div id="mini-gantt-header" class="gantt-header-row"></div>
@@ -230,16 +254,23 @@
                                 </div>
                             </div>
 
-                            <div id="tab-files" class="tab-pane">
+                            <div class="tab-content" id="tab-files">
                                 <div class="upload-zone" id="drop-zone" style="border:2px dashed var(--border-color); padding:40px; text-align:center; border-radius:6px; margin-bottom:20px; cursor:pointer;">
                                     <i class="fas fa-cloud-upload-alt" style="font-size:32px; color:var(--text-dim); margin-bottom:10px;"></i>
                                     <p style="margin:0; color:var(--text-bright); font-weight:600;">Click or Drag to Upload</p>
                                     <input type="file" id="file-input" style="display:none" multiple>
                                 </div>
                                 <div id="file-list"></div>
+                                <div id="file-preview-container" class="hidden">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
+                                        <h4 style="margin:0;">Preview</h4>
+                                        <button id="close-preview" class="btn-text" style="color:var(--text-dim);">Close</button>
+                                    </div>
+                                    <iframe id="file-preview-frame" class="file-preview-frame"></iframe>
+                                </div>
                             </div>
 
-                            <div id="tab-log" class="tab-pane">
+                            <div class="tab-content" id="tab-log">
                                 <div style="display:flex; gap:10px; margin-bottom:20px;">
                                     <input type="text" id="new-log-input" placeholder="Add a note or update..." style="flex:1; padding:12px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); border-radius:6px;">
                                     <button id="btn-add-log" class="btn-primary">Post</button>
