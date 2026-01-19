@@ -47,34 +47,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.projects
             .filter(p => p.name.toLowerCase().includes(filter))
             .forEach(p => {
-                // Using standard item-list structure
                 const el = document.createElement('div');
-                el.style.padding = '15px';
-                el.style.borderBottom = '1px solid var(--border-color)';
-                el.style.cursor = 'pointer';
-                el.style.transition = 'background 0.2s';
+                el.className = 'item-list-row';
+                if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
                 
-                if (state.currentProject && state.currentProject.id === p.id) {
-                    el.style.backgroundColor = 'rgba(212, 175, 55, 0.1)';
-                    el.style.borderLeft = '4px solid var(--primary-gold)';
-                } else {
-                    el.style.borderLeft = '4px solid transparent';
-                }
-
-                // Hover effect logic handled via CSS on parent if possible, or inline here
-                el.onmouseenter = () => { if(state.currentProject?.id !== p.id) el.style.backgroundColor = 'var(--bg-medium)'; };
-                el.onmouseleave = () => { if(state.currentProject?.id !== p.id) el.style.backgroundColor = 'transparent'; };
-
-                let statusColor = '#888';
-                if (p.status === 'In Progress') statusColor = 'var(--primary-blue)';
-                if (p.status === 'Completed') statusColor = '#4CAF50';
-
+                const initial = p.name.charAt(0).toUpperCase();
+                
                 el.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:600; color:var(--text-bright); font-size:0.95rem;">${p.name}</div>
-                        <div style="font-size:0.8rem; font-family:'Rajdhani'; color:var(--text-dim);">${formatCurrency(p.project_value)}</div>
+                    <div class="item-icon">${initial}</div>
+                    <div class="item-details">
+                        <div class="item-main">${p.name}</div>
+                        <div class="item-sub">
+                            <span>${p.status}</span>
+                            <span>${formatCurrency(p.project_value)}</span>
+                        </div>
                     </div>
-                    <div style="margin-top:4px; font-size:0.8rem; color:${statusColor}; text-transform:uppercase; letter-spacing:0.5px;">${p.status}</div>
                 `;
                 el.onclick = () => loadDetail(p.id);
                 listEl.appendChild(el);
@@ -116,12 +103,32 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('detail-content').classList.remove('hidden');
 
         const p = state.currentProject;
-        document.getElementById('detail-name').value = p.name; // Input now
+        document.getElementById('detail-name').value = p.name;
         document.getElementById('detail-status').textContent = p.status;
-        document.getElementById('detail-dates').textContent = `${dayjs(p.start_date).format('MMM D')} - ${dayjs(p.end_date).format('MMM D')}`;
         document.getElementById('detail-value').textContent = formatCurrency(p.project_value);
         document.getElementById('detail-scope').value = p.description || '';
+        
+        // DUE DATE & COUNTDOWN
+        const dueDate = p.end_date || p.due_date; // Handle different schemas
+        const dateInput = document.getElementById('detail-due-date');
+        const countdownEl = document.getElementById('countdown-widget');
+        
+        dateInput.value = dueDate || '';
+        
+        if (dueDate) {
+            const diff = dayjs(dueDate).diff(dayjs(), 'day');
+            let badgeClass = 'countdown-safe';
+            let label = `${diff} Days Left`;
+            
+            if (diff < 0) { badgeClass = 'countdown-danger'; label = `${Math.abs(diff)} Days Overdue`; }
+            else if (diff <= 7) { badgeClass = 'countdown-warn'; }
+            
+            countdownEl.innerHTML = `<span class="countdown-badge ${badgeClass}"><i class="fas fa-hourglass-half"></i> ${label}</span>`;
+        } else {
+            countdownEl.innerHTML = '';
+        }
 
+        // PROGRESS MATH
         const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
         const totalAct = state.tasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
         const progress = totalEst > 0 ? Math.min(Math.round((totalAct / totalEst) * 100), 100) : 0;
@@ -134,10 +141,80 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderLogs();
         renderFiles();
         
-        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
         if(activeTab === 'timeline') renderMiniGantt();
     }
 
+    // 3. EVENT LISTENERS
+    
+    // DUE DATE CHANGE LOGGER
+    document.getElementById('detail-due-date').addEventListener('change', async (e) => {
+        const newDate = e.target.value;
+        const oldDate = state.currentProject.end_date;
+        
+        // 1. Update Project
+        await supabase.from('projects').update({ end_date: newDate }).eq('id', state.currentProject.id);
+        
+        // 2. Add Log Entry
+        const initials = user.email.substring(0,2).toUpperCase();
+        const msg = `Due Date changed from ${oldDate || 'None'} to ${newDate}`;
+        await supabase.from('project_notes').insert({ 
+            project_id: state.currentProject.id, 
+            content: msg, 
+            author_name: initials 
+        });
+        
+        loadDetail(state.currentProject.id); // Reload to show log and update countdown
+    });
+
+    // VIEW DEAL
+    document.getElementById('btn-view-deal').addEventListener('click', () => {
+        if(state.currentProject.deal_id) {
+            window.location.href = `deals.html?id=${state.currentProject.deal_id}`;
+        } else {
+            alert("No deal linked to this project.");
+        }
+    });
+
+    // ADD CONTACT MODAL
+    document.getElementById('btn-add-contact').addEventListener('click', async () => {
+        // Fetch all contacts first
+        const { data: contacts } = await supabase.from('contacts').select('*').order('last_name');
+        const options = contacts.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
+        
+        showModal('Add Project Contact', `
+            <div class="form-group">
+                <label>Select Contact</label>
+                <select id="new-contact-select" class="form-control" style="background:var(--bg-dark); color:white; padding:10px;">${options}</select>
+            </div>
+            <div class="form-group">
+                <label>Role (Optional)</label>
+                <input type="text" id="new-contact-role" class="form-control" placeholder="e.g. Architect, Site Manager">
+            </div>
+            <button id="btn-save-contact" class="btn-primary" style="width:100%; margin-top:15px;">Add to Team</button>
+        `, async () => {});
+
+        setTimeout(() => {
+            document.getElementById('btn-save-contact').onclick = async () => {
+                const contactId = document.getElementById('new-contact-select').value;
+                const role = document.getElementById('new-contact-role').value;
+                
+                const { error } = await supabase.from('project_contacts').insert({
+                    project_id: state.currentProject.id,
+                    contact_id: contactId,
+                    role: role
+                });
+                
+                if(error) alert("Error adding contact: " + error.message);
+                else {
+                    hideModal();
+                    loadDetail(state.currentProject.id);
+                }
+            };
+        }, 100);
+    });
+
+    // RENDERERS
     function renderContacts() {
         const list = document.getElementById('project-contacts-list');
         list.innerHTML = state.projectContacts.map(c => `
@@ -203,6 +280,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Force container width for scrolling
         scrollArea.style.width = `${totalWidth}px`;
+        header.style.minWidth = `${totalWidth}px`; // Fixes header desync
+        body.style.minWidth = `${totalWidth}px`;
         
         header.innerHTML = '';
         body.innerHTML = '';
@@ -238,7 +317,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             const row = document.createElement('div');
             row.className = 'gantt-task-row';
-            row.style.top = `${index * 45}px`;
+            row.style.top = `${index * 55}px`; // Increased spacing
 
             const bar = document.createElement('div');
             bar.className = 'gantt-bar';
@@ -253,17 +332,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 assigneeHtml = `<div class="gantt-assignee" title="${t.shop_talent.name}">${initials}</div>`;
             }
 
-            // Progress Fill & Text
+            // Burn Line Calculation
             const est = t.estimated_hours || 1;
             const act = t.actual_hours || 0;
-            const pct = Math.min((act/est)*100, 100);
+            const burnPercent = Math.min((act/est)*100, 100);
+            
+            // Burn Line Color Logic (Red if over budget)
+            const burnColor = (act > est) ? '#ff4444' : 'rgba(255,255,255,0.6)';
 
             bar.innerHTML = `
-                <div class="gantt-progress-fill" style="width:${pct}%"></div>
-                <div class="gantt-text-overlay">
-                    <span>${t.name}</span>
-                    <span style="font-size:0.7rem; opacity:0.8;">${Math.round(pct)}%</span>
-                </div>
+                <div class="burn-line" style="width:${burnPercent}%; background:${burnColor}; box-shadow:0 0 5px ${burnColor};"></div>
+                <span style="position:relative; z-index:2; margin-right:5px;">${t.name}</span>
                 ${assigneeHtml}
             `;
             
@@ -273,10 +352,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // HANDLERS
-    document.querySelectorAll('.tab-button').forEach(btn => {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
             if(btn.dataset.tab === 'timeline') renderMiniGantt();
