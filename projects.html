@@ -25,144 +25,68 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
 
     <style>
-        /* --- TIMELINE (SCHEDULE PAGE CARBON COPY) --- */
-        .mini-gantt-wrapper {
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: #1a1a1a; /* Dark background for contrast */
-            overflow-x: auto;
-            overflow-y: hidden;
-            position: relative;
-            height: 500px;
-            margin-top: 15px;
-        }
+        /* --- SCOPED OVERRIDES FOR PROJECTS VIEW --- */
         
-        .gantt-scroll-content {
-            height: 100%;
-            position: relative;
-            /* Width set dynamically via JS */
-        }
+        /* KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        .kpi-card { background: var(--bg-dark); border: 1px solid var(--border-color); padding: 15px; border-radius: 6px; text-align: center; }
+        .kpi-value { font-family: 'Rajdhani', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--text-bright); }
+        .kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 
-        .gantt-header-row {
-            height: 45px;
-            background: var(--bg-medium);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .gantt-grid-line { 
-            position: absolute; top: 0; bottom: 0; 
-            border-right: 1px solid rgba(255,255,255,0.05); 
-            pointer-events: none; 
-        }
-
-        /* SCHEDULE PAGE BAR STYLING */
-        .gantt-task-bar {
-            position: absolute;
-            height: 36px; /* Taller as requested */
-            top: 6px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            padding-left: 10px;
-            font-size: 0.75rem;
-            color: white;
-            font-weight: 600;
-            text-shadow: 0 1px 2px black;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.15);
-            background-image: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1));
-            overflow: hidden;
-            z-index: 2;
-        }
-
-        /* THE BURN LINE (Progress Overlay) */
-        .burn-line {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 100%; /* Full height overlay or bottom strip? Using bottom strip per schedule page */
-            height: 4px; 
-            z-index: 3;
-            transition: width 0.3s ease;
-        }
-
-        .gantt-assignee { 
-            position: absolute; right: -36px; top: 50%; transform: translateY(-50%);
-            width: 28px; height: 28px; background: var(--bg-medium); border: 1px solid var(--border-color); 
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            font-size: 0.7rem; color: var(--text-bright); font-weight: 700; z-index: 3;
-        }
-
-        /* --- CONTENT CARD & TABS --- */
-        .content-card {
-            background: var(--bg-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            overflow: hidden;
-            margin-bottom: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card-header {
-            padding: 25px 30px;
-            border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(180deg, var(--bg-medium) 0%, var(--bg-dark) 100%);
-        }
-
-        .card-body { padding: 30px; flex: 1; overflow-y: auto; }
-
-        .detail-tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--border-color); padding: 0 30px; background: var(--bg-dark); }
-        .tab-btn { background: none; border: none; padding: 15px 0; color: var(--text-dim); cursor: pointer; font-size: 0.95rem; font-weight: 500; position: relative; text-transform: uppercase; letter-spacing: 1px; transition: color 0.2s; }
-        .tab-btn:hover { color: var(--text-bright); }
-        .tab-btn.active { color: var(--primary-gold); font-weight: 700; }
-        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--primary-gold); box-shadow: 0 -2px 8px rgba(212, 175, 55, 0.4); }
-        
-        .tab-pane { display: none; }
-        .tab-pane.active { display: block; animation: fadeIn 0.2s ease; }
-
-        /* KPI & LOGS */
-        .project-kpi-card { background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; text-align: center; }
-        .project-kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .project-kpi-value { font-size: 1.8rem; font-weight: 700; color: var(--text-bright); font-family: 'Rajdhani', sans-serif; }
-
-        /* LOG STYLING */
-        .log-entry-card { background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-bottom: 12px; display: flex; gap: 15px; }
-        .log-avatar { width: 32px; height: 32px; background: var(--primary-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.8rem; }
-        .log-content-wrapper { flex: 1; }
-        .log-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.8rem; color: var(--text-dim); }
-        .log-body { color: var(--text-bright); line-height: 1.4; font-size: 0.9rem; }
-
-        /* FILE LIST STYLING */
-        .file-item-card { 
-            display: flex; align-items: center; padding: 15px; 
-            background: rgba(255,255,255,0.03); 
-            border: 1px solid var(--border-color); 
-            border-radius: 6px; 
-            margin-bottom: 10px; 
-            transition: all 0.2s; 
-        }
-        .file-item-card:hover { background: rgba(255,255,255,0.06); border-color: var(--text-dim); }
-        .file-icon-box { width: 40px; height: 40px; background: rgba(212, 175, 55, 0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--primary-gold); font-size: 1.2rem; margin-right: 15px; }
-
-        /* PREVIEW FRAME */
-        .file-preview-frame {
+        /* Gantt Specifics */
+        .mini-gantt-container {
             width: 100%;
-            height: 600px;
+            overflow-x: auto; /* Horizontal Scroll Only */
+            overflow-y: hidden;
+            background: #15181c;
             border: 1px solid var(--border-color);
-            background: #000;
-            margin-top: 15px;
             border-radius: 6px;
+            position: relative;
+            height: 300px; /* Fixed height for mini view */
+            margin-top: 15px;
         }
 
+        .gantt-header-row { display: flex; height: 40px; border-bottom: 1px solid var(--border-color); background: var(--bg-medium); position: sticky; top: 0; z-index: 10; }
+        .gantt-date-cell { min-width: 50px; border-right: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-dim); }
+        .gantt-body { position: relative; height: 100%; background-image: linear-gradient(90deg, var(--border-color) 1px, transparent 1px); background-size: 50px 100%; }
+        
+        .gantt-bar {
+            position: absolute; height: 24px; border-radius: 4px; font-size: 0.7rem; 
+            display: flex; align-items: center; padding-left: 8px; color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden;
+            cursor: default;
+        }
+
+        .burn-overlay { position: absolute; bottom: 0; left: 0; height: 4px; background: rgba(255,255,255,0.8); z-index: 2; }
+
+        /* File List */
+        .file-row { display: flex; align-items: center; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); margin-bottom: 8px; border-radius: 4px; transition: 0.2s; }
+        .file-row:hover { border-color: var(--primary-gold); }
+        .file-icon { width: 30px; font-size: 1.2rem; color: var(--text-dim); text-align: center; margin-right: 10px; }
+        
+        /* File Preview Frame */
+        #file-preview-wrapper { margin-top: 15px; border: 1px solid var(--border-color); height: 500px; background: #000; display: none; }
+        #file-preview-wrapper iframe { width: 100%; height: 100%; border: none; }
+
+        /* Log Feed */
+        .log-card { padding: 12px; background: var(--bg-dark); border-left: 3px solid var(--border-color); margin-bottom: 10px; font-size: 0.9rem; }
+        .log-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; }
+        
+        /* Tabs */
+        .tab-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; gap: 20px; }
+        .tab-link { padding: 10px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; font-family: 'Rajdhani'; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid transparent; transition: 0.2s; }
+        .tab-link.active { color: var(--primary-gold); border-bottom-color: var(--primary-gold); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Specific overrides to match Accounts Page Split View */
+        .split-view { height: calc(100vh - 80px); }
+        .item-list-row { padding: 12px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s; }
+        .item-list-row:hover { background: var(--bg-light); }
+        .item-list-row.selected { background: var(--bg-light); border-left: 3px solid var(--primary-gold); }
+        .item-list-row h4 { margin: 0; font-size: 0.95rem; color: var(--text-bright); }
+        .item-list-row div { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; display: flex; justify-content: space-between; }
     </style>
 </head>
 
@@ -170,7 +94,10 @@
     <div class="crm-container">
         <nav class="nav-sidebar">
             <div data-svg-loader="assets/logo.svg"></div>
-            <div class="global-search-container"><input type="text" id="global-search-input" placeholder="Global Search..."><div id="global-search-results" class="global-search-results hidden"></div></div>
+            <div class="global-search-container">
+                <input type="text" id="global-search-input" placeholder="Global Search...">
+                <div id="global-search-results" class="global-search-results hidden"></div>
+            </div>
             <a href="schedule.html" class="nav-button">Schedule</a>
             <a href="talent.html" class="nav-button">Talent Matrix</a>
             <a href="deals.html" class="nav-button">Deals</a>
@@ -178,112 +105,130 @@
             <a href="contacts.html" class="nav-button">Contacts</a>
             <a href="accounts.html" class="nav-button">Accounts</a>
             <div class="nav-bottom-section">
-                <div class="user-menu"><div class="user-menu-header"><div data-svg-loader="assets/user-icon.svg"></div><span id="user-name-display">Loading...</span></div><div id="user-menu-popup" class="user-menu-popup"><button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button></div></div>
+                <div class="user-menu">
+                    <div class="user-menu-header">
+                        <div data-svg-loader="assets/user-icon.svg"></div>
+                        <span id="user-name-display">Loading...</span>
+                    </div>
+                    <div id="user-menu-popup" class="user-menu-popup">
+                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
+                    </div>
+                </div>
             </div>
         </nav>
 
-        <main class="content-area split-view">
-            <div class="item-list-container">
-                <div style="padding: 20px; border-bottom: 1px solid var(--border-color);">
-                    <button id="btn-new-project" class="btn-primary full-width" style="margin-bottom:15px;">Add New Project</button>
-                    <input type="text" id="project-search" placeholder="Search projects..." class="form-control" style="width:100%;">
-                </div>
-                <div id="project-list" class="item-list"></div>
-            </div>
+        <main class="content-area">
+            <div id="projects-view" class="content-view active-view">
+                <div class="split-view">
+                    
+                    <div class="item-list-container">
+                        <div style="padding: 15px; border-bottom: 1px solid var(--border-color);">
+                            <button id="btn-add-project" class="btn-primary full-width">Add New Project</button>
+                            <input type="text" id="project-search" placeholder="Search projects..." class="form-control" style="width:100%; margin-top:10px;">
+                        </div>
+                        <div id="project-list" class="item-list"></div>
+                    </div>
 
-            <div id="project-detail-panel" class="details-panel">
-                <div class="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim);">
-                    <i class="fas fa-layer-group" style="font-size:64px; margin-bottom:20px; opacity:0.2;"></i>
-                    <h3>Select a Project</h3>
-                </div>
+                    <div id="project-detail-panel" class="details-panel">
+                        <div id="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim); opacity:0.5;">
+                            <i class="fas fa-folder-open" style="font-size: 48px; margin-bottom: 20px;"></i>
+                            <h3>Select a project to view details</h3>
+                        </div>
 
-                <div id="detail-content" class="hidden">
-                    <div class="content-card">
-                        
-                        <div class="card-header">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                                <div style="flex:1;">
-                                    <input type="text" id="detail-name" style="background:transparent; border:none; color:var(--text-bright); font-family:'Rajdhani'; font-size:2rem; font-weight:700; width:100%;" value="Project Name">
-                                    <div style="display:flex; gap:20px; margin-top:10px; color:var(--text-dim); font-size:0.9rem; align-items:center;">
-                                        <span id="detail-status" style="background:rgba(255,255,255,0.1); padding:4px 10px; border-radius:4px; font-weight:600; color:var(--primary-gold); text-transform:uppercase;">Status</span>
-                                        <span id="detail-dates"><i class="far fa-calendar"></i> Dates</span>
-                                        <div id="countdown-widget"></div>
+                        <div id="detail-content" class="hidden">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:15px;">
+                                <div style="flex:1; margin-right:20px;">
+                                    <label style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Project Name</label>
+                                    <input type="text" id="detail-name" style="background:transparent; border:none; border-bottom:1px solid var(--border-color); width:100%; font-family:'Rajdhani'; font-size:1.8rem; font-weight:700; color:var(--text-bright); padding:5px 0;">
+                                    
+                                    <div style="display:flex; gap:15px; margin-top:10px;">
+                                        <div>
+                                            <label style="font-size:0.7rem; color:var(--text-dim);">Status</label>
+                                            <select id="detail-status" style="background:var(--bg-dark); border:none; color:var(--primary-gold); font-weight:600; font-size:0.9rem;">
+                                                <option value="Pre-Production">Pre-Production</option>
+                                                <option value="In Progress">In Progress</option>
+                                                <option value="On Hold">On Hold</option>
+                                                <option value="Completed">Completed</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="font-size:0.7rem; color:var(--text-dim);">Value</label>
+                                            <div id="detail-value" style="font-weight:600; font-size:0.9rem;">$0.00</div>
+                                        </div>
+                                        <div>
+                                            <label style="font-size:0.7rem; color:var(--text-dim);">Due Date</label>
+                                            <input type="date" id="detail-due-date" style="background:transparent; border:none; color:var(--text-bright); font-family:'Inter'; font-size:0.9rem;">
+                                        </div>
                                     </div>
                                 </div>
-                                <div style="display:flex; gap:10px;">
-                                    <button class="btn-secondary" id="btn-view-deal">View Deal</button>
-                                    <button class="btn-primary" id="btn-save-changes">Save Changes</button>
-                                </div>
+                                <button id="btn-save-main" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
                             </div>
-                            
-                            <div style="margin-top:15px; padding-top:15px; border-top:1px solid var(--border-color); display:flex; align-items:center; gap:10px;">
-                                <label style="color:var(--text-dim); font-size:0.9rem;">Due Date:</label>
-                                <input type="date" id="detail-due-date" class="form-control" style="width:auto; padding:5px; background:rgba(0,0,0,0.2);">
+
+                            <div class="tab-nav">
+                                <button class="tab-link active" data-tab="overview">Overview</button>
+                                <button class="tab-link" data-tab="timeline">Timeline</button>
+                                <button class="tab-link" data-tab="files">Drawings & Files</button>
+                                <button class="tab-link" data-tab="log">Project Log</button>
                             </div>
-                        </div>
 
-                        <div class="detail-tabs">
-                            <button class="tab-btn active" data-tab="overview">Overview</button>
-                            <button class="tab-btn" data-tab="timeline">Timeline</button>
-                            <button class="tab-btn" data-tab="files">Drawings & Files</button>
-                            <button class="tab-btn" data-tab="log">Project Log</button>
-                        </div>
-
-                        <div class="card-body">
-                            
-                            <div id="tab-overview" class="tab-pane active">
-                                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:25px;">
-                                    <div class="project-kpi-card"><div class="project-kpi-label">Progress</div><div class="project-kpi-value" id="kpi-progress" style="color:var(--primary-gold)">0%</div></div>
-                                    <div class="project-kpi-card"><div class="project-kpi-label">Est. Hours</div><div class="project-kpi-value" id="kpi-est-hours">0</div></div>
-                                    <div class="project-kpi-card"><div class="project-kpi-label">Actual Hours</div><div class="project-kpi-value" id="kpi-act-hours" style="color:var(--primary-blue)">0</div></div>
+                            <div id="tab-overview" class="tab-content active">
+                                <div class="kpi-grid">
+                                    <div class="kpi-card">
+                                        <div class="kpi-label">Progress</div>
+                                        <div class="kpi-value" id="kpi-progress" style="color:var(--primary-gold)">0%</div>
+                                    </div>
+                                    <div class="kpi-card">
+                                        <div class="kpi-label">Est Hours</div>
+                                        <div class="kpi-value" id="kpi-est">0</div>
+                                    </div>
+                                    <div class="kpi-card">
+                                        <div class="kpi-label">Actual Hours</div>
+                                        <div class="kpi-value" id="kpi-act">0</div>
+                                    </div>
                                 </div>
 
-                                <div style="margin-bottom:25px;">
-                                    <label style="display:block; color:var(--text-bright); margin-bottom:8px; font-weight:600;">Scope & Notes</label>
-                                    <textarea id="detail-scope" rows="8" style="width:100%; padding:15px; background:var(--bg-medium); border:1px solid var(--border-color); color:white; border-radius:6px; line-height:1.5;"></textarea>
+                                <div class="form-group" style="margin-bottom:25px;">
+                                    <label>Scope / Description</label>
+                                    <textarea id="detail-scope" rows="6" style="width:100%; padding:15px; background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text-bright); border-radius:6px; line-height:1.5;"></textarea>
                                 </div>
 
                                 <div>
-                                    <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:10px; align-items:center;">
-                                        <h4 style="margin:0; color:var(--text-bright);">Project Contacts</h4>
-                                        <button id="btn-add-contact" class="btn-secondary" style="padding:6px 12px; font-size:0.8rem;"><i class="fas fa-plus"></i> Add Contact</button>
-                                    </div>
-                                    <div id="project-contacts-list"></div>
+                                    <h4 style="border-bottom:1px solid var(--border-color); padding-bottom:8px; margin-bottom:15px;">Project Team</h4>
+                                    <div id="team-list"></div>
                                 </div>
                             </div>
 
-                            <div id="tab-timeline" class="tab-pane">
-                                <div class="mini-gantt-wrapper">
-                                    <div id="gantt-scroll-area" class="gantt-scroll-content">
-                                        <div id="mini-gantt-header" class="gantt-header-row"></div>
-                                        <div id="mini-gantt-body" class="gantt-body-row"></div>
-                                    </div>
+                            <div id="tab-timeline" class="tab-content">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                    <h4 style="margin:0;">Task Timeline</h4>
+                                    <small style="color:var(--text-dim);">Read-only view. Edit in Schedule.</small>
+                                </div>
+                                <div id="mini-gantt-container" class="mini-gantt-container">
+                                    <div id="gantt-header" class="gantt-header-row"></div>
+                                    <div id="gantt-body" class="gantt-body"></div>
                                 </div>
                             </div>
 
-                            <div id="tab-files" class="tab-pane">
-                                <div class="upload-zone" id="drop-zone" style="border:2px dashed var(--border-color); padding:40px; text-align:center; border-radius:6px; margin-bottom:20px; cursor:pointer;">
-                                    <i class="fas fa-cloud-upload-alt" style="font-size:32px; color:var(--text-dim); margin-bottom:10px;"></i>
-                                    <p style="margin:0; color:var(--text-bright); font-weight:600;">Click or Drag to Upload</p>
-                                    <input type="file" id="file-input" style="display:none" multiple>
+                            <div id="tab-files" class="tab-content">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                                    <button id="btn-upload-file" class="btn-secondary"><i class="fas fa-upload"></i> Upload File</button>
+                                    <input type="file" id="file-input" style="display:none;" multiple>
                                 </div>
                                 <div id="file-list"></div>
-                                
-                                <div id="file-preview-container" class="hidden">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; margin-bottom:10px;">
-                                        <h4 style="margin:0;">File Preview</h4>
-                                        <button id="close-preview" class="btn-text" style="color:var(--text-dim); cursor:pointer;">Close</button>
+                                <div id="file-preview-wrapper">
+                                    <div style="background:var(--bg-medium); padding:5px 10px; text-align:right;">
+                                        <button onclick="document.getElementById('file-preview-wrapper').style.display='none'" style="background:none; border:none; color:white; cursor:pointer;">Close Preview [X]</button>
                                     </div>
-                                    <iframe id="file-preview-frame" class="file-preview-frame"></iframe>
+                                    <iframe id="preview-frame" src=""></iframe>
                                 </div>
                             </div>
 
-                            <div id="tab-log" class="tab-pane">
+                            <div id="tab-log" class="tab-content">
                                 <div style="display:flex; gap:10px; margin-bottom:20px;">
-                                    <input type="text" id="new-log-input" placeholder="Add a note or update..." style="flex:1; padding:12px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); border-radius:6px;">
-                                    <button id="btn-add-log" class="btn-primary">Post</button>
+                                    <input type="text" id="new-log-input" placeholder="Enter a note..." style="flex:1;">
+                                    <button id="btn-add-log" class="btn-secondary">Add Note</button>
                                 </div>
-                                <div id="log-feed" style="max-height:500px; overflow-y:auto; padding-right:10px;"></div>
+                                <div id="log-feed"></div>
                             </div>
 
                         </div>
@@ -294,7 +239,11 @@
     </div>
 
     <div id="modal-backdrop" class="modal-backdrop hidden">
-        <div class="modal-content"><h3 id="modal-title"></h3><div id="modal-body"></div><div id="modal-actions" class="modal-actions"></div></div>
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
+        </div>
     </div>
 
     <script type="module" src="js/projects.js"></script>
