@@ -127,6 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btnProject = document.getElementById('view-project-btn');
     const sortSelect = document.getElementById('gantt-sort');
     const completedToggle = document.getElementById('gantt-show-completed');
+    const filterControls = document.getElementById('project-filter-controls');
 
     if (btnResource && btnProject) {
         btnResource.addEventListener('click', () => switchView('resource'));
@@ -149,6 +150,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function switchView(view) {
         state.currentView = view;
+        
         if(view === 'resource') {
             btnResource.classList.add('active');
             btnResource.style.background = 'var(--primary-blue)';
@@ -156,6 +158,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             btnProject.classList.remove('active');
             btnProject.style.background = 'transparent';
             btnProject.style.color = 'var(--text-dim)';
+            
+            // Hide Controls
+            if(filterControls) filterControls.style.display = 'none';
         } else {
             btnProject.classList.add('active');
             btnProject.style.background = 'var(--primary-blue)';
@@ -163,6 +168,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             btnResource.classList.remove('active');
             btnResource.style.background = 'transparent';
             btnResource.style.color = 'var(--text-dim)';
+            
+            // Show Controls
+            if(filterControls) filterControls.style.display = 'flex';
         }
         renderGantt();
     }
