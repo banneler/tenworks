@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     await fetchData(); 
     
-    // Auto-Refresh Data every 5 minutes
+    // Auto-Refresh
     setInterval(async () => {
         const icon = document.getElementById('refresh-icon');
         if(icon) icon.style.opacity = '1';
@@ -52,7 +52,6 @@ async function fetchData() {
     console.log("Refreshing Shop Data...");
     const today = dayjs().format('YYYY-MM-DD');
 
-    // Added estimated_hours to selection
     const [projRes, taskRes, assignRes, talentRes, tradeRes] = await Promise.all([
         supabase.from('projects').select('*').neq('status', 'Completed').order('end_date'),
         supabase.from('project_tasks').select('*, projects(name)').neq('status', 'Completed'),
@@ -80,13 +79,11 @@ function renderMetrics() {
     const tasksDue = state.tasks.filter(t => t.end_date === todayStr).length;
     document.getElementById('metric-tasks-today').textContent = tasksDue;
 
-    // Load = Total Assigned Hours / Total Capacity (10 hours per person)
     const totalCapacity = state.talent.length * 10;
     let assignedHours = 0;
     state.assignments.forEach(a => {
         assignedHours += (a.project_tasks?.estimated_hours || 0);
     });
-    
     const loadPct = totalCapacity > 0 ? Math.round((assignedHours / totalCapacity) * 100) : 0;
     document.getElementById('metric-shop-load').textContent = `${loadPct}%`;
 }
@@ -135,19 +132,12 @@ function renderGantt() {
         const laneCount = Math.max(1, lanes.length);
         const rowHeight = 60 + ((laneCount - 1) * 35); 
 
-        // Sidebar Row
+        // Sidebar
         const sbRow = document.createElement('div');
         sbRow.className = 'tv-row';
         sbRow.style.height = `${rowHeight}px`;
-        
-        let statusColor = '#888';
-        if(proj.status === 'In Progress') statusColor = 'var(--primary-blue)';
-        if(proj.status === 'On Hold') statusColor = '#ff9800';
-
-        sbRow.innerHTML = `
-            <div class="tv-row-header">${proj.name}</div>
-            <div class="tv-row-sub" style="color:${statusColor}">${proj.status}</div>
-        `;
+        let statusColor = proj.status === 'In Progress' ? 'var(--primary-blue)' : '#888';
+        sbRow.innerHTML = `<div class="tv-row-header">${proj.name}</div><div class="tv-row-sub" style="color:${statusColor}">${proj.status}</div>`;
         sidebar.appendChild(sbRow);
 
         // Timeline Row
@@ -157,7 +147,7 @@ function renderGantt() {
         tlRow.style.left = 0; tlRow.style.width = '100%'; tlRow.style.height = `${rowHeight}px`;
         tlRow.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
         
-        // Day Columns
+        // Grid BG
         const gridBg = document.createElement('div');
         gridBg.style.display = 'flex'; gridBg.style.height = '100%';
         for(let i=0; i<daysToShow; i++) {
@@ -181,13 +171,11 @@ function renderGantt() {
             bar.className = 'gantt-task-bar'; 
             bar.style.position = 'absolute';
             
-            const barHeight = 28;
-            const topOffset = 15 + (task.laneIndex * (barHeight + 5)); 
-            
+            const topOffset = 15 + (task.laneIndex * 33); 
             bar.style.top = `${topOffset}px`;
             bar.style.left = `${Math.max(0, diff * dayWidth)}px`;
             bar.style.width = `${Math.max(10, (dur * dayWidth) - 10)}px`;
-            bar.style.height = `${barHeight}px`;
+            bar.style.height = `28px`;
             bar.style.backgroundColor = TRADE_COLORS[task.trade_id] || '#555';
             bar.style.zIndex = 5;
             bar.style.fontSize = '0.75rem';
@@ -211,10 +199,7 @@ function renderGantt() {
                 const line = document.createElement('div');
                 line.className = 'gantt-finish-line'; 
                 line.style.left = `${diff * dayWidth}px`;
-                const flag = document.createElement('div');
-                flag.className = 'gantt-finish-flag';
-                flag.innerHTML = '<i class="fas fa-flag-checkered"></i>';
-                line.appendChild(flag);
+                line.innerHTML = '<div class="gantt-finish-flag"><i class="fas fa-flag-checkered"></i></div>';
                 tlRow.appendChild(line);
             }
         }
@@ -245,12 +230,21 @@ function packTasks(tasks) {
     return lanes; 
 }
 
-// --- RENDER MATRIX (SHIFT VIEW) ---
+// --- MATRIX RENDERER (12 HOUR SHIFT) ---
 function renderMatrix() {
     const list = document.getElementById('tv-matrix-list');
-    if(!list) return;
-    list.innerHTML = '';
+    const headerRow = document.getElementById('matrix-time-header');
+    
+    if(!list || !headerRow) return;
+    
+    // 1. Render Header (6am - 6pm)
+    const hours = [6,7,8,9,10,11,12,1,2,3,4,5];
+    headerRow.innerHTML = hours.map(h => 
+        `<div class="matrix-header-cell">${h}${h>=6 && h!=12 ? 'am':'pm'}</div>`
+    ).join('');
 
+    // 2. Render Rows
+    list.innerHTML = '';
     state.talent.forEach(person => {
         const assignments = state.assignments.filter(a => a.talent_id === person.id);
         const row = document.createElement('div');
@@ -259,36 +253,41 @@ function renderMatrix() {
         let timelineHtml = `
             <div class="matrix-timeline-container">
                 <div class="timeline-grid">
-                    ${[...Array(6)].map((_,i) => `<div class="time-col"><div class="time-label">${(6 + (i*2))}</div></div>`).join('')}
+                    ${[...Array(12)].map(() => `<div class="time-col"></div>`).join('')}
                 </div>
         `;
 
         if (assignments.length > 0) {
-            // Stack blocks horizontally based on estimated hours
-            // Total width = 12 hours (100%)
-            // 1 hour = 8.33%
+            let currentHour = 6; // Start at 6am
             
             assignments.forEach(a => {
                 const t = a.project_tasks;
-                const hours = t.estimated_hours || 2; // Default 2 hrs if missing
-                const widthPct = (hours / 12) * 100;
+                const taskHours = t.estimated_hours || 2; // Default if missing
                 const tradeColor = TRADE_COLORS[t.trade_id] || '#555';
                 
+                // Calculate Positioning (12 hour shift = 100%)
+                const widthPct = (taskHours / 12) * 100;
+                const leftPct = ((currentHour - 6) / 12) * 100;
+                
                 timelineHtml += `
-                    <div class="shift-block" style="width:${widthPct}%; background:${tradeColor};" title="${t.name} (${hours}h)">
+                    <div class="shift-block" style="left:${leftPct}%; width:${widthPct}%; background:${tradeColor};" title="${t.name}">
                         ${t.projects?.name} - ${t.name}
                     </div>
                 `;
+                
+                currentHour += taskHours;
             });
         } else {
-            timelineHtml += `<div style="padding-left:10px; color:#555; z-index:2; font-style:italic; font-size:0.8rem; align-self:center;">Available</div>`;
+            timelineHtml += `<div style="padding-left:10px; color:#555; z-index:2; font-style:italic; font-size:0.8rem; display:flex; align-items:center; height:100%;">Available</div>`;
         }
 
         timelineHtml += `</div>`; // Close container
 
         row.innerHTML = `
-            <div class="matrix-avatar">${person.name.substring(0,2).toUpperCase()}</div>
-            <div class="matrix-name">${person.name}</div>
+            <div class="matrix-user-col">
+                <div class="matrix-avatar">${person.name.substring(0,2).toUpperCase()}</div>
+                <div class="matrix-name">${person.name}</div>
+            </div>
             ${timelineHtml}
         `;
         list.appendChild(row);
