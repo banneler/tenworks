@@ -24,6 +24,7 @@ const TRADE_COLORS = {
 
 let state = {
     projects: [],
+    trades: [],
     currentProject: null,
     tasks: [],
     contacts: [],
@@ -40,6 +41,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     state.currentUser = user;
     await setupUserMenuAndAuth(supabase, { currentUser: user });
     await setupGlobalSearch(supabase, user);
+
+    // Pre-load trades for the launch modal
+    const { data: trades } = await supabase.from('shop_trades').select('*').order('id');
+    state.trades = trades || [];
 
     setupEventListeners();
     await loadProjectsList();
@@ -90,19 +95,24 @@ function renderProjectList() {
         .filter(p => p.name.toLowerCase().includes(search))
         .forEach(p => {
             const el = document.createElement('div');
-            el.className = 'item-list-row';
+            el.className = 'list-item'; // Use exact class from accounts.html
+            
             if(state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
             
-            // Clean Text Alignment (No Icon Square)
+            const initial = p.name.charAt(0).toUpperCase();
+            
+            // EXACT ACCOUNTS.HTML STRUCTURE
             el.innerHTML = `
-                <h4>${p.name}</h4>
-                <div>
-                    <span style="color:${getStatusColor(p.status)}">${p.status}</span>
-                    <span>${formatCurrency(p.project_value)}</span>
+                <div class="item-icon">${initial}</div>
+                <div class="contact-info">
+                    <div class="contact-name">${p.name}</div>
+                    <div class="account-name">
+                        <span style="color:${getStatusColor(p.status)}">${p.status}</span> • ${formatCurrency(p.project_value)}
+                    </div>
                 </div>
             `;
             el.onclick = () => {
-                document.querySelectorAll('.item-list-row').forEach(row => row.classList.remove('selected'));
+                document.querySelectorAll('.list-item').forEach(row => row.classList.remove('selected'));
                 el.classList.add('selected');
                 loadProjectDetails(p.id);
             };
@@ -120,9 +130,27 @@ function renderDetailView() {
     // Header Inputs
     document.getElementById('detail-name').value = p.name;
     document.getElementById('detail-status').value = p.status;
-    document.getElementById('detail-value').textContent = formatCurrency(p.project_value);
+    document.getElementById('header-value-display').textContent = formatCurrency(p.project_value);
     document.getElementById('detail-due-date').value = p.end_date || '';
-    document.getElementById('detail-scope').value = p.description || '';
+    
+    // Note: 'description' column often missing in schema cache, so we load scope from Notes or blank for now
+    // We will save scope changes to project_notes to be safe.
+    document.getElementById('detail-scope').value = p.description || ''; 
+
+    // Countdown Widget
+    const widget = document.getElementById('countdown-widget');
+    if(p.end_date) {
+        const diff = dayjs(p.end_date).diff(dayjs(), 'day');
+        let color = '#4CAF50'; 
+        if(diff < 0) color = '#F44336'; 
+        else if(diff <= 7) color = '#FFC107'; 
+        
+        widget.innerHTML = `<span class="countdown-badge" style="background:${color}20; color:${color}; border:1px solid ${color}40;">
+            ${diff < 0 ? Math.abs(diff) + ' Days Overdue' : diff + ' Days Left'}
+        </span>`;
+    } else {
+        widget.innerHTML = '';
+    }
 
     // Tab 1: KPIs
     const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
@@ -165,7 +193,6 @@ function renderDetailView() {
 function renderMiniGantt() {
     const header = document.getElementById('gantt-header');
     const body = document.getElementById('gantt-body');
-    const container = document.getElementById('mini-gantt-container');
     
     if(!state.tasks.length) {
         body.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-dim);">No tasks scheduled.</div>';
@@ -183,20 +210,17 @@ function renderMiniGantt() {
         if(e.isAfter(maxDate)) maxDate = e;
     });
 
-    // Buffer: -2 days start, +5 days end
     const start = minDate.subtract(2, 'day');
     const end = maxDate.add(5, 'day');
     const totalDays = end.diff(start, 'day') + 1;
     const dayWidth = 50;
 
-    // 2. Set Container Widths
     const totalWidth = totalDays * dayWidth;
     header.style.width = `${totalWidth}px`;
     body.style.width = `${totalWidth}px`;
     header.innerHTML = '';
     body.innerHTML = '';
 
-    // 3. Render Header Grid
     for(let i=0; i<totalDays; i++) {
         const d = start.add(i, 'day');
         const cell = document.createElement('div');
@@ -207,7 +231,6 @@ function renderMiniGantt() {
         header.appendChild(cell);
     }
 
-    // 4. Render Bars
     state.tasks.forEach((t, index) => {
         const tStart = dayjs(t.start_date);
         const tEnd = dayjs(t.end_date);
@@ -217,21 +240,18 @@ function renderMiniGantt() {
         const bar = document.createElement('div');
         bar.className = 'gantt-bar';
         bar.style.left = `${diffDays * dayWidth}px`;
-        bar.style.width = `${(duration * dayWidth) - 10}px`; // 10px gap
-        bar.style.top = `${(index * 30) + 10}px`; // Stagger vertically
+        bar.style.width = `${(duration * dayWidth) - 10}px`;
+        bar.style.top = `${(index * 38) + 10}px`; 
         bar.style.backgroundColor = TRADE_COLORS[t.trade_id] || '#555';
-        bar.innerHTML = `<span>${t.name}</span>`;
-
-        // Burn Line Overlay
-        if(t.estimated_hours > 0 && t.actual_hours > 0) {
-            const pct = Math.min((t.actual_hours / t.estimated_hours) * 100, 100);
-            const overlay = document.createElement('div');
-            overlay.className = 'burn-overlay';
-            overlay.style.width = `${pct}%`;
-            // Red if over budget
-            if(t.actual_hours > t.estimated_hours) overlay.style.background = '#ff4444';
-            bar.appendChild(overlay);
-        }
+        
+        // Burn Line (Schedule Page Logic)
+        const percent = t.estimated_hours ? (t.actual_hours / t.estimated_hours) : 0;
+        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.5)';
+        
+        bar.innerHTML = `
+            <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
+            <span style="position:relative; z-index:4;">${t.name}</span>
+        `;
 
         body.appendChild(bar);
     });
@@ -246,29 +266,48 @@ function renderFiles() {
                 <div style="color:var(--text-bright); font-weight:600;">${f.name}</div>
                 <div style="font-size:0.7rem; color:var(--text-dim);">${(f.metadata.size / 1024).toFixed(1)} KB</div>
             </div>
-            <button class="btn-text" onclick="window.previewFile('${f.name}')" style="color:var(--primary-gold); cursor:pointer;">View</button>
+            <button class="btn-secondary" onclick="window.previewFile('${f.name}')" style="font-size:0.75rem; padding:4px 10px;">View</button>
         </div>
     `).join('') || '<div style="color:var(--text-dim); padding:10px;">No files uploaded.</div>';
 }
 
 function renderLogs() {
     const list = document.getElementById('log-feed');
-    list.innerHTML = state.notes.map(n => `
+    list.innerHTML = state.notes.map(n => {
+        // Initials Logic: First of First, First of Last
+        let initials = 'TW';
+        if(n.author_name) {
+             // Handle "Chad Hershberger" -> "CH"
+             // Handle "CH" -> "CH"
+             const parts = n.author_name.split(' ');
+             if(parts.length > 1) {
+                 initials = (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+             } else {
+                 initials = n.author_name.substring(0,2).toUpperCase();
+             }
+        }
+
+        return `
         <div class="log-card">
             <div class="log-meta">
-                <span>${n.author_name || 'Sys'}</span>
+                <div style="display:flex; align-items:center;">
+                    <span class="log-avatar">${initials}</span>
+                    <span style="font-weight:600; color:var(--text-bright);">${n.author_name || 'System'}</span>
+                </div>
                 <span>${dayjs(n.created_at).format('MMM D, h:mm A')}</span>
             </div>
-            <div style="color:var(--text-bright);">${n.content}</div>
+            <div style="color:var(--text-bright); margin-left:34px;">${n.content}</div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 // --- 3. EVENT LISTENERS ---
 
 function setupEventListeners() {
-    // Search
     document.getElementById('project-search').addEventListener('input', renderProjectList);
+
+    // Launch Project (Modal Logic from Schedule.js)
+    document.getElementById('btn-launch-project').addEventListener('click', openLaunchProjectModal);
 
     // Save Changes
     document.getElementById('btn-save-main').addEventListener('click', async () => {
@@ -276,51 +315,56 @@ function setupEventListeners() {
         
         const newName = document.getElementById('detail-name').value;
         const newStatus = document.getElementById('detail-status').value;
-        const newDesc = document.getElementById('detail-scope').value;
+        const newScope = document.getElementById('detail-scope').value;
         const newDate = document.getElementById('detail-due-date').value;
         const oldDate = state.currentProject.end_date;
 
-        // 1. Update Project
+        // ERROR FIX: 'description' column often missing in schema. 
+        // We remove it from the direct update to prevent crash.
+        // We update Name, Status, End Date on the project.
         const { error } = await supabase.from('projects').update({
             name: newName,
             status: newStatus,
-            description: newDesc,
             end_date: newDate || null
         }).eq('id', state.currentProject.id);
 
         if(error) { alert('Save failed: ' + error.message); return; }
 
-        // 2. Check Date Change -> Insert System Note
+        // If Scope changed, save it as a note to preserve data
+        if(newScope !== (state.currentProject.description || '')) {
+            await createSystemNote(`Updated Scope: ${newScope}`);
+        }
+
+        // If Date changed, log it
         if(newDate !== oldDate) {
-            const initials = state.currentUser.email.substring(0,2).toUpperCase();
-            await supabase.from('project_notes').insert({
-                project_id: state.currentProject.id,
-                author_name: initials,
-                content: `Changed Due Date from ${oldDate || 'N/A'} to ${newDate || 'N/A'}`
-            });
+            await createSystemNote(`Changed Due Date from ${oldDate || 'N/A'} to ${newDate || 'N/A'}`);
         }
 
         alert('Project saved.');
-        loadProjectsList(); // Refresh list
-        loadProjectDetails(state.currentProject.id); // Refresh detail to show new log
+        loadProjectsList();
+        loadProjectDetails(state.currentProject.id);
     });
 
     // File Upload
     const btnUpload = document.getElementById('btn-upload-file');
     const fileInput = document.getElementById('file-input');
+    const statusSpan = document.getElementById('upload-status');
     
     btnUpload.addEventListener('click', () => fileInput.click());
     
     fileInput.addEventListener('change', async (e) => {
         if(!e.target.files.length) return;
         
+        statusSpan.style.display = 'inline-block'; // Show status
+        
         for(let file of e.target.files) {
             const path = `${state.currentProject.id}/${file.name}`;
             const { error } = await supabase.storage.from('project_files').upload(path, file);
-            if(error) alert(`Error uploading ${file.name}: ${error.message}`);
+            if(error && !error.message.includes('already exists')) alert(`Error uploading ${file.name}: ${error.message}`);
         }
         
-        loadProjectDetails(state.currentProject.id); // Refresh files
+        statusSpan.style.display = 'none'; // Hide status
+        loadProjectDetails(state.currentProject.id);
     });
 
     // Tabs
@@ -338,20 +382,150 @@ function setupEventListeners() {
     document.getElementById('btn-add-log').addEventListener('click', async () => {
         const txt = document.getElementById('new-log-input').value;
         if(!txt) return;
-        
-        const initials = state.currentUser.email.substring(0,2).toUpperCase();
-        await supabase.from('project_notes').insert({
-            project_id: state.currentProject.id,
-            author_name: initials,
-            content: txt
-        });
-        
+        await createSystemNote(txt);
         document.getElementById('new-log-input').value = '';
-        loadProjectDetails(state.currentProject.id); // Refresh logs
+        loadProjectDetails(state.currentProject.id);
     });
 }
 
-// --- HELPERS ---
+// --- HELPER: Create Note ---
+async function createSystemNote(content) {
+    let author = 'System';
+    if(state.currentUser && state.currentUser.user_metadata && state.currentUser.user_metadata.full_name) {
+        author = state.currentUser.user_metadata.full_name;
+    } else if(state.currentUser) {
+        author = state.currentUser.email;
+    }
+
+    await supabase.from('project_notes').insert({
+        project_id: state.currentProject.id,
+        author_name: author,
+        content: content
+    });
+}
+
+// --- HELPER: Business Days Logic (from Schedule.js) ---
+function addBusinessDays(date, daysToAdd) {
+    let d = dayjs(date);
+    let added = 0;
+    if (daysToAdd === 0) return d;
+    while (added < daysToAdd) {
+        d = d.add(1, 'day');
+        if (d.day() !== 0 && d.day() !== 6) added++;
+    }
+    return d;
+}
+
+// --- LAUNCH PROJECT MODAL (Stolen from Schedule.js) ---
+async function openLaunchProjectModal() {
+    const { data: deals, error } = await supabase.from('deals_tw').select('*').order('created_at', { ascending: false });
+    if (error) { alert("Error fetching deals: " + error.message); return; }
+    if (!deals || deals.length === 0) { alert("No deals found in 'deals_tw' table."); return; }
+
+    const options = deals.map(d => {
+        const name = d.deal_name || d.name || 'Unnamed';
+        const amt = d.amount || 0;
+        return `<option value="${d.id}" data-name="${name}" data-amt="${amt}">${name} (${formatCurrency(amt)})</option>`;
+    }).join('');
+
+    const today = dayjs();
+    const start = today; 
+    
+    // Default phases logic
+    const p1End = addBusinessDays(start, 2);  
+    const p2Start = addBusinessDays(p1End, 1);
+    const p2End = addBusinessDays(p2Start, 7); 
+    const p3Start = addBusinessDays(p2End, 1);
+    const p3End = addBusinessDays(p3Start, 14); 
+    const p4Start = addBusinessDays(p3End, 1);
+    const p4End = addBusinessDays(p4Start, 4); 
+    const defTarget = p4End.format('YYYY-MM-DD');
+
+    showModal('Launch Project Plan', `
+        <div class="form-group"><label>Select Deal</label><select id="launch-deal" class="form-control" style="background:var(--bg-dark); color:white; padding:10px; width:100%; box-sizing:border-box;">${options}</select></div>
+        <div style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h4 style="color:var(--text-bright); margin:0;">Phase Scheduling</h4>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; width:350px;">
+                    <div>
+                        <label style="margin:0; font-size:0.7rem; color:var(--text-dim);">Project Start:</label>
+                        <input type="date" id="master-start-date" class="form-control" style="width:100%;" value="${start.format('YYYY-MM-DD')}">
+                    </div>
+                    <div>
+                        <label style="margin:0; font-size:0.7rem; color:var(--primary-gold);">Target Completion:</label>
+                        <input type="date" id="master-end-date" class="form-control" style="width:100%; border:1px solid var(--primary-gold);" value="${defTarget}">
+                    </div>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; align-items:center; margin-bottom:5px; font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;"><span>Phase</span><span>Start</span><span>End</span><span>Est. Hrs</span></div>
+            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Kickoff</span><input type="date" id="p1-start" class="form-control" value="${start.format('YYYY-MM-DD')}"><input type="date" id="p1-end" class="form-control" value="${p1End.format('YYYY-MM-DD')}"><input type="number" id="p1-hrs" class="form-control" value="5"></div>
+            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Design</span><input type="date" id="p2-start" class="form-control" value="${p2Start.format('YYYY-MM-DD')}"><input type="date" id="p2-end" class="form-control" value="${p2End.format('YYYY-MM-DD')}"><input type="number" id="p2-hrs" class="form-control" value="20"></div>
+            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Fabrication</span><input type="date" id="p3-start" class="form-control" value="${p3Start.format('YYYY-MM-DD')}"><input type="date" id="p3-end" class="form-control" value="${p3End.format('YYYY-MM-DD')}"><input type="number" id="p3-hrs" class="form-control" value="80"></div>
+            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Installation</span><input type="date" id="p4-start" class="form-control" value="${p4Start.format('YYYY-MM-DD')}"><input type="date" id="p4-end" class="form-control" value="${p4End.format('YYYY-MM-DD')}"><input type="number" id="p4-hrs" class="form-control" value="24"></div>
+        </div>
+    `, async () => {
+        const sel = document.getElementById('launch-deal');
+        if(!sel.value) return;
+        const name = sel.options[sel.selectedIndex].dataset.name;
+        const amt = sel.options[sel.selectedIndex].dataset.amt;
+        const crdd = document.getElementById('master-end-date').value; 
+
+        const dates = {
+            p1s: document.getElementById('p1-start').value, p1e: document.getElementById('p1-end').value, p1h: document.getElementById('p1-hrs').value,
+            p2s: document.getElementById('p2-start').value, p2e: document.getElementById('p2-end').value, p2h: document.getElementById('p2-hrs').value,
+            p3s: document.getElementById('p3-start').value, p3e: document.getElementById('p3-end').value, p3h: document.getElementById('p3-hrs').value,
+            p4s: document.getElementById('p4-start').value, p4e: document.getElementById('p4-end').value, p4h: document.getElementById('p4-hrs').value,
+        };
+
+        // Insert Project (No description to avoid schema error)
+        const { data: proj, error: projError } = await supabase.from('projects').insert([{ 
+            deal_id: sel.value, 
+            name, 
+            start_date: dates.p1s, 
+            end_date: crdd, 
+            project_value: amt, 
+            status: 'Pre-Production' 
+        }]).select();
+        
+        if(projError) { alert(projError.message); return; }
+        const pid = proj[0].id;
+
+        // Insert Tasks
+        const { data: t1 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff & Plan', start_date: dates.p1s, end_date: dates.p1e, estimated_hours: dates.p1h }).select();
+        const { data: t2 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[1]?.id||2, name: 'CAD Drawings', start_date: dates.p2s, end_date: dates.p2e, estimated_hours: dates.p2h, dependency_task_id: t1[0].id }).select();
+        const { data: t3 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[2]?.id||3, name: 'Fabrication', start_date: dates.p3s, end_date: dates.p3e, estimated_hours: dates.p3h, dependency_task_id: t2[0].id }).select();
+        await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[4]?.id||5, name: 'Installation', start_date: dates.p4s, end_date: dates.p4e, estimated_hours: dates.p4h, dependency_task_id: t3[0].id });
+
+        loadProjectsList();
+    });
+    
+    // Wire up date logic for the modal
+    setTimeout(() => {
+        document.getElementById('master-start-date').addEventListener('change', (e) => {
+            const s = dayjs(e.target.value);
+            const d1e = addBusinessDays(s, 2);
+            const d2s = addBusinessDays(d1e, 1);
+            const d2e = addBusinessDays(d2s, 7);
+            const d3s = addBusinessDays(d2e, 1);
+            const d3e = addBusinessDays(d3s, 14);
+            const d4s = addBusinessDays(d3e, 1);
+            const d4e = addBusinessDays(d4s, 4);
+
+            document.getElementById('p1-start').value = s.format('YYYY-MM-DD');
+            document.getElementById('p1-end').value = d1e.format('YYYY-MM-DD');
+            document.getElementById('p2-start').value = d2s.format('YYYY-MM-DD');
+            document.getElementById('p2-end').value = d2e.format('YYYY-MM-DD');
+            document.getElementById('p3-start').value = d3s.format('YYYY-MM-DD');
+            document.getElementById('p3-end').value = d3e.format('YYYY-MM-DD');
+            document.getElementById('p4-start').value = d4s.format('YYYY-MM-DD');
+            document.getElementById('p4-end').value = d4e.format('YYYY-MM-DD');
+            
+            document.getElementById('master-end-date').value = d4e.format('YYYY-MM-DD');
+        });
+    }, 100);
+}
+
+// --- HELPER: Status Color ---
 function getStatusColor(status) {
     if(status === 'In Progress') return 'var(--primary-blue)';
     if(status === 'Completed') return '#4CAF50';
