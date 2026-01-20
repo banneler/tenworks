@@ -50,12 +50,13 @@ function updateClock() {
 
 async function fetchData() {
     console.log("Refreshing Shop Data...");
-    const today = dayjs().format('YYYY-MM-DD');
+    // Use simple string format for DB queries to avoid timezone shifts
+    const todayStr = dayjs().format('YYYY-MM-DD');
 
     const [projRes, taskRes, assignRes, talentRes, tradeRes] = await Promise.all([
         supabase.from('projects').select('*').neq('status', 'Completed').order('end_date'),
         supabase.from('project_tasks').select('*, projects(name)').neq('status', 'Completed'),
-        supabase.from('task_assignments').select('*, project_tasks(name, estimated_hours, projects(name), trade_id)').eq('assigned_date', today),
+        supabase.from('task_assignments').select('*, project_tasks(name, estimated_hours, projects(name), trade_id)').eq('assigned_date', todayStr),
         supabase.from('shop_talent').select('*').eq('active', true).order('name'),
         supabase.from('shop_trades').select('*')
     ]);
@@ -171,11 +172,13 @@ function renderGantt() {
             bar.className = 'gantt-task-bar'; 
             bar.style.position = 'absolute';
             
+            const barHeight = 28;
             const topOffset = 15 + (task.laneIndex * 33); 
+            
             bar.style.top = `${topOffset}px`;
             bar.style.left = `${Math.max(0, diff * dayWidth)}px`;
             bar.style.width = `${Math.max(10, (dur * dayWidth) - 10)}px`;
-            bar.style.height = `28px`;
+            bar.style.height = `${barHeight}px`;
             bar.style.backgroundColor = TRADE_COLORS[task.trade_id] || '#555';
             bar.style.zIndex = 5;
             bar.style.fontSize = '0.75rem';
@@ -230,7 +233,7 @@ function packTasks(tasks) {
     return lanes; 
 }
 
-// --- RENDER MATRIX (12 HOUR SHIFT) ---
+// --- MATRIX RENDERER (12 HOUR SHIFT) ---
 function renderMatrix() {
     const list = document.getElementById('tv-matrix-list');
     const headerRow = document.getElementById('matrix-time-header');
@@ -269,9 +272,23 @@ function renderMatrix() {
                 const widthPct = (taskHours / 12) * 100;
                 const leftPct = ((currentHour - 6) / 12) * 100;
                 
+                // DYNAMIC TEXT SIZING
+                // Short Block (<= 2hr): Task Name Only, Small Font
+                // Med Block (< 4hr): Full Name, Small Font
+                // Long Block: Full Name, Standard Font
+                let displayText = `${t.projects?.name} - ${t.name}`;
+                let fontSize = '0.75rem';
+                
+                if (taskHours <= 2) {
+                    displayText = t.name; // Drop project name
+                    fontSize = '0.65rem';
+                } else if (taskHours < 4) {
+                    fontSize = '0.7rem';
+                }
+
                 timelineHtml += `
-                    <div class="shift-block" style="left:${leftPct}%; width:${widthPct}%; background:${tradeColor};" title="${t.name}">
-                        ${t.projects?.name} - ${t.name}
+                    <div class="shift-block" style="left:${leftPct}%; width:${widthPct}%; background:${tradeColor}; font-size:${fontSize};" title="${t.projects?.name} - ${t.name}">
+                        ${displayText}
                     </div>
                 `;
                 
