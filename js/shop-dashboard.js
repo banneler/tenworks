@@ -10,7 +10,7 @@ const dayjs = window.dayjs;
 const TRADE_COLORS = {
     1: '#546E7A', // Kickoff
     2: '#1E88E5', // Design
-    3: '#D4AF37', // Fabrication (Gold)
+    3: '#D4AF37', // Fabrication
     4: '#8D6E63', // Wood
     5: '#66BB6A', // Install
     6: '#7E57C2'  // Finish
@@ -82,92 +82,95 @@ function renderMetrics() {
     const tasksDue = state.tasks.filter(t => t.end_date === todayStr).length;
     document.getElementById('metric-tasks-today').textContent = tasksDue;
 
-    // Capacity: Assigned vs Total
     const totalTalent = state.talent.length;
     const assignedTalent = new Set(state.assignments.map(a => a.talent_id)).size;
     const loadPct = totalTalent > 0 ? Math.round((assignedTalent / totalTalent) * 100) : 0;
     document.getElementById('metric-shop-load').textContent = `${loadPct}%`;
 }
 
-// --- RENDER GANTT (WITH SWIMLANES & FINISH LINES) ---
+// --- RENDER GANTT (SCHEDULE PAGE CLONE) ---
 function renderGantt() {
-    const container = document.getElementById('tv-gantt-wrapper');
-    container.innerHTML = '';
-
-    const canvas = document.createElement('div');
-    canvas.style.position = 'relative';
-    canvas.style.height = '100%';
-    canvas.style.overflow = 'hidden'; 
+    const sidebar = document.getElementById('gantt-sidebar-content');
+    const header = document.getElementById('gantt-header');
+    const body = document.getElementById('gantt-body');
     
+    sidebar.innerHTML = '';
+    header.innerHTML = '';
+    body.innerHTML = '';
+
     // Config
     const daysToShow = 21; 
-    const dayWidth = (container.clientWidth / daysToShow); 
-    const start = dayjs().subtract(2, 'day'); // Show slight history
+    const containerWidth = body.parentElement.clientWidth;
+    const dayWidth = containerWidth / daysToShow;
+    const start = dayjs().subtract(2, 'day'); 
 
-    // 1. Draw Grid Background
-    const bg = document.createElement('div');
-    bg.style.position = 'absolute'; bg.style.top = 0; bg.style.left = 0; bg.style.width = '100%'; bg.style.height = '100%'; bg.style.display = 'flex';
-    
+    // 1. Render Header Grid
     for(let i=0; i<daysToShow; i++) {
         const d = start.add(i, 'day');
         const col = document.createElement('div');
-        col.style.flex = 1; col.style.borderRight = '1px solid rgba(255,255,255,0.05)';
-        col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.alignItems = 'center'; col.style.paddingTop = '5px';
+        col.style.width = `${dayWidth}px`;
+        col.style.borderRight = '1px solid rgba(255,255,255,0.05)';
+        col.style.display = 'flex'; col.style.flexDirection = 'column'; col.style.alignItems = 'center'; col.style.justifyContent = 'center';
         col.innerHTML = `<span style="color:#666; font-size:0.7rem;">${d.format('dd')}</span><span style="color:#aaa; font-weight:bold; font-size:0.9rem;">${d.format('D')}</span>`;
         if(d.day() === 0 || d.day() === 6) col.style.background = 'rgba(255,255,255,0.02)';
         if(d.isSame(dayjs(), 'day')) col.style.background = 'rgba(179, 140, 98, 0.15)'; 
-        bg.appendChild(col);
+        header.appendChild(col);
     }
-    canvas.appendChild(bg);
 
-    // 2. Render Projects & Tasks (With Packing)
-    const visibleProjects = state.projects.slice(0, 5); // Max 5 projects to fit vertically
-    let currentY = 40; // Start below header area
+    // 2. Render Rows (Sidebar + Grid)
+    // Limit to fits-on-screen (e.g., top 6)
+    const visibleProjects = state.projects.slice(0, 6);
+    const rowHeight = 70;
 
-    visibleProjects.forEach(proj => {
-        // Filter tasks for this project that are in view
+    visibleProjects.forEach((proj, idx) => {
+        // A. Sidebar Row
+        const sbRow = document.createElement('div');
+        sbRow.className = 'tv-row';
+        sbRow.style.height = `${rowHeight}px`;
+        
+        let statusColor = '#888';
+        if(proj.status === 'In Progress') statusColor = 'var(--primary-blue)';
+        if(proj.status === 'On Hold') statusColor = '#ff9800';
+
+        sbRow.innerHTML = `
+            <div class="tv-row-header">${proj.name}</div>
+            <div class="tv-row-sub" style="color:${statusColor}">${proj.status}</div>
+        `;
+        sidebar.appendChild(sbRow);
+
+        // B. Timeline Row (Background)
+        const tlRow = document.createElement('div');
+        tlRow.style.position = 'absolute';
+        tlRow.style.top = `${idx * rowHeight}px`;
+        tlRow.style.left = 0; tlRow.style.width = '100%'; tlRow.style.height = `${rowHeight}px`;
+        tlRow.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        
+        // Add Day Columns to Row (Visual only)
+        const gridBg = document.createElement('div');
+        gridBg.style.display = 'flex'; gridBg.style.height = '100%';
+        for(let i=0; i<daysToShow; i++) {
+            const d = start.add(i, 'day');
+            const cell = document.createElement('div');
+            cell.style.flex = 1; cell.style.borderRight = '1px solid rgba(255,255,255,0.05)';
+            if(d.day() === 0 || d.day() === 6) cell.style.background = 'rgba(255,255,255,0.02)';
+            if(d.isSame(dayjs(), 'day')) cell.style.background = 'rgba(179, 140, 98, 0.1)'; 
+            gridBg.appendChild(cell);
+        }
+        tlRow.appendChild(gridBg);
+
+        // C. Render Tasks (Bars)
         const pTasks = state.tasks.filter(t => t.project_id === proj.id && 
             dayjs(t.end_date).isAfter(start) && 
             dayjs(t.start_date).isBefore(start.add(daysToShow, 'day'))
         );
 
-        // Pack tasks into lanes (Prevent Overlap)
+        // Pack tasks (Swimlanes)
         const lanes = packTasks(pTasks);
-        const rowHeight = Math.max(50, lanes.length * 35 + 20); 
-
-        // Project Label
-        const label = document.createElement('div');
-        label.textContent = proj.name;
-        label.style.position = 'absolute';
-        label.style.top = `${currentY}px`;
-        label.style.left = '10px';
-        label.style.zIndex = 10;
-        label.style.color = 'var(--primary-blue)';
-        label.style.fontWeight = '800';
-        label.style.fontSize = '1.1rem';
-        label.style.textShadow = '0 2px 4px black';
-        canvas.appendChild(label);
-
-        // Finish Line (If in view)
-        if(proj.end_date) {
-            const finishDate = dayjs(proj.end_date);
-            const diff = finishDate.diff(start, 'day');
-            if(diff >= 0 && diff < daysToShow) {
-                const line = document.createElement('div');
-                line.className = 'gantt-finish-line';
-                line.style.left = `${diff * dayWidth}px`;
-                line.style.top = `${currentY}px`;
-                line.style.height = `${rowHeight}px`;
-                
-                const flag = document.createElement('div');
-                flag.className = 'gantt-finish-flag';
-                flag.innerHTML = '<i class="fas fa-flag-checkered"></i>';
-                line.appendChild(flag);
-                canvas.appendChild(line);
-            }
-        }
-
-        // Render Bars
+        
+        // Calculate dynamic bar height based on packed lanes to fit within 70px row
+        // We have 70px. If 1 lane: 40px bar. If 2 lanes: 25px bars.
+        const barHeight = lanes.length > 1 ? 24 : 36;
+        
         pTasks.forEach(task => {
             const tStart = dayjs(task.start_date);
             const tEnd = dayjs(task.end_date);
@@ -175,35 +178,59 @@ function renderGantt() {
             const dur = tEnd.diff(tStart, 'day') + 1;
             
             const bar = document.createElement('div');
+            bar.className = 'gantt-task-bar'; // Inherits from projects.css
             bar.style.position = 'absolute';
-            bar.style.top = `${currentY + 25 + (task.laneIndex * 32)}px`; // Stack based on lane
-            bar.style.left = `${Math.max(0, diff * dayWidth)}px`;
-            bar.style.width = `${Math.max(10, dur * dayWidth)}px`;
-            bar.style.height = '26px';
-            bar.style.background = TRADE_COLORS[task.trade_id] || '#555';
-            bar.style.borderRadius = '3px';
-            bar.style.boxShadow = '0 2px 5px rgba(0,0,0,0.8)';
-            bar.style.border = '1px solid rgba(255,255,255,0.2)';
-            bar.style.zIndex = 5;
             
-            bar.innerHTML = `<span style="padding-left:5px; color:white; font-size:0.75rem; font-weight:600; line-height:26px; white-space:nowrap;">${task.name}</span>`;
-            canvas.appendChild(bar);
+            const topOffset = 10 + (task.laneIndex * (barHeight + 4));
+            bar.style.top = `${topOffset}px`;
+            
+            bar.style.left = `${Math.max(0, diff * dayWidth)}px`;
+            bar.style.width = `${Math.max(10, (dur * dayWidth) - 10)}px`;
+            bar.style.height = `${barHeight}px`;
+            bar.style.backgroundColor = TRADE_COLORS[task.trade_id] || '#555';
+            bar.style.zIndex = 5;
+            bar.style.fontSize = lanes.length > 1 ? '0.7rem' : '0.8rem';
+
+            // Burn Rate Overlay
+            const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
+            const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)';
+            const burnWidth = Math.min(percent * 100, 100);
+
+            bar.innerHTML = `
+                <div class="burn-line" style="width:${burnWidth}%; background:${burnColor}; box-shadow:0 0 5px ${burnColor};"></div>
+                <span class="gantt-task-info" style="padding-left:8px;">${task.name}</span>
+            `;
+            tlRow.appendChild(bar);
         });
 
-        currentY += rowHeight + 10; // Margin between projects
-    });
+        // D. Finish Line
+        if(proj.end_date) {
+            const finishDate = dayjs(proj.end_date);
+            const diff = finishDate.diff(start, 'day');
+            if(diff >= 0 && diff < daysToShow) {
+                const line = document.createElement('div');
+                line.className = 'gantt-finish-line'; // Inherits CSS
+                line.style.left = `${diff * dayWidth}px`;
+                
+                const flag = document.createElement('div');
+                flag.className = 'gantt-finish-flag';
+                flag.innerHTML = '<i class="fas fa-flag-checkered"></i>';
+                line.appendChild(flag);
+                tlRow.appendChild(line);
+            }
+        }
 
-    container.appendChild(canvas);
+        body.appendChild(tlRow);
+    });
 }
 
-// Helper: Basic Swimlane Packer
+// Helper: Swimlane Packer
 function packTasks(tasks) {
     const sorted = [...tasks].sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date)));
     const lanes = []; 
     sorted.forEach(task => {
         let placed = false;
         for(let i=0; i<lanes.length; i++) {
-            // If this lane's last task ends before current task starts
             if (dayjs(lanes[i]).isBefore(dayjs(task.start_date))) {
                 task.laneIndex = i;
                 lanes[i] = task.end_date;
@@ -282,25 +309,23 @@ function startAutoScroll() {
     const scroller = document.getElementById('tv-matrix-scroller');
     const list = document.getElementById('tv-matrix-list');
     let scrollPos = 0;
-    let direction = 1; // 1 = down, -1 = up
+    let direction = 1; 
     let pause = 0;
 
     setInterval(() => {
-        if(list.clientHeight <= scroller.clientHeight) return; // No scroll needed
+        if(list.clientHeight <= scroller.clientHeight) return; 
         if(pause > 0) { pause--; return; }
 
-        scrollPos += (0.5 * direction); // Slow scroll
+        scrollPos += (0.5 * direction);
         scroller.scrollTop = scrollPos;
 
-        // Hit bottom
         if (scrollPos >= (list.clientHeight - scroller.clientHeight)) {
             direction = -1;
-            pause = 200; // Pause at bottom for ~3 seconds
+            pause = 200; 
         }
-        // Hit top
         if (scrollPos <= 0) {
             direction = 1;
-            pause = 200; // Pause at top
+            pause = 200; 
         }
-    }, 16); // ~60fps
+    }, 16); 
 }
