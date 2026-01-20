@@ -34,26 +34,27 @@
             position: relative;
         }
 
-        /* WATERMARK BACKGROUND */
+        /* WATERMARK BACKGROUND (Higher Opacity) */
         #tv-watermark {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80vw;
-            opacity: 0.03; /* Very subtle */
+            width: 70vw; /* Slightly smaller to ensure it centers nicely */
+            opacity: 0.15; /* INCREASED VISIBILITY */
             pointer-events: none;
             z-index: 0;
+            filter: grayscale(100%);
         }
         #tv-watermark img { width: 100%; }
 
-        /* GRID LAYOUT - MAXIMIZED */
+        /* GRID LAYOUT */
         .tv-grid {
             display: grid;
-            grid-template-rows: auto 2fr 3fr auto; /* Metrics | Gantt (40%) | Matrix (60%) | Footer */
+            grid-template-rows: auto 2fr 3fr auto; /* Metrics | Gantt | Matrix | Footer */
             gap: 20px;
             height: 100%;
-            z-index: 1; /* Sit above watermark */
+            z-index: 1; 
             position: relative;
         }
 
@@ -63,7 +64,7 @@
             top: 0;
             right: 0;
             text-align: right;
-            z-index: 10;
+            z-index: 50;
             background: rgba(0,0,0,0.6);
             padding: 10px 20px;
             border-bottom-left-radius: 10px;
@@ -86,31 +87,31 @@
             letter-spacing: 1px;
         }
 
-        /* 2. METRICS ROW */
+        /* 2. METRICS ROW (More Transparent) */
         .tv-metrics {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 15px;
-            padding-right: 260px; /* Space for the floating clock */
+            padding-right: 260px; 
         }
         .tv-metric-card {
-            background: rgba(17, 17, 17, 0.85); /* Slight transparency */
-            border: 1px solid #333;
+            background: rgba(20, 20, 20, 0.6); /* INCREASED TRANSPARENCY */
+            border: 1px solid rgba(255,255,255,0.1);
             padding: 12px;
             border-radius: 6px;
             text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             backdrop-filter: blur(5px);
         }
         .tv-metric-val { font-size: 2rem; font-weight: 800; font-family: 'Rajdhani'; color: var(--primary-blue); line-height: 1; }
-        .tv-metric-lbl { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; }
+        .tv-metric-lbl { font-size: 0.8rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; }
 
-        /* 3. TITLES */
+        /* 3. SECTION TITLES */
         .section-title {
             font-family: 'Rajdhani';
             font-size: 1.4rem;
             color: white;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.7);
             border-left: 4px solid var(--primary-blue);
             padding: 5px 15px;
             margin-bottom: 8px;
@@ -118,45 +119,83 @@
             justify-content: space-between;
             align-items: center;
             border-radius: 0 4px 4px 0;
+            backdrop-filter: blur(2px);
         }
 
-        /* 4. GANTT (Timeline) */
-        .tv-gantt-container {
-            background: rgba(21, 24, 28, 0.85);
-            border: 1px solid #333;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
+        /* 4. GANTT CONTAINER (Schedule Page Structure) */
+        .tv-gantt-wrapper {
             display: flex;
             flex-direction: column;
-        }
-        /* Finish Line Stripe */
-        .gantt-finish-line {
-            position: absolute;
-            top: 0; bottom: 0; width: 40px; 
-            background: repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.1), rgba(212, 175, 55, 0.1) 10px, rgba(212, 175, 55, 0.05) 10px, rgba(212, 175, 55, 0.05) 20px);
-            border-right: 2px solid var(--primary-blue);
-            z-index: 1; pointer-events: none;
-        }
-        .gantt-finish-flag {
-            position: absolute; bottom: 10px; right: 5px;
-            font-size: 20px; color: var(--primary-blue); opacity: 0.8;
+            background: rgba(20, 20, 20, 0.6); /* Transparent */
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
         }
 
-        /* 5. TALENT MATRIX (Auto-Scrolling) */
+        /* The Grid Frame (Sidebar | Timeline) */
+        .gantt-frame {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .gantt-sidebar {
+            background: rgba(255,255,255,0.02);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+        }
+
+        .gantt-timeline {
+            position: relative;
+            overflow: hidden;
+            background: rgba(0,0,0,0.2);
+        }
+
+        /* Rows */
+        .tv-row {
+            height: 70px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-left: 15px;
+        }
+        
+        .tv-row-header {
+            font-family: 'Rajdhani';
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .tv-row-sub {
+            font-family: 'Inter';
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        /* 5. MATRIX (Auto-Scrolling) */
         .tv-matrix-wrapper {
-            background: rgba(21, 24, 28, 0.85);
-            border: 1px solid #333;
+            background: rgba(20, 20, 20, 0.6);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 8px;
             overflow: hidden;
             position: relative;
             display: flex;
             flex-direction: column;
+            backdrop-filter: blur(5px);
         }
         
         .tv-matrix-scroller {
             flex: 1;
-            overflow-y: hidden; /* We scroll via JS */
+            overflow-y: hidden; 
             position: relative;
         }
 
@@ -165,10 +204,10 @@
             align-items: center;
             padding: 8px 15px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
-            height: 60px; /* Fixed height for consistent scroll math */
-            background: rgba(0,0,0,0.2);
+            height: 60px; 
+            background: rgba(0,0,0,0.1);
         }
-        .matrix-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+        .matrix-row:nth-child(even) { background: rgba(255,255,255,0.03); }
 
         .matrix-avatar {
             width: 44px; height: 44px; border-radius: 50%; 
@@ -197,7 +236,7 @@
 
         /* 6. HOT LIST */
         .tv-hot-list {
-            background: rgba(34, 10, 10, 0.8);
+            background: rgba(34, 10, 10, 0.6);
             border: 1px solid #d32f2f;
             border-radius: 8px;
             padding: 10px 20px;
@@ -205,6 +244,7 @@
             align-items: center;
             gap: 20px;
             height: 50px;
+            backdrop-filter: blur(5px);
         }
         .hot-list-marquee {
             flex: 1; overflow: hidden; white-space: nowrap; color: #ffcccc; font-size: 1.1rem;
@@ -238,15 +278,25 @@
                 <div class="tv-metric-val" id="metric-shop-load">0%</div>
                 <div class="tv-metric-lbl">Capacity</div>
             </div>
-            </div>
+        </div>
 
-        <div style="display:flex; flex-direction:column; overflow:hidden;">
-            <div class="section-title">
+        <div class="tv-gantt-wrapper">
+            <div class="section-title" style="border-radius:0;">
                 <span>PROJECT TIMELINE (21 DAYS)</span>
                 <span style="font-size: 0.9rem; color: #888; opacity:0.7;"><i class="fas fa-sync fa-spin" id="refresh-icon"></i> LIVE</span>
             </div>
-            <div id="tv-gantt-wrapper" class="tv-gantt-container" style="flex:1;">
+            
+            <div class="gantt-frame">
+                <div class="gantt-sidebar">
+                    <div style="height:40px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; padding-left:15px; color:#888; font-size:0.8rem; font-weight:700;">PROJECT / STATUS</div>
+                    <div id="gantt-sidebar-content"></div>
                 </div>
+                
+                <div class="gantt-timeline">
+                    <div id="gantt-header" style="height:40px; display:flex; border-bottom:1px solid rgba(255,255,255,0.1);"></div>
+                    <div id="gantt-body" style="position:relative; height:calc(100% - 40px);"></div>
+                </div>
+            </div>
         </div>
 
         <div class="tv-matrix-wrapper">
