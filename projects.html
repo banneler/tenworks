@@ -50,14 +50,16 @@
         .gantt-date-cell { min-width: 50px; border-right: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-dim); }
         .gantt-body { position: relative; height: 100%; background-image: linear-gradient(90deg, var(--border-color) 1px, transparent 1px); background-size: 50px 100%; }
         
+        /* Taller bars as requested */
         .gantt-bar {
-            position: absolute; height: 24px; border-radius: 4px; font-size: 0.7rem; 
-            display: flex; align-items: center; padding-left: 8px; color: white;
+            position: absolute; height: 32px; border-radius: 4px; font-size: 0.75rem; 
+            display: flex; align-items: center; padding-left: 10px; color: white; font-weight: 600;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden;
-            cursor: default;
+            cursor: default; z-index: 2;
         }
 
-        .burn-overlay { position: absolute; bottom: 0; left: 0; height: 4px; background: rgba(255,255,255,0.8); z-index: 2; }
+        /* Burn Line (Actual vs Est) */
+        .burn-line { position: absolute; bottom: 0; left: 0; height: 4px; z-index: 3; transition: width 0.3s ease; }
 
         /* File List */
         .file-row { display: flex; align-items: center; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); margin-bottom: 8px; border-radius: 4px; transition: 0.2s; }
@@ -72,6 +74,13 @@
         .log-card { padding: 12px; background: var(--bg-dark); border-left: 3px solid var(--border-color); margin-bottom: 10px; font-size: 0.9rem; }
         .log-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; }
         
+        /* Initials Circle */
+        .log-avatar {
+            display: inline-flex; width: 24px; height: 24px; border-radius: 50%; 
+            background: var(--primary-blue); color: white; align-items: center; 
+            justify-content: center; font-size: 0.7rem; font-weight: bold; margin-right: 8px;
+        }
+
         /* Tabs */
         .tab-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; gap: 20px; }
         .tab-link { padding: 10px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; font-family: 'Rajdhani'; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid transparent; transition: 0.2s; }
@@ -80,13 +89,24 @@
         .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* HEADER VALUE STYLING */
+        #header-value-display {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--completed-color); /* Money Green */
+            text-align: right;
+            line-height: 1;
+        }
+        
+        /* COUNTDOWN WIDGET */
+        .countdown-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px; 
+            font-weight: 700; font-size: 0.85rem; margin-top: 5px;
+        }
+
         /* Specific overrides to match Accounts Page Split View */
         .split-view { height: calc(100vh - 80px); }
-        .item-list-row { padding: 12px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s; }
-        .item-list-row:hover { background: var(--bg-light); }
-        .item-list-row.selected { background: var(--bg-light); border-left: 3px solid var(--primary-gold); }
-        .item-list-row h4 { margin: 0; font-size: 0.95rem; color: var(--text-bright); }
-        .item-list-row div { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; display: flex; justify-content: space-between; }
     </style>
 </head>
 
@@ -123,7 +143,7 @@
                     
                     <div class="item-list-container">
                         <div style="padding: 15px; border-bottom: 1px solid var(--border-color);">
-                            <button id="btn-add-project" class="btn-primary full-width">Add New Project</button>
+                            <button id="btn-launch-project" class="btn-primary full-width"><i class="fas fa-rocket"></i> Launch Project</button>
                             <input type="text" id="project-search" placeholder="Search projects..." class="form-control" style="width:100%; margin-top:10px;">
                         </div>
                         <div id="project-list" class="item-list"></div>
@@ -141,7 +161,7 @@
                                     <label style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Project Name</label>
                                     <input type="text" id="detail-name" style="background:transparent; border:none; border-bottom:1px solid var(--border-color); width:100%; font-family:'Rajdhani'; font-size:1.8rem; font-weight:700; color:var(--text-bright); padding:5px 0;">
                                     
-                                    <div style="display:flex; gap:15px; margin-top:10px;">
+                                    <div style="display:flex; gap:15px; margin-top:10px; align-items: center;">
                                         <div>
                                             <label style="font-size:0.7rem; color:var(--text-dim);">Status</label>
                                             <select id="detail-status" style="background:var(--bg-dark); border:none; color:var(--primary-gold); font-weight:600; font-size:0.9rem;">
@@ -152,16 +172,17 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label style="font-size:0.7rem; color:var(--text-dim);">Value</label>
-                                            <div id="detail-value" style="font-weight:600; font-size:0.9rem;">$0.00</div>
-                                        </div>
-                                        <div>
                                             <label style="font-size:0.7rem; color:var(--text-dim);">Due Date</label>
                                             <input type="date" id="detail-due-date" style="background:transparent; border:none; color:var(--text-bright); font-family:'Inter'; font-size:0.9rem;">
                                         </div>
                                     </div>
                                 </div>
-                                <button id="btn-save-main" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                                
+                                <div style="text-align:right;">
+                                    <div id="header-value-display">$0.00</div>
+                                    <div id="countdown-widget"></div>
+                                    <button id="btn-save-main" class="btn-primary" style="margin-top:10px;"><i class="fas fa-save"></i> Save Changes</button>
+                                </div>
                             </div>
 
                             <div class="tab-nav">
@@ -212,6 +233,7 @@
                             <div id="tab-files" class="tab-content">
                                 <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
                                     <button id="btn-upload-file" class="btn-secondary"><i class="fas fa-upload"></i> Upload File</button>
+                                    <span id="upload-status" style="color:var(--primary-gold); font-weight:600; display:none;">Uploading...</span>
                                     <input type="file" id="file-input" style="display:none;" multiple>
                                 </div>
                                 <div id="file-list"></div>
