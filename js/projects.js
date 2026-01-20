@@ -245,21 +245,20 @@ function renderMiniGantt() {
         const duration = tEnd.diff(tStart, 'day') + 1;
         
         const bar = document.createElement('div');
-        bar.className = 'gantt-bar';
+        // KEY CHANGE: Use 'gantt-task-bar' from projects.css, NOT 'gantt-bar'
+        bar.className = 'gantt-task-bar';
         bar.style.left = `${diffDays * dayWidth}px`;
         bar.style.width = `${(duration * dayWidth) - 10}px`;
         bar.style.top = `${(index * 45) + 10}px`; 
         bar.style.backgroundColor = TRADE_COLORS[t.trade_id] || '#555';
         
-        // Burn Rate / Progress Overlay
+        // Burn Rate / Progress Overlay (Matches Schedule.js logic)
         const percent = t.estimated_hours ? (t.actual_hours / t.estimated_hours) : 0;
-        const burnWidth = Math.min(percent * 100, 100);
-        const isOverBudget = percent > 1;
-
-        // Render Bar Content
+        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.5)';
+        
         bar.innerHTML = `
-            <div class="burn-line ${isOverBudget ? 'over-budget' : ''}" style="width:${burnWidth}%;"></div>
-            <span style="position:relative; z-index:4;">${t.name}</span>
+            <span class="gantt-task-info" style="pointer-events:none; padding-left:8px;">${t.name}</span>
+            <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
         `;
 
         body.appendChild(bar);
