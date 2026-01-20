@@ -41,23 +41,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         dragEl: null,
         dragStartX: 0,
         dragStartLeft: 0,
-        hasMoved: false
+        hasMoved: false,
+        // New Filters
+        showCompleted: false,
+        sortBy: 'start_date'
     };
 
     // ------------------------------------------------------------------------
     // 3. HELPERS (BUSINESS DAYS & COLORS)
     // ------------------------------------------------------------------------
     
-    // 5-DAY WORK WEEK CALCULATION
     function addBusinessDays(date, daysToAdd) {
         let d = dayjs(date);
         let added = 0;
-        // If adding 0 days (single day task), return same day unless weekend
         if (daysToAdd === 0) return d;
         
         while (added < daysToAdd) {
             d = d.add(1, 'day');
-            // 0 = Sunday, 6 = Saturday. Skip them.
             if (d.day() !== 0 && d.day() !== 6) {
                 added++;
             }
@@ -65,14 +65,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         return d;
     }
 
-    // Industrial Color Palette
     const TRADE_COLORS = {
-        1: '#546E7A', // Kickoff (Blue Grey)
-        2: '#1E88E5', // Design (Engineering Blue)
-        3: '#D4AF37', // Fabrication (Metallic Gold/Bronze)
-        4: '#8D6E63', // Woodworking (Walnut)
-        5: '#66BB6A', // Installation (Green)
-        6: '#7E57C2'  // Finishing (Purple)
+        1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 
+        4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2' 
     };
 
     function getProjectColor(id) {
@@ -130,10 +125,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     const btnResource = document.getElementById('view-resource-btn');
     const btnProject = document.getElementById('view-project-btn');
+    const sortSelect = document.getElementById('gantt-sort');
+    const completedToggle = document.getElementById('gantt-show-completed');
 
     if (btnResource && btnProject) {
         btnResource.addEventListener('click', () => switchView('resource'));
         btnProject.addEventListener('click', () => switchView('project'));
+    }
+
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            state.sortBy = e.target.value;
+            renderGantt();
+        });
+    }
+
+    if (completedToggle) {
+        completedToggle.addEventListener('change', (e) => {
+            state.showCompleted = e.target.checked;
+            renderGantt();
+        });
     }
 
     function switchView(view) {
@@ -223,7 +234,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         resourceList.innerHTML = '';
         gridCanvas.innerHTML = '';
 
-        const rows = state.currentView === 'resource' ? state.trades : state.projects;
+        let rows = [];
+        if (state.currentView === 'resource') {
+            rows = state.trades;
+        } else {
+            // FILTER PROJECTS
+            rows = state.projects.filter(p => {
+                if (state.showCompleted) return true;
+                return p.status !== 'Completed';
+            });
+
+            // SORT PROJECTS
+            rows.sort((a, b) => {
+                const dateA = dayjs(a[state.sortBy] || '2099-01-01');
+                const dateB = dayjs(b[state.sortBy] || '2099-01-01');
+                return dateA.diff(dateB);
+            });
+        }
+
         let currentY = 0; 
 
         rows.forEach((rowItem, index) => {
@@ -577,23 +605,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>
             <div style="margin-top:20px; text-align:right; border-top:1px solid var(--border-color); padding-top:15px;">
                 <button id="delete-task-btn" style="background:#773030; color:white; border:none; padding:8px 12px; border-radius:4px; float:left;">Delete Task</button>
+                <button id="save-task-btn" class="btn-primary">Save Changes</button>
             </div>
-        `, async () => {
-            const newStatus = document.getElementById('edit-status').value;
-            const newActual = document.getElementById('edit-actual').value;
-            const newStart = document.getElementById('edit-start').value;
-            const newEnd = document.getElementById('edit-end').value;
-
-            const { error } = await supabase.from('project_tasks').update({ 
-                status: newStatus, 
-                actual_hours: newActual, 
-                start_date: newStart, 
-                end_date: newEnd 
-            }).eq('id', task.id);
-
-            if (error) alert('Error: ' + error.message);
-            else loadShopData();
-        });
+        `, async () => {});
 
         setTimeout(() => {
             const startInput = document.getElementById('edit-start');
@@ -611,6 +625,24 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             startInput.addEventListener('change', updateEnd);
             durInput.addEventListener('change', updateEnd);
+
+            const saveBtn = document.getElementById('save-task-btn');
+            if (saveBtn) saveBtn.onclick = async () => {
+                const newStatus = document.getElementById('edit-status').value;
+                const newActual = document.getElementById('edit-actual').value;
+                const newStart = document.getElementById('edit-start').value;
+                const newEnd = document.getElementById('edit-end').value;
+
+                const { error } = await supabase.from('project_tasks').update({ 
+                    status: newStatus, 
+                    actual_hours: newActual, 
+                    start_date: newStart, 
+                    end_date: newEnd 
+                }).eq('id', task.id);
+
+                if (error) alert('Error: ' + error.message);
+                else { hideModal(); loadShopData(); }
+            };
 
             const delBtn = document.getElementById('delete-task-btn');
             if(delBtn) delBtn.onclick = async () => {
@@ -648,7 +680,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 10. MISSION PLANNER
+    // 10. MISSION PLANNER (UNCHANGED)
     // ------------------------------------------------------------------------
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
