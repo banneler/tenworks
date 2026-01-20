@@ -39,20 +39,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(icon) setTimeout(() => icon.style.opacity = '0.3', 2000);
     }, 300000);
 
-    // Start Matrix Auto-Scroll
     startAutoScroll();
 });
 
-// --- CLOCK ---
 function updateClock() {
     const now = dayjs();
     document.getElementById('clock-time').textContent = now.format('HH:mm');
     document.getElementById('clock-date').textContent = now.format('ddd, MMM D');
 }
 
-// --- DATA FETCHING ---
 async function fetchData() {
-    console.log("Refreshing Data...");
+    console.log("Refreshing Shop Data...");
     const today = dayjs().format('YYYY-MM-DD');
 
     const [projRes, taskRes, assignRes, talentRes, tradeRes] = await Promise.all([
@@ -75,7 +72,6 @@ async function fetchData() {
     renderHotList();
 }
 
-// --- RENDER METRICS ---
 function renderMetrics() {
     document.getElementById('metric-active-projects').textContent = state.projects.length;
     
@@ -89,7 +85,7 @@ function renderMetrics() {
     document.getElementById('metric-shop-load').textContent = `${loadPct}%`;
 }
 
-// --- RENDER GANTT (FULL REFACTOR) ---
+// --- GANTT RENDERER (FIXED LAYOUT) ---
 function renderGantt() {
     const sidebar = document.getElementById('gantt-sidebar-content');
     const header = document.getElementById('gantt-header');
@@ -120,15 +116,30 @@ function renderGantt() {
         header.appendChild(col);
     }
 
-    // 2. Render Rows (Sidebar + Grid)
-    const visibleProjects = state.projects.slice(0, 6);
-    const rowHeight = 70;
+    // 2. Render Rows with DYNAMIC HEIGHT
+    const visibleProjects = state.projects.slice(0, 8); // Allow more projects if they fit
+    let currentY = 0; // Accumulator for vertical position
 
-    visibleProjects.forEach((proj, idx) => {
+    visibleProjects.forEach((proj) => {
+        // Find tasks for this project in view
+        const pTasks = state.tasks.filter(t => t.project_id === proj.id && 
+            dayjs(t.end_date).isAfter(start) && 
+            dayjs(t.start_date).isBefore(start.add(daysToShow, 'day'))
+        );
+
+        // Pack tasks to determine lanes
+        const lanes = packTasks(pTasks);
+        
+        // --- HEIGHT CALCULATION FIX ---
+        // Base height is 60px. Add 30px for every extra swimlane.
+        // If 0 or 1 lane: 60px. If 2 lanes: 90px. etc.
+        const laneCount = Math.max(1, lanes.length);
+        const rowHeight = 60 + ((laneCount - 1) * 35); 
+
         // A. Sidebar Row
         const sbRow = document.createElement('div');
         sbRow.className = 'tv-row';
-        sbRow.style.height = `${rowHeight}px`;
+        sbRow.style.height = `${rowHeight}px`; // APPLY DYNAMIC HEIGHT
         
         let statusColor = '#888';
         if(proj.status === 'In Progress') statusColor = 'var(--primary-blue)';
@@ -140,14 +151,16 @@ function renderGantt() {
         `;
         sidebar.appendChild(sbRow);
 
-        // B. Timeline Row (Background)
+        // B. Timeline Row Container
         const tlRow = document.createElement('div');
         tlRow.style.position = 'absolute';
-        tlRow.style.top = `${idx * rowHeight}px`;
-        tlRow.style.left = 0; tlRow.style.width = '100%'; tlRow.style.height = `${rowHeight}px`;
+        tlRow.style.top = `${currentY}px`; // USE ACCUMULATED Y POSITION
+        tlRow.style.left = 0; 
+        tlRow.style.width = '100%'; 
+        tlRow.style.height = `${rowHeight}px`; // APPLY DYNAMIC HEIGHT
         tlRow.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
         
-        // Add Day Columns
+        // Add Day Columns (Background Grid)
         const gridBg = document.createElement('div');
         gridBg.style.display = 'flex'; gridBg.style.height = '100%';
         for(let i=0; i<daysToShow; i++) {
@@ -160,15 +173,7 @@ function renderGantt() {
         }
         tlRow.appendChild(gridBg);
 
-        // C. Render Tasks (Bars)
-        const pTasks = state.tasks.filter(t => t.project_id === proj.id && 
-            dayjs(t.end_date).isAfter(start) && 
-            dayjs(t.start_date).isBefore(start.add(daysToShow, 'day'))
-        );
-
-        const lanes = packTasks(pTasks);
-        const barHeight = lanes.length > 1 ? 24 : 36;
-        
+        // C. Render Bars
         pTasks.forEach(task => {
             const tStart = dayjs(task.start_date);
             const tEnd = dayjs(task.end_date);
@@ -179,14 +184,17 @@ function renderGantt() {
             bar.className = 'gantt-task-bar'; 
             bar.style.position = 'absolute';
             
-            const topOffset = 10 + (task.laneIndex * (barHeight + 4));
+            // Stack based on lane index
+            const barHeight = 28;
+            const topOffset = 15 + (task.laneIndex * (barHeight + 5)); 
+            
             bar.style.top = `${topOffset}px`;
             bar.style.left = `${Math.max(0, diff * dayWidth)}px`;
             bar.style.width = `${Math.max(10, (dur * dayWidth) - 10)}px`;
             bar.style.height = `${barHeight}px`;
             bar.style.backgroundColor = TRADE_COLORS[task.trade_id] || '#555';
             bar.style.zIndex = 5;
-            bar.style.fontSize = lanes.length > 1 ? '0.7rem' : '0.8rem';
+            bar.style.fontSize = '0.75rem';
 
             // Burn Rate
             const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
@@ -218,6 +226,9 @@ function renderGantt() {
         }
 
         body.appendChild(tlRow);
+        
+        // INCREMENT Y FOR NEXT ROW
+        currentY += rowHeight; 
     });
 }
 
@@ -242,27 +253,29 @@ function packTasks(tasks) {
     return lanes; 
 }
 
-// --- RENDER MATRIX ---
 function renderMatrix() {
     const list = document.getElementById('tv-matrix-list');
     if(!list) return;
     list.innerHTML = '';
 
     state.talent.forEach(person => {
-        const assign = state.assignments.find(a => a.talent_id === person.id);
+        const assignments = state.assignments.filter(a => a.talent_id === person.id);
         const row = document.createElement('div');
         row.className = 'matrix-row';
         
         let statusHtml = '';
-        if (assign) {
-            const t = assign.project_tasks;
-            const tradeColor = TRADE_COLORS[t.trade_id] || '#fff';
-            statusHtml = `
-                <div class="matrix-task" style="border-left: 4px solid ${tradeColor}">
-                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.projects?.name} - ${t.name}</span>
-                    <span style="color:${tradeColor}; font-weight:800; font-size:0.8rem; margin-left:10px;">ON TASK</span>
-                </div>
-            `;
+        if (assignments.length > 0) {
+            // Show all assignments in a flex row
+            const items = assignments.map(a => {
+                const t = a.project_tasks;
+                const tradeColor = TRADE_COLORS[t.trade_id] || '#fff';
+                return `
+                    <div class="matrix-task" style="border-left: 3px solid ${tradeColor}; margin-right:10px; flex:1;">
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.projects?.name} - ${t.name}</span>
+                    </div>
+                `;
+            }).join('');
+            statusHtml = `<div style="display:flex; flex:1; overflow:hidden;">${items}</div>`;
         } else {
             statusHtml = `
                 <div class="matrix-task unassigned">
@@ -280,7 +293,6 @@ function renderMatrix() {
     });
 }
 
-// --- HOT LIST ---
 function renderHotList() {
     const container = document.getElementById('hot-list-content');
     if(!container) return;
@@ -302,7 +314,6 @@ function renderHotList() {
     }
 }
 
-// --- AUTO SCROLL MATRIX ---
 function startAutoScroll() {
     const scroller = document.getElementById('tv-matrix-scroller');
     const list = document.getElementById('tv-matrix-list');
