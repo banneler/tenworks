@@ -52,6 +52,7 @@ function updateClock() {
 
 // --- DATA FETCHING ---
 async function fetchData() {
+    console.log("Refreshing Data...");
     const today = dayjs().format('YYYY-MM-DD');
 
     const [projRes, taskRes, assignRes, talentRes, tradeRes] = await Promise.all([
@@ -88,12 +89,14 @@ function renderMetrics() {
     document.getElementById('metric-shop-load').textContent = `${loadPct}%`;
 }
 
-// --- RENDER GANTT (SCHEDULE PAGE CLONE) ---
+// --- RENDER GANTT (FULL REFACTOR) ---
 function renderGantt() {
     const sidebar = document.getElementById('gantt-sidebar-content');
     const header = document.getElementById('gantt-header');
     const body = document.getElementById('gantt-body');
     
+    if(!sidebar || !header || !body) return;
+
     sidebar.innerHTML = '';
     header.innerHTML = '';
     body.innerHTML = '';
@@ -118,7 +121,6 @@ function renderGantt() {
     }
 
     // 2. Render Rows (Sidebar + Grid)
-    // Limit to fits-on-screen (e.g., top 6)
     const visibleProjects = state.projects.slice(0, 6);
     const rowHeight = 70;
 
@@ -145,7 +147,7 @@ function renderGantt() {
         tlRow.style.left = 0; tlRow.style.width = '100%'; tlRow.style.height = `${rowHeight}px`;
         tlRow.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
         
-        // Add Day Columns to Row (Visual only)
+        // Add Day Columns
         const gridBg = document.createElement('div');
         gridBg.style.display = 'flex'; gridBg.style.height = '100%';
         for(let i=0; i<daysToShow; i++) {
@@ -164,11 +166,7 @@ function renderGantt() {
             dayjs(t.start_date).isBefore(start.add(daysToShow, 'day'))
         );
 
-        // Pack tasks (Swimlanes)
         const lanes = packTasks(pTasks);
-        
-        // Calculate dynamic bar height based on packed lanes to fit within 70px row
-        // We have 70px. If 1 lane: 40px bar. If 2 lanes: 25px bars.
         const barHeight = lanes.length > 1 ? 24 : 36;
         
         pTasks.forEach(task => {
@@ -178,12 +176,11 @@ function renderGantt() {
             const dur = tEnd.diff(tStart, 'day') + 1;
             
             const bar = document.createElement('div');
-            bar.className = 'gantt-task-bar'; // Inherits from projects.css
+            bar.className = 'gantt-task-bar'; 
             bar.style.position = 'absolute';
             
             const topOffset = 10 + (task.laneIndex * (barHeight + 4));
             bar.style.top = `${topOffset}px`;
-            
             bar.style.left = `${Math.max(0, diff * dayWidth)}px`;
             bar.style.width = `${Math.max(10, (dur * dayWidth) - 10)}px`;
             bar.style.height = `${barHeight}px`;
@@ -191,7 +188,7 @@ function renderGantt() {
             bar.style.zIndex = 5;
             bar.style.fontSize = lanes.length > 1 ? '0.7rem' : '0.8rem';
 
-            // Burn Rate Overlay
+            // Burn Rate
             const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
             const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)';
             const burnWidth = Math.min(percent * 100, 100);
@@ -209,7 +206,7 @@ function renderGantt() {
             const diff = finishDate.diff(start, 'day');
             if(diff >= 0 && diff < daysToShow) {
                 const line = document.createElement('div');
-                line.className = 'gantt-finish-line'; // Inherits CSS
+                line.className = 'gantt-finish-line'; 
                 line.style.left = `${diff * dayWidth}px`;
                 
                 const flag = document.createElement('div');
@@ -224,7 +221,6 @@ function renderGantt() {
     });
 }
 
-// Helper: Swimlane Packer
 function packTasks(tasks) {
     const sorted = [...tasks].sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date)));
     const lanes = []; 
@@ -249,6 +245,7 @@ function packTasks(tasks) {
 // --- RENDER MATRIX ---
 function renderMatrix() {
     const list = document.getElementById('tv-matrix-list');
+    if(!list) return;
     list.innerHTML = '';
 
     state.talent.forEach(person => {
@@ -286,6 +283,7 @@ function renderMatrix() {
 // --- HOT LIST ---
 function renderHotList() {
     const container = document.getElementById('hot-list-content');
+    if(!container) return;
     const today = dayjs();
     const hotTasks = state.tasks.filter(t => {
         const end = dayjs(t.end_date);
@@ -308,6 +306,8 @@ function renderHotList() {
 function startAutoScroll() {
     const scroller = document.getElementById('tv-matrix-scroller');
     const list = document.getElementById('tv-matrix-list');
+    if(!scroller || !list) return;
+
     let scrollPos = 0;
     let direction = 1; 
     let pause = 0;
