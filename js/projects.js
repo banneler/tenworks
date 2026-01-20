@@ -30,7 +30,8 @@ let state = {
     contacts: [],
     files: [],
     notes: [],
-    currentUser: null
+    currentUser: null,
+    hideZeroValue: true // Default: Hide $0 projects
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -68,7 +69,7 @@ async function loadProjectDetails(projectId) {
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
     state.currentProject = project;
 
-    // 2. Parallel Fetch: Tasks, Contacts (Joined), Notes, Files
+    // 2. Parallel Fetch
     const [tasksRes, contactsRes, notesRes, filesRes] = await Promise.all([
         supabase.from('project_tasks').select('*').eq('project_id', projectId).order('start_date'),
         supabase.from('project_contacts').select('role, contacts(id, first_name, last_name, email, phone)').eq('project_id', projectId),
@@ -91,30 +92,34 @@ function renderProjectList() {
     const search = document.getElementById('project-search').value.toLowerCase();
     listEl.innerHTML = '';
 
-    state.projects
-        .filter(p => p.name.toLowerCase().includes(search))
-        .forEach(p => {
-            const el = document.createElement('div');
-            el.className = 'list-item'; 
-            
-            if(state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
-            
-            // CLEAN LAYOUT: NO ORPHAN ICON, Just Text
-            el.innerHTML = `
-                <div class="contact-info" style="padding-left:0;">
-                    <div class="contact-name">${p.name}</div>
-                    <div class="account-name">
-                        <span style="color:${getStatusColor(p.status)}">${p.status}</span> • ${formatCurrency(p.project_value)}
-                    </div>
+    // Filter Logic: Search Text AND (HideZero Toggle)
+    const filtered = state.projects.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(search);
+        const matchesValue = !state.hideZeroValue || (p.project_value > 0);
+        return matchesSearch && matchesValue;
+    });
+
+    filtered.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'list-item'; 
+        
+        if(state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
+        
+        el.innerHTML = `
+            <div class="contact-info" style="padding-left:0;">
+                <div class="contact-name">${p.name}</div>
+                <div class="account-name">
+                    <span style="color:${getStatusColor(p.status)}">${p.status}</span> • ${formatCurrency(p.project_value)}
                 </div>
-            `;
-            el.onclick = () => {
-                document.querySelectorAll('.list-item').forEach(row => row.classList.remove('selected'));
-                el.classList.add('selected');
-                loadProjectDetails(p.id);
-            };
-            listEl.appendChild(el);
-        });
+            </div>
+        `;
+        el.onclick = () => {
+            document.querySelectorAll('.list-item').forEach(row => row.classList.remove('selected'));
+            el.classList.add('selected');
+            loadProjectDetails(p.id);
+        };
+        listEl.appendChild(el);
+    });
 }
 
 function renderDetailView() {
@@ -129,7 +134,7 @@ function renderDetailView() {
     document.getElementById('detail-status').value = p.status;
     document.getElementById('header-value-display').textContent = formatCurrency(p.project_value);
     
-    // Date Range in Header
+    // Date Range
     document.getElementById('detail-start-date').value = p.start_date || '';
     document.getElementById('detail-due-date').value = p.end_date || '';
     
@@ -151,7 +156,7 @@ function renderDetailView() {
         widget.innerHTML = '';
     }
 
-    // Tab 1: KPIs
+    // KPI Calc
     const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
     const totalAct = state.tasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
     const progress = totalEst > 0 ? Math.round((totalAct / totalEst) * 100) : 0;
@@ -160,7 +165,14 @@ function renderDetailView() {
     document.getElementById('kpi-act').textContent = totalAct;
     document.getElementById('kpi-progress').textContent = `${progress}%`;
 
-    // Tab 1: Team
+    // Render Tabs
+    renderTeam();
+    renderMiniGantt();
+    renderFiles();
+    renderLogs();
+}
+
+function renderTeam() {
     const teamEl = document.getElementById('team-list');
     teamEl.innerHTML = state.contacts.map(c => {
         const contact = c.contacts;
@@ -178,15 +190,6 @@ function renderDetailView() {
             </div>
         `;
     }).join('') || '<div style="color:var(--text-dim); padding:10px; font-style:italic;">No contacts assigned.</div>';
-
-    // Tab 2: Gantt
-    renderMiniGantt();
-
-    // Tab 3: Files
-    renderFiles();
-
-    // Tab 4: Logs
-    renderLogs();
 }
 
 function renderMiniGantt() {
@@ -198,7 +201,7 @@ function renderMiniGantt() {
         return;
     }
 
-    // 1. Calculate Date Range
+    // Date Range
     let minDate = dayjs(state.tasks[0].start_date);
     let maxDate = dayjs(state.tasks[0].end_date);
 
@@ -220,7 +223,7 @@ function renderMiniGantt() {
     header.innerHTML = '';
     body.innerHTML = '';
 
-    // Header Dates
+    // Header Grid
     for(let i=0; i<totalDays; i++) {
         const d = start.add(i, 'day');
         const cell = document.createElement('div');
@@ -248,9 +251,11 @@ function renderMiniGantt() {
         // Burn Rate / Progress Overlay
         const percent = t.estimated_hours ? (t.actual_hours / t.estimated_hours) : 0;
         const burnWidth = Math.min(percent * 100, 100);
-        
+        const isOverBudget = percent > 1;
+
+        // Render Bar Content
         bar.innerHTML = `
-            <div class="burn-line" style="width:${burnWidth}%;"></div>
+            <div class="burn-line ${isOverBudget ? 'over-budget' : ''}" style="width:${burnWidth}%;"></div>
             <span style="position:relative; z-index:4;">${t.name}</span>
         `;
 
@@ -267,9 +272,9 @@ function renderFiles() {
                 <div style="color:var(--text-bright); font-weight:600;">${f.name}</div>
                 <div style="font-size:0.7rem; color:var(--text-dim);">${(f.metadata.size / 1024).toFixed(1)} KB</div>
             </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn-text" onclick="window.previewFile('${f.name}')" style="color:var(--primary-gold); cursor:pointer;">View</button>
-                <button class="btn-text" onclick="window.downloadFile('${f.name}')" style="color:var(--text-bright); cursor:pointer;">Download</button>
+            <div class="file-actions">
+                <button class="btn-file-action btn-view" onclick="window.previewFile('${f.name}')">View</button>
+                <button class="btn-file-action btn-dl" onclick="window.downloadFile('${f.name}')">Download</button>
             </div>
         </div>
     `).join('') || '<div style="color:var(--text-dim); padding:10px;">No files uploaded.</div>';
@@ -308,7 +313,13 @@ function setupEventListeners() {
     document.getElementById('project-search').addEventListener('input', renderProjectList);
     document.getElementById('btn-launch-project').addEventListener('click', openLaunchProjectModal);
 
-    // Save Changes (Moved to Tab Row)
+    // Hide $0 Toggle
+    document.getElementById('toggle-hide-zero').addEventListener('change', (e) => {
+        state.hideZeroValue = e.target.checked;
+        renderProjectList();
+    });
+
+    // Save Changes
     document.getElementById('btn-save-main').addEventListener('click', async () => {
         if(!state.currentProject) return;
         
@@ -319,15 +330,21 @@ function setupEventListeners() {
         const newDueDate = document.getElementById('detail-due-date').value;
         const oldDate = state.currentProject.end_date;
 
+        // 1. Update DB (Including Description now)
         const { error } = await supabase.from('projects').update({
             name: newName,
             status: newStatus,
+            description: newScope, // Attempting to save scope directly
             start_date: newStartDate || null,
             end_date: newDueDate || null
         }).eq('id', state.currentProject.id);
 
-        if(error) { alert('Save failed: ' + error.message); return; }
+        if(error) { 
+            console.error("Save Error:", error);
+            alert('Save failed (Check console). Note: Scope saved to logs as backup.'); 
+        }
 
+        // 2. System Notes (Backup/Audit)
         if(newScope !== (state.currentProject.description || '')) {
             await createSystemNote(`Updated Scope: ${newScope}`);
         }
@@ -409,10 +426,9 @@ function addBusinessDays(date, daysToAdd) {
     return d;
 }
 
-// --- FILE HELPERS (Signed URLs) ---
+// --- FILE HELPERS ---
 
 window.previewFile = async (fileName) => {
-    // 60 minute signed URL for preview
     const { data, error } = await supabase.storage.from('project_files').createSignedUrl(`${state.currentProject.id}/${fileName}`, 3600);
     if(data) {
         const wrapper = document.getElementById('file-preview-wrapper');
@@ -420,15 +436,12 @@ window.previewFile = async (fileName) => {
         wrapper.style.display = 'block';
         frame.src = data.signedUrl;
     } else {
-        console.error("Preview error:", error);
-        alert("Could not load preview. Try downloading.");
+        alert("Could not load preview.");
     }
 };
 
 window.downloadFile = async (fileName) => {
-    const { data, error } = await supabase.storage.from('project_files').createSignedUrl(`${state.currentProject.id}/${fileName}`, 60, {
-        download: true
-    });
+    const { data } = await supabase.storage.from('project_files').createSignedUrl(`${state.currentProject.id}/${fileName}`, 60, { download: true });
     if(data) {
         const a = document.createElement('a');
         a.href = data.signedUrl;
@@ -436,8 +449,6 @@ window.downloadFile = async (fileName) => {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-    } else {
-        alert("Error creating download link.");
     }
 };
 
