@@ -132,7 +132,7 @@ function renderGantt() {
         const laneCount = Math.max(1, lanes.length);
         const rowHeight = 60 + ((laneCount - 1) * 35); 
 
-        // Sidebar
+        // Sidebar Row
         const sbRow = document.createElement('div');
         sbRow.className = 'tv-row';
         sbRow.style.height = `${rowHeight}px`;
@@ -230,7 +230,7 @@ function packTasks(tasks) {
     return lanes; 
 }
 
-// --- MATRIX RENDERER (12 HOUR SHIFT) ---
+// --- RENDER MATRIX (12 HOUR SHIFT) ---
 function renderMatrix() {
     const list = document.getElementById('tv-matrix-list');
     const headerRow = document.getElementById('matrix-time-header');
