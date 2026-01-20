@@ -198,22 +198,35 @@ function renderTeam() {
 function renderMiniGantt() {
     const header = document.getElementById('gantt-header');
     const body = document.getElementById('gantt-body');
+    const project = state.currentProject;
     
-    if(!state.tasks.length) {
+    if(!state.tasks.length && !project.end_date) {
         body.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-dim);">No tasks scheduled.</div>';
         return;
     }
 
-    // Date Range
-    let minDate = dayjs(state.tasks[0].start_date);
-    let maxDate = dayjs(state.tasks[0].end_date);
+    // 1. Calculate Date Range (Tasks vs Project Due Date)
+    let minDate = dayjs();
+    let maxDate = dayjs().add(14, 'day'); // Default buffer
 
-    state.tasks.forEach(t => {
-        const s = dayjs(t.start_date);
-        const e = dayjs(t.end_date);
-        if(s.isBefore(minDate)) minDate = s;
-        if(e.isAfter(maxDate)) maxDate = e;
-    });
+    if(state.tasks.length > 0) {
+        minDate = dayjs(state.tasks[0].start_date);
+        maxDate = dayjs(state.tasks[0].end_date);
+        
+        state.tasks.forEach(t => {
+            const s = dayjs(t.start_date);
+            const e = dayjs(t.end_date);
+            if(s.isBefore(minDate)) minDate = s;
+            if(e.isAfter(maxDate)) maxDate = e;
+        });
+    }
+
+    // If project has an end date, make sure the timeline includes it
+    if(project.end_date) {
+        const pEnd = dayjs(project.end_date);
+        if(pEnd.isAfter(maxDate)) maxDate = pEnd;
+        if(pEnd.isBefore(minDate)) minDate = pEnd.subtract(2, 'day');
+    }
 
     const start = minDate.subtract(2, 'day');
     const end = maxDate.add(5, 'day');
@@ -226,7 +239,7 @@ function renderMiniGantt() {
     header.innerHTML = '';
     body.innerHTML = '';
 
-    // Header Grid
+    // 2. Render Header Grid
     for(let i=0; i<totalDays; i++) {
         const d = start.add(i, 'day');
         const cell = document.createElement('div');
@@ -237,27 +250,65 @@ function renderMiniGantt() {
         header.appendChild(cell);
     }
 
-    // Bars
+    // 3. Render Finish Line
+    let targetPixel = null;
+    if(project.end_date) {
+        const finishDate = dayjs(project.end_date);
+        const diff = finishDate.diff(start, 'day');
+        if(diff >= 0 && diff < totalDays) {
+            targetPixel = (diff + 1) * dayWidth; // Right edge of the day
+            const line = document.createElement('div');
+            line.className = 'gantt-finish-line';
+            line.style.left = `${diff * dayWidth}px`; // Start of the deadline day
+            line.title = `Due Date: ${finishDate.format('MMM D')}`;
+            
+            const flag = document.createElement('div');
+            flag.className = 'gantt-finish-flag';
+            flag.innerHTML = '<i class="fas fa-flag-checkered"></i>';
+            
+            line.appendChild(flag);
+            body.appendChild(line);
+        }
+    }
+
+    // 4. Render Bars
     state.tasks.forEach((t, index) => {
         const tStart = dayjs(t.start_date);
         const tEnd = dayjs(t.end_date);
         const diffDays = tStart.diff(start, 'day');
         const duration = tEnd.diff(tStart, 'day') + 1;
         
-        const bar = document.createElement('div');
-        // KEY CHANGE: Use 'gantt-task-bar' from projects.css, NOT 'gantt-bar'
-        bar.className = 'gantt-task-bar';
-        bar.style.left = `${diffDays * dayWidth}px`;
-        bar.style.width = `${(duration * dayWidth) - 10}px`;
-        bar.style.top = `${(index * 45) + 10}px`; 
-        bar.style.backgroundColor = TRADE_COLORS[t.trade_id] || '#555';
+        const barLeft = diffDays * dayWidth;
+        const barWidth = (duration * dayWidth) - 10;
         
-        // Burn Rate / Progress Overlay (Matches Schedule.js logic)
+        const bar = document.createElement('div');
+        bar.className = 'gantt-task-bar'; // Updated class for taller bars
+        bar.style.left = `${barLeft}px`;
+        bar.style.width = `${barWidth}px`;
+        bar.style.top = `${(index * 60) + 15}px`; // Increased vertical spacing for 50px bars
+        
+        const baseColor = TRADE_COLORS[t.trade_id] || '#555';
+        
+        // --- OVERRUN LOGIC (Schedule Page Architecture) ---
+        if (targetPixel !== null && (barLeft + barWidth) > targetPixel) {
+             // Task crosses deadline!
+             const safeWidth = Math.max(0, targetPixel - barLeft);
+             const safePercent = (safeWidth / barWidth) * 100;
+             
+             // Gradient: Safe Color -> Sharp Transition -> Alert Red
+             bar.style.background = `linear-gradient(90deg, ${baseColor} ${safePercent}%, #ff4444 ${safePercent}%)`;
+             bar.style.border = '1px solid #ff4444';
+        } else {
+             // Safe Task
+             bar.style.backgroundColor = baseColor;
+        }
+
+        // Burn Rate / Progress Overlay
         const percent = t.estimated_hours ? (t.actual_hours / t.estimated_hours) : 0;
-        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.5)';
+        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)'; // Bright white or Red
         
         bar.innerHTML = `
-            <span class="gantt-task-info" style="pointer-events:none; padding-left:8px;">${t.name}</span>
+            <span class="gantt-task-info">${t.name}</span>
             <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
         `;
 
