@@ -87,6 +87,12 @@ async function loadProjectDetails(projectId) {
 
 // --- 2. RENDERING ---
 
+function renderBOM() {
+    const bomTab = document.getElementById('tab-bom');
+    // Fetch BOM items from project_bom table
+    // Render a table of required materials vs allocated
+    // Add a button to "Allocated Stock" which subtracts from inventory_items.qty_on_hand
+}
 function renderProjectList() {
     const listEl = document.getElementById('project-list');
     const search = document.getElementById('project-search').value.toLowerCase();
