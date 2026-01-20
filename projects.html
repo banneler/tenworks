@@ -26,66 +26,39 @@
 
     <style>
         /* --- SCOPED OVERRIDES FOR PROJECTS VIEW --- */
-        
-        /* KPI Cards */
         .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
         .kpi-card { background: var(--bg-dark); border: 1px solid var(--border-color); padding: 15px; border-radius: 6px; text-align: center; }
         .kpi-value { font-family: 'Rajdhani', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--text-bright); }
         .kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 
-        /* Gantt Specifics - Container only (Bars are now handled by projects.css) */
         .mini-gantt-container {
-            width: 100%;
-            overflow-x: auto; /* Horizontal Scroll Only */
-            overflow-y: hidden;
-            background: #15181c;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            position: relative;
-            height: 350px; 
-            margin-top: 15px;
+            width: 100%; overflow-x: auto; overflow-y: hidden; background: #15181c;
+            border: 1px solid var(--border-color); border-radius: 6px; position: relative; height: 350px; margin-top: 15px;
         }
 
         .gantt-header-row { display: flex; height: 50px; border-bottom: 1px solid var(--border-color); background: var(--bg-medium); position: sticky; top: 0; z-index: 10; }
         .gantt-date-cell { min-width: 50px; border-right: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-dim); }
         .gantt-body { position: relative; height: 100%; background-image: linear-gradient(90deg, var(--border-color) 1px, transparent 1px); background-size: 50px 100%; }
         
-        /* File List */
         .file-row { display: flex; align-items: center; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); margin-bottom: 8px; border-radius: 4px; transition: 0.2s; }
         .file-row:hover { border-color: var(--primary-gold); }
         .file-icon { width: 30px; font-size: 1.2rem; color: var(--text-dim); text-align: center; margin-right: 10px; }
         
-        /* File Actions */
         .file-actions { display: flex; gap: 15px; }
-        .btn-file-action { 
-            background: none; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; 
-            text-transform: uppercase; padding: 5px; transition: color 0.2s;
-        }
+        .btn-file-action { background: none; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; padding: 5px; transition: color 0.2s; }
         .btn-view { color: var(--primary-gold); }
         .btn-view:hover { color: #fff; }
         .btn-dl { color: var(--text-dim); }
         .btn-dl:hover { color: var(--text-bright); }
 
-        /* File Preview Frame */
         #file-preview-wrapper { margin-top: 15px; border: 1px solid var(--border-color); height: 500px; background: #000; display: none; }
         #file-preview-wrapper iframe { width: 100%; height: 100%; border: none; }
 
-        /* Log Feed */
         .log-card { padding: 12px; background: var(--bg-dark); border-left: 3px solid var(--border-color); margin-bottom: 10px; font-size: 0.9rem; }
         .log-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; }
-        
-        /* Initials Circle */
-        .log-avatar {
-            display: inline-flex; width: 24px; height: 24px; border-radius: 50%; 
-            background: var(--primary-blue); color: white; align-items: center; 
-            justify-content: center; font-size: 0.7rem; font-weight: bold; margin-right: 8px;
-        }
+        .log-avatar { display: inline-flex; width: 24px; height: 24px; border-radius: 50%; background: var(--primary-blue); color: white; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; margin-right: 8px; }
 
-        /* Tab Navigation Row */
-        .tab-row {
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid var(--border-color); margin-bottom: 20px;
-        }
+        .tab-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
         .tab-nav { display: flex; gap: 20px; }
         .tab-link { padding: 10px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; font-family: 'Rajdhani'; font-weight: 600; text-transform: uppercase; border-bottom: 3px solid transparent; transition: 0.2s; }
         .tab-link.active { color: var(--primary-gold); border-bottom-color: var(--primary-gold); }
@@ -93,60 +66,31 @@
         .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* HEADER STYLING */
-        #detail-name {
-            background: transparent; border: none; width: 100%; 
-            font-family: 'Rajdhani'; font-size: 2rem; font-weight: 700; 
-            color: var(--text-bright); padding: 0; outline: none;
-        }
+        #detail-name { background: transparent; border: none; width: 100%; font-family: 'Rajdhani'; font-size: 2rem; font-weight: 700; color: var(--text-bright); padding: 0; outline: none; }
         #detail-name:focus { border-bottom: 1px solid var(--primary-gold); }
 
-        #header-value-display {
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: var(--completed-color); /* Money Green */
-            text-align: right;
-            line-height: 1;
-        }
-        
-        .countdown-badge {
-            display: inline-block; padding: 4px 12px; border-radius: 20px; 
-            font-weight: 700; font-size: 0.85rem; margin-top: 5px;
-        }
+        #header-value-display { font-family: 'Rajdhani', sans-serif; font-size: 2.2rem; font-weight: 700; color: var(--completed-color); text-align: right; line-height: 1; }
+        .countdown-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; margin-top: 5px; }
 
         .split-view { height: calc(100vh - 80px); }
         .list-item .contact-info { padding-left: 5px; }
 
-        /* TOGGLE SWITCH CSS */
-        .filter-toggle-container {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-top: 10px; margin-bottom: 5px; font-size: 0.8rem; color: var(--text-dim);
-        }
-        .toggle-switch {
-            position: relative; display: inline-block; width: 34px; height: 18px;
-        }
+        .filter-toggle-container { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; margin-bottom: 5px; font-size: 0.8rem; color: var(--text-dim); }
+        .toggle-switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: var(--bg-medium); transition: .4s; border-radius: 34px;
-            border: 1px solid var(--border-color);
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 2px;
-            background-color: var(--text-dim); transition: .4s; border-radius: 50%;
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--bg-medium); transition: .4s; border-radius: 34px; border: 1px solid var(--border-color); }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 2px; background-color: var(--text-dim); transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--primary-blue); border-color: var(--primary-blue); }
         input:checked + .slider:before { transform: translateX(16px); background-color: white; }
 
-        /* SYSTEM ID BOX */
-        .system-id-box {
-            display: flex; align-items: center; 
-            background: var(--bg-dark); border: 1px solid var(--border-color); 
-            border-radius: 4px; padding: 8px 12px; margin-top: 5px;
-        }
+        .system-id-box { display: flex; align-items: center; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 12px; margin-top: 5px; }
         .system-id-box:hover { border-color: var(--text-dim); }
-
+        
+        /* BOM TABLE STYLES */
+        .bom-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        .bom-table th { text-align: left; color: var(--text-dim); border-bottom: 1px solid var(--border-color); padding: 8px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+        .bom-table td { padding: 10px 8px; border-bottom: 1px solid var(--bg-medium); color: var(--text-bright); }
+        .bom-status-pill { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
     </style>
 </head>
 
@@ -184,7 +128,6 @@
                     <div class="item-list-container">
                         <div style="padding: 15px; border-bottom: 1px solid var(--border-color);">
                             <button id="btn-launch-project" class="btn-primary full-width"><i class="fas fa-rocket"></i> Launch Project</button>
-                            
                             <div class="filter-toggle-container">
                                 <span>Hide $0 Projects</span>
                                 <label class="toggle-switch">
@@ -192,7 +135,6 @@
                                     <span class="slider"></span>
                                 </label>
                             </div>
-
                             <input type="text" id="project-search" placeholder="Search projects..." class="form-control" style="width:100%;">
                         </div>
                         <div id="project-list" class="item-list"></div>
@@ -208,7 +150,6 @@
                             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
                                 <div style="flex:1; margin-right:20px;">
                                     <input type="text" id="detail-name">
-                                    
                                     <div style="display:flex; gap:15px; margin-top:10px; align-items: center;">
                                         <div>
                                             <label style="font-size:0.7rem; color:var(--text-dim);">Status</label>
@@ -242,7 +183,7 @@
                                     <button class="tab-link" data-tab="timeline">Timeline</button>
                                     <button class="tab-link" data-tab="files">Drawings & Files</button>
                                     <button class="tab-link" data-tab="log">Project Log</button>
-                                    <button class="tab-link" data-tab="bom">BOM</button
+                                    <button class="tab-link" data-tab="bom">BOM</button>
                                 </div>
                                 <div style="display:flex; gap:10px;">
                                     <button id="btn-delete-project" class="btn-secondary" style="border-color:#d32f2f; color:#ff5252;" title="Delete Project"><i class="fas fa-trash"></i></button>
@@ -265,7 +206,6 @@
                                         <div class="kpi-value" id="kpi-act">0</div>
                                     </div>
                                 </div>
-
                                 <div style="margin-bottom: 20px;">
                                      <label style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px;">System ID (Quickbooks Map)</label>
                                      <div class="system-id-box">
@@ -273,12 +213,10 @@
                                          <button onclick="navigator.clipboard.writeText(document.getElementById('detail-id').innerText); alert('ID Copied');" style="background:none; border:none; color:var(--primary-gold); cursor:pointer; padding:0 5px;" title="Copy ID"><i class="fas fa-copy"></i></button>
                                      </div>
                                 </div>
-
                                 <div class="form-group" style="margin-bottom:25px;">
                                     <label>Scope / Description</label>
                                     <textarea id="detail-scope" rows="6" style="width:100%; padding:15px; background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text-bright); border-radius:6px; line-height:1.5;"></textarea>
                                 </div>
-
                                 <div>
                                     <h4 style="border-bottom:1px solid var(--border-color); padding-bottom:8px; margin-bottom:15px;">Project Team</h4>
                                     <div id="team-list"></div>
@@ -317,6 +255,29 @@
                                     <button id="btn-add-log" class="btn-secondary">Add Note</button>
                                 </div>
                                 <div id="log-feed"></div>
+                            </div>
+
+                            <div id="tab-bom" class="tab-content">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                    <h4 style="margin:0;">Bill of Materials</h4>
+                                    <button id="btn-add-bom" class="btn-secondary" style="font-size:0.8rem;"><i class="fas fa-plus"></i> Add Material</button>
+                                </div>
+                                <div style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:10px;">
+                                    <table class="bom-table">
+                                        <thead>
+                                            <tr>
+                                                <th>SKU / Name</th>
+                                                <th>Category</th>
+                                                <th>Qty Req</th>
+                                                <th>Allocated</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="bom-list-body">
+                                            </tbody>
+                                    </table>
+                                </div>
                             </div>
 
                         </div>
