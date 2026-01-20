@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TenWorks Inventory</title>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+            document.documentElement.className = 'theme-' + savedTheme;
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/projects.css"> <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="crm-container">
+        <nav class="nav-sidebar">
+            <div data-svg-loader="assets/logo.svg"></div>
+            <a href="schedule.html" class="nav-button">Schedule</a>
+            <a href="talent.html" class="nav-button">Talent Matrix</a>
+            <a href="inventory.html" class="nav-button active">Inventory</a> <a href="projects.html" class="nav-button">Projects</a>
+            <div class="nav-bottom-section">
+                <div class="user-menu"><span id="user-name-display">Loading...</span></div>
+            </div>
+        </nav>
+
+        <main class="content-area">
+            <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h2 class="contact-name" style="font-size: 2rem; margin: 0;">Material Inventory</h2>
+                    <span class="account-name" style="color: var(--text-dim);">Live Stock Levels & BOM Allocations</span>
+                </div>
+                <button id="btn-add-item" class="btn-primary"><i class="fas fa-plus"></i> Add Item</button>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Stock Value</div>
+                    <div class="kpi-value" id="metric-value" style="color:var(--completed-color)">$0.00</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Low Stock Alerts</div>
+                    <div class="kpi-value" id="metric-low-stock" style="color:var(--danger-red)">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Items Allocated</div>
+                    <div class="kpi-value" id="metric-allocated" style="color:var(--primary-gold)">0</div>
+                </div>
+            </div>
+
+            <div class="table-container" style="background:var(--bg-medium); border-radius:8px; border:1px solid var(--border-color); padding:15px;">
+                <div style="margin-bottom:15px; display:flex; gap:10px;">
+                    <input type="text" id="inventory-search" placeholder="Search SKU or Name..." class="form-control" style="flex:1;">
+                    <select id="inventory-filter" class="form-control" style="width:200px;">
+                        <option value="All">All Categories</option>
+                        <option value="Sheet">Sheet Metal</option>
+                        <option value="Tube">Tube/Bar</option>
+                        <option value="Hardware">Hardware</option>
+                    </select>
+                </div>
+                <table id="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Location</th>
+                            <th>Qty On Hand</th>
+                            <th>Allocated</th>
+                            <th>Value</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-body"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
+        </div>
+    </div>
+
+    <script type="module" src="js/inventory.js"></script>
+</body>
+</html>
