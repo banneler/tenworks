@@ -411,6 +411,29 @@ function setupEventListeners() {
         loadProjectDetails(state.currentProject.id);
     });
 
+    // Delete Project
+    document.getElementById('btn-delete-project').addEventListener('click', async () => {
+        if (!state.currentProject) return;
+        
+        const confirmMsg = `Are you sure you want to delete project "${state.currentProject.name}"?\n\nThis will permanently remove the project and all associated tasks. This action cannot be undone.`;
+        if (!confirm(confirmMsg)) return;
+
+        // Delete from DB
+        const { error } = await supabase.from('projects').delete().eq('id', state.currentProject.id);
+
+        if (error) {
+            alert('Error deleting project: ' + error.message);
+            return;
+        }
+
+        // UI Cleanup
+        alert('Project deleted.');
+        state.currentProject = null;
+        document.getElementById('detail-content').classList.add('hidden');
+        document.getElementById('empty-state').classList.remove('hidden');
+        await loadProjectsList();
+    });
+
     // File Upload
     const btnUpload = document.getElementById('btn-upload-file');
     const fileInput = document.getElementById('file-input');
