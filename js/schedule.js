@@ -31,10 +31,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 2. CENTRAL STATE MANAGEMENT
     // ------------------------------------------------------------------------
     let state = {
-        currentView: 'resource', 
+        currentView: 'resource', // Options: 'resource', 'project', 'machine'
         trades: [],
         projects: [],
         tasks: [],
+        machines: [], // NEW: Machine Data
         availability: [], 
         isDragging: false,
         dragTask: null,
@@ -42,7 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         dragStartX: 0,
         dragStartLeft: 0,
         hasMoved: false,
-        // New Filters
+        // Filters
         showCompleted: false,
         sortBy: 'start_date'
     };
@@ -125,14 +126,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     const btnResource = document.getElementById('view-resource-btn');
     const btnProject = document.getElementById('view-project-btn');
+    const btnMachine = document.getElementById('view-machine-btn'); // NEW BUTTON
     const sortSelect = document.getElementById('gantt-sort');
     const completedToggle = document.getElementById('gantt-show-completed');
     const filterControls = document.getElementById('project-filter-controls');
 
-    if (btnResource && btnProject) {
-        btnResource.addEventListener('click', () => switchView('resource'));
-        btnProject.addEventListener('click', () => switchView('project'));
-    }
+    if (btnResource) btnResource.addEventListener('click', () => switchView('resource'));
+    if (btnProject) btnProject.addEventListener('click', () => switchView('project'));
+    if (btnMachine) btnMachine.addEventListener('click', () => switchView('machine'));
 
     if (sortSelect) {
         sortSelect.addEventListener('change', (e) => {
@@ -151,27 +152,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     function switchView(view) {
         state.currentView = view;
         
-        if(view === 'resource') {
-            btnResource.classList.add('active');
-            btnResource.style.background = 'var(--primary-blue)';
-            btnResource.style.color = 'white';
-            btnProject.classList.remove('active');
-            btnProject.style.background = 'transparent';
-            btnProject.style.color = 'var(--text-dim)';
-            
-            // Hide Controls
-            if(filterControls) filterControls.style.display = 'none';
-        } else {
-            btnProject.classList.add('active');
-            btnProject.style.background = 'var(--primary-blue)';
-            btnProject.style.color = 'white';
-            btnResource.classList.remove('active');
-            btnResource.style.background = 'transparent';
-            btnResource.style.color = 'var(--text-dim)';
-            
-            // Show Controls
-            if(filterControls) filterControls.style.display = 'flex';
+        // Reset all buttons
+        [btnResource, btnProject, btnMachine].forEach(btn => {
+            if(btn) {
+                btn.classList.remove('active');
+                btn.style.background = 'transparent';
+                btn.style.color = 'var(--text-dim)';
+            }
+        });
+
+        // Set Active Button
+        const activeBtn = view === 'resource' ? btnResource : (view === 'project' ? btnProject : btnMachine);
+        if(activeBtn) {
+            activeBtn.classList.add('active');
+            activeBtn.style.background = 'var(--primary-blue)';
+            activeBtn.style.color = 'white';
         }
+
+        // Toggle Filter Controls (Only useful for Project View)
+        if(filterControls) {
+            filterControls.style.display = view === 'project' ? 'flex' : 'none';
+        }
+
         renderGantt();
     }
 
@@ -181,11 +183,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function loadShopData() {
         console.log("Loading Ten Works Production Data...");
         
-        const [tradesRes, tasksRes, projectsRes, availRes] = await Promise.all([
+        const [tradesRes, tasksRes, projectsRes, availRes, machinesRes] = await Promise.all([
             supabase.from('shop_trades').select('*').order('id'),
             supabase.from('project_tasks').select(`*, projects(name), shop_trades(name)`),
             supabase.from('projects').select('*').order('start_date'),
-            supabase.from('talent_availability').select('*') 
+            supabase.from('talent_availability').select('*'),
+            supabase.from('shop_machines').select('*').order('name') // NEW FETCH
         ]);
 
         if (tradesRes.error) console.error("Error loading data:", tradesRes.error);
@@ -194,6 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.tasks = tasksRes.data || [];
         state.projects = projectsRes.data || [];
         state.availability = availRes.data || []; 
+        state.machines = machinesRes.data || [];
 
         renderGantt();
         updateMetrics();
@@ -209,7 +213,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (!resourceList || !gridCanvas || !dateHeader) return;
 
-        // A. TIMELINE
+        // A. TIMELINE HEADER
         let dateHtml = '';
         const startDate = dayjs().subtract(5, 'day');
         const daysToRender = 60;
@@ -220,7 +224,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = current.day() === 0 || current.day() === 6;
             const isToday = current.isSame(dayjs(), 'day');
             
-            // Grey out weekends
             const bgStyle = isWeekend ? 'background:rgba(255,255,255,0.05);' : '';
 
             dateHtml += `
@@ -238,21 +241,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         gridCanvas.style.backgroundImage = 'linear-gradient(90deg, var(--border-color) 1px, transparent 1px)';
         gridCanvas.style.backgroundSize = '100px 100%'; 
 
-        // B. ROWS & BARS
+        // B. DETERMINE ROWS
         resourceList.innerHTML = '';
         gridCanvas.innerHTML = '';
 
         let rows = [];
         if (state.currentView === 'resource') {
             rows = state.trades;
+        } else if (state.currentView === 'machine') {
+            rows = state.machines;
         } else {
-            // FILTER PROJECTS
+            // Project View
             rows = state.projects.filter(p => {
                 if (state.showCompleted) return true;
                 return p.status !== 'Completed';
             });
 
-            // SORT PROJECTS
+            // Sort Projects
             rows.sort((a, b) => {
                 const dateA = dayjs(a[state.sortBy] || '2099-01-01');
                 const dateB = dayjs(b[state.sortBy] || '2099-01-01');
@@ -263,8 +268,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         let currentY = 0; 
 
         rows.forEach((rowItem, index) => {
+            // FILTER TASKS FOR THIS ROW
             const rowTasks = state.tasks.filter(t => {
                 if (state.currentView === 'resource') return t.trade_id === rowItem.id;
+                if (state.currentView === 'machine') return t.assigned_machine_id === rowItem.id; // Filter by Machine ID
                 else return t.project_id === rowItem.id;
             });
 
@@ -277,7 +284,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isOdd = index % 2 === 1;
             const rowBackground = isOdd ? 'rgba(255, 255, 255, 0.025)' : 'transparent'; 
 
-            // 1. Sidebar
+            // 1. Sidebar Cell
             const rowEl = document.createElement('div');
             rowEl.className = 'resource-row';
             rowEl.style.height = `${calculatedHeight}px`; 
@@ -285,19 +292,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             if (state.currentView === 'resource') {
                 rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>`;
+            } else if (state.currentView === 'machine') {
+                // Machine Sidebar
+                const statusColor = rowItem.status === 'Operational' ? '#4CAF50' : '#F44336';
+                rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>`;
             } else {
+                // Project Sidebar
                 let statusColor = '#888';
                 if(rowItem.status === 'In Progress') statusColor = 'var(--primary-blue)';
                 if(rowItem.status === 'Completed') statusColor = '#4CAF50';
                 
-                // Clickable Project Name
                 rowEl.innerHTML = `
                     <div class="resource-name" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:4px;" title="Manage Project">
                         ${rowItem.name} <i class="fas fa-pencil-alt" style="font-size:0.7rem; margin-left:5px; opacity:0.5;"></i>
                     </div>
                     <div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>
                 `;
-                
                 rowEl.querySelector('.resource-name').addEventListener('click', () => openProjectModal(rowItem));
             }
             resourceList.appendChild(rowEl);
@@ -314,15 +324,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             rowBg.style.zIndex = '0';
             gridCanvas.appendChild(rowBg);
 
-            // --- 3. TARGET COMPLETION (CRDD) WITH OVERRUN CALC ---
-            let targetPixel = null; // Store this to calculate overruns on tasks
-
+            // 3. Project Target Completion Line (Project View Only)
+            let targetPixel = null; 
             if (state.currentView === 'project' && rowItem.end_date) {
                 const targetDate = dayjs(rowItem.end_date);
                 const targetDiff = targetDate.diff(startDate, 'day');
                 
                 if (targetDiff >= 0 && targetDiff < daysToRender) {
-                    targetPixel = (targetDiff + 1) * dayWidth; // The pixel X coordinate of the deadline
+                    targetPixel = (targetDiff + 1) * dayWidth; 
 
                     const targetCell = document.createElement('div');
                     targetCell.style.position = 'absolute';
@@ -350,7 +359,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             }
 
-            // 4. Render Task Bars (With Alert Logic)
+            // 4. Render Task Bars
             rowTasks.forEach(task => {
                 const start = dayjs(task.start_date);
                 const end = dayjs(task.end_date);
@@ -373,30 +382,27 @@ document.addEventListener("DOMContentLoaded", async () => {
                 bar.style.fontSize = '0.7rem';
                 bar.style.cursor = 'grab';
 
-                // --- COLOR LOGIC (RESTORED) ---
+                // --- COLOR LOGIC ---
                 const baseColor = state.currentView === 'project' ? getTradeColor(task.trade_id) : getProjectColor(task.project_id);
                 
-                // --- OVERRUN LOGIC (RESTORED) ---
-                if (targetPixel !== null && (barLeft + barWidth) > targetPixel) {
-                    // This task crosses the deadline!
-                    // Calculate percentage where the "Safe" zone ends
+                // --- OVERRUN / MACHINE CONFLICT LOGIC ---
+                // If in Project View, check against CRDD
+                if (state.currentView === 'project' && targetPixel !== null && (barLeft + barWidth) > targetPixel) {
                     const safeWidth = Math.max(0, targetPixel - barLeft);
                     const safePercent = (safeWidth / barWidth) * 100;
-                    
-                    // Gradient: Safe Color -> Sharp Transition -> Alert Red
                     bar.style.background = `linear-gradient(90deg, ${baseColor} ${safePercent}%, #ff4444 ${safePercent}%)`;
-                    bar.style.border = '1px solid #ff4444'; // Red Border
+                    bar.style.border = '1px solid #ff4444'; 
                 } else {
-                    // Safe Task
                     bar.style.backgroundColor = baseColor;
                     bar.style.backgroundImage = 'linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.1))';
                     bar.style.border = '1px solid rgba(255,255,255,0.15)';
                 }
 
                 const percent = task.estimated_hours ? (task.actual_hours / task.estimated_hours) : 0;
-                // Burn line is red if budget exceeded, otherwise subtle white
                 const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.5)';
-                const label = state.currentView === 'resource' ? task.projects?.name : task.shop_trades?.name;
+                
+                // Label Logic: In Resource/Machine view, show Project Name. In Project view, show Task Name/Trade.
+                const label = (state.currentView === 'resource' || state.currentView === 'machine') ? task.projects?.name : task.shop_trades?.name;
 
                 bar.innerHTML = `
                     <span class="gantt-task-info" style="pointer-events:none; line-height:${barHeight}px; text-shadow:0 1px 3px black; padding-left:8px;">${label || task.name}</span>
@@ -413,7 +419,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. PHYSICS ENGINE
+    // 7. PHYSICS ENGINE (Drag & Drop)
     // ------------------------------------------------------------------------
     function handleDragStart(e, task, element) {
         if (e.button !== 0) return; 
@@ -494,6 +500,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
+            // Move dependent children automatically
             const { data: children } = await supabase.from('project_tasks').select('*').eq('dependency_task_id', state.dragTask.id);
             if (children && children.length > 0) {
                 const updatePromises = children.map(child => {
@@ -582,7 +589,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     function openTaskModal(task) {
         const s = dayjs(task.start_date);
         const e = dayjs(task.end_date);
-        const dur = e.diff(s, 'day') + 1; // Approx calendar duration
+        const dur = e.diff(s, 'day') + 1; 
+
+        // Build Machine Options for Assignment
+        let machineOptions = `<option value="">-- None --</option>`;
+        state.machines.forEach(m => {
+            const selected = task.assigned_machine_id === m.id ? 'selected' : '';
+            machineOptions += `<option value="${m.id}" ${selected}>${m.name}</option>`;
+        });
 
         showModal(`Edit Task: ${task.name}`, `
             <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
@@ -605,6 +619,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div>
                     <label>Duration (Days)</label>
                     <input type="number" id="edit-duration" class="form-control" value="${dur}">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="color:var(--primary-gold);">Assign Machine</label>
+                    <select id="edit-machine" class="form-control" style="background:var(--bg-dark); color:white; padding:8px;">
+                        ${machineOptions}
+                    </select>
                 </div>
                 <div style="grid-column: span 2;">
                     <label style="color:var(--text-dim); font-size:0.8rem;">Calculated End Date: <span id="calc-end-date" style="color:var(--text-bright);">${task.end_date}</span></label>
@@ -640,12 +660,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const newActual = document.getElementById('edit-actual').value;
                 const newStart = document.getElementById('edit-start').value;
                 const newEnd = document.getElementById('edit-end').value;
+                const newMachine = document.getElementById('edit-machine').value || null;
 
                 const { error } = await supabase.from('project_tasks').update({ 
                     status: newStatus, 
                     actual_hours: newActual, 
                     start_date: newStart, 
-                    end_date: newEnd 
+                    end_date: newEnd,
+                    assigned_machine_id: newMachine // SAVE MACHINE
                 }).eq('id', task.id);
 
                 if (error) alert('Error: ' + error.message);
