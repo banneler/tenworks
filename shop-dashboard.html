@@ -34,19 +34,29 @@
             position: relative;
         }
 
-        /* WATERMARK BACKGROUND (Higher Opacity) */
+        /* --- WATERMARK FIX --- */
         #tv-watermark {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 70vw; /* Slightly smaller to ensure it centers nicely */
-            opacity: 0.15; /* INCREASED VISIBILITY */
+            width: 80vw; /* 80% of screen width */
+            opacity: 0.15; 
             pointer-events: none;
             z-index: 0;
             filter: grayscale(100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        #tv-watermark img { width: 100%; }
+        
+        /* FORCE SVG TO SCALE */
+        #tv-watermark svg {
+            width: 100% !important;
+            height: auto !important;
+            max-width: none !important;
+            display: block;
+        }
 
         /* GRID LAYOUT */
         .tv-grid {
@@ -87,7 +97,7 @@
             letter-spacing: 1px;
         }
 
-        /* 2. METRICS ROW (More Transparent) */
+        /* 2. METRICS ROW */
         .tv-metrics {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -95,7 +105,7 @@
             padding-right: 260px; 
         }
         .tv-metric-card {
-            background: rgba(20, 20, 20, 0.6); /* INCREASED TRANSPARENCY */
+            background: rgba(20, 20, 20, 0.6); 
             border: 1px solid rgba(255,255,255,0.1);
             padding: 12px;
             border-radius: 6px;
@@ -122,18 +132,17 @@
             backdrop-filter: blur(2px);
         }
 
-        /* 4. GANTT CONTAINER (Schedule Page Structure) */
+        /* 4. GANTT CONTAINER */
         .tv-gantt-wrapper {
             display: flex;
             flex-direction: column;
-            background: rgba(20, 20, 20, 0.6); /* Transparent */
+            background: rgba(20, 20, 20, 0.6); 
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 8px;
             overflow: hidden;
             backdrop-filter: blur(5px);
         }
 
-        /* The Grid Frame (Sidebar | Timeline) */
         .gantt-frame {
             display: grid;
             grid-template-columns: 260px 1fr;
@@ -153,7 +162,7 @@
             background: rgba(0,0,0,0.2);
         }
 
-        /* Rows */
+        /* Sidebar Rows */
         .tv-row {
             height: 70px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -181,7 +190,7 @@
             margin-top: 2px;
         }
 
-        /* 5. MATRIX (Auto-Scrolling) */
+        /* 5. MATRIX */
         .tv-matrix-wrapper {
             background: rgba(20, 20, 20, 0.6);
             border: 1px solid rgba(255,255,255,0.1);
