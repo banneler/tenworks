@@ -156,7 +156,7 @@
         }
         .matrix-name { font-size: 1.2rem; font-weight: 600; color: white; font-family: 'Rajdhani'; }
         
-        /* SHIFT TIMELINE - 1 HOUR BLOCKS */
+        /* SHIFT TIMELINE - WRAPPING ENABLED */
         .matrix-timeline-container {
             flex: 1; height: 40px; position: relative;
             background: rgba(0,0,0,0.3); border-radius: 4px;
@@ -172,13 +172,21 @@
 
         .shift-block {
             position: absolute;
-            top: 4px; bottom: 4px;
+            top: 2px; bottom: 2px; /* Little more space */
             border-radius: 3px; 
-            display: flex; align-items: center; 
-            padding-left: 8px;
-            color: white; font-weight: 700; font-size: 0.75rem;
+            display: flex; 
+            align-items: center; /* Vertical Center */
+            padding: 0 4px; /* Tight padding */
+            color: white; font-weight: 700;
             box-shadow: 2px 0 5px rgba(0,0,0,0.3);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            
+            /* ALLOW WRAPPING */
+            white-space: normal; 
+            line-height: 1; 
+            word-break: break-word; 
+            overflow: hidden; 
+            text-align: left;
+            
             z-index: 2;
             border-left: 2px solid rgba(255,255,255,0.3);
         }
@@ -246,12 +254,10 @@
                 <span style="font-size:0.8rem; color:#888;">12 HR VIEW</span>
             </div>
             
-            <div class="matrix-header-row" id="matrix-time-header">
-                </div>
+            <div class="matrix-header-row" id="matrix-time-header"></div>
 
             <div id="tv-matrix-scroller" class="tv-matrix-scroller">
-                <div id="tv-matrix-list">
-                    </div>
+                <div id="tv-matrix-list"></div>
             </div>
         </div>
 
