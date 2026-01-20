@@ -79,7 +79,7 @@ async function loadProjectDetails(projectId) {
     state.tasks = tasksRes.data || [];
     state.contacts = contactsRes.data || [];
     state.notes = notesRes.data || [];
-    state.files = (filesRes.data || []).filter(f => f.name !== '.emptyFolderPlaceholder'); // Filter junk
+    state.files = (filesRes.data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
 
     renderDetailView();
 }
@@ -95,16 +95,13 @@ function renderProjectList() {
         .filter(p => p.name.toLowerCase().includes(search))
         .forEach(p => {
             const el = document.createElement('div');
-            el.className = 'list-item'; // Use exact class from accounts.html
+            el.className = 'list-item'; 
             
             if(state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
             
-            const initial = p.name.charAt(0).toUpperCase();
-            
-            // EXACT ACCOUNTS.HTML STRUCTURE
+            // CLEAN LAYOUT: NO ORPHAN ICON, Just Text
             el.innerHTML = `
-                <div class="item-icon">${initial}</div>
-                <div class="contact-info">
+                <div class="contact-info" style="padding-left:0;">
                     <div class="contact-name">${p.name}</div>
                     <div class="account-name">
                         <span style="color:${getStatusColor(p.status)}">${p.status}</span> • ${formatCurrency(p.project_value)}
@@ -131,10 +128,12 @@ function renderDetailView() {
     document.getElementById('detail-name').value = p.name;
     document.getElementById('detail-status').value = p.status;
     document.getElementById('header-value-display').textContent = formatCurrency(p.project_value);
+    
+    // Date Range in Header
+    document.getElementById('detail-start-date').value = p.start_date || '';
     document.getElementById('detail-due-date').value = p.end_date || '';
     
-    // Note: 'description' column often missing in schema cache, so we load scope from Notes or blank for now
-    // We will save scope changes to project_notes to be safe.
+    // Description/Scope
     document.getElementById('detail-scope').value = p.description || ''; 
 
     // Countdown Widget
@@ -221,6 +220,7 @@ function renderMiniGantt() {
     header.innerHTML = '';
     body.innerHTML = '';
 
+    // Header Dates
     for(let i=0; i<totalDays; i++) {
         const d = start.add(i, 'day');
         const cell = document.createElement('div');
@@ -231,6 +231,7 @@ function renderMiniGantt() {
         header.appendChild(cell);
     }
 
+    // Bars
     state.tasks.forEach((t, index) => {
         const tStart = dayjs(t.start_date);
         const tEnd = dayjs(t.end_date);
@@ -241,15 +242,15 @@ function renderMiniGantt() {
         bar.className = 'gantt-bar';
         bar.style.left = `${diffDays * dayWidth}px`;
         bar.style.width = `${(duration * dayWidth) - 10}px`;
-        bar.style.top = `${(index * 38) + 10}px`; 
+        bar.style.top = `${(index * 45) + 10}px`; 
         bar.style.backgroundColor = TRADE_COLORS[t.trade_id] || '#555';
         
-        // Burn Line (Schedule Page Logic)
+        // Burn Rate / Progress Overlay
         const percent = t.estimated_hours ? (t.actual_hours / t.estimated_hours) : 0;
-        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.5)';
+        const burnWidth = Math.min(percent * 100, 100);
         
         bar.innerHTML = `
-            <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
+            <div class="burn-line" style="width:${burnWidth}%;"></div>
             <span style="position:relative; z-index:4;">${t.name}</span>
         `;
 
@@ -266,7 +267,10 @@ function renderFiles() {
                 <div style="color:var(--text-bright); font-weight:600;">${f.name}</div>
                 <div style="font-size:0.7rem; color:var(--text-dim);">${(f.metadata.size / 1024).toFixed(1)} KB</div>
             </div>
-            <button class="btn-secondary" onclick="window.previewFile('${f.name}')" style="font-size:0.75rem; padding:4px 10px;">View</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-text" onclick="window.previewFile('${f.name}')" style="color:var(--primary-gold); cursor:pointer;">View</button>
+                <button class="btn-text" onclick="window.downloadFile('${f.name}')" style="color:var(--text-bright); cursor:pointer;">Download</button>
+            </div>
         </div>
     `).join('') || '<div style="color:var(--text-dim); padding:10px;">No files uploaded.</div>';
 }
@@ -274,11 +278,8 @@ function renderFiles() {
 function renderLogs() {
     const list = document.getElementById('log-feed');
     list.innerHTML = state.notes.map(n => {
-        // Initials Logic: First of First, First of Last
         let initials = 'TW';
         if(n.author_name) {
-             // Handle "Chad Hershberger" -> "CH"
-             // Handle "CH" -> "CH"
              const parts = n.author_name.split(' ');
              if(parts.length > 1) {
                  initials = (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
@@ -305,39 +306,34 @@ function renderLogs() {
 
 function setupEventListeners() {
     document.getElementById('project-search').addEventListener('input', renderProjectList);
-
-    // Launch Project (Modal Logic from Schedule.js)
     document.getElementById('btn-launch-project').addEventListener('click', openLaunchProjectModal);
 
-    // Save Changes
+    // Save Changes (Moved to Tab Row)
     document.getElementById('btn-save-main').addEventListener('click', async () => {
         if(!state.currentProject) return;
         
         const newName = document.getElementById('detail-name').value;
         const newStatus = document.getElementById('detail-status').value;
         const newScope = document.getElementById('detail-scope').value;
-        const newDate = document.getElementById('detail-due-date').value;
+        const newStartDate = document.getElementById('detail-start-date').value;
+        const newDueDate = document.getElementById('detail-due-date').value;
         const oldDate = state.currentProject.end_date;
 
-        // ERROR FIX: 'description' column often missing in schema. 
-        // We remove it from the direct update to prevent crash.
-        // We update Name, Status, End Date on the project.
         const { error } = await supabase.from('projects').update({
             name: newName,
             status: newStatus,
-            end_date: newDate || null
+            start_date: newStartDate || null,
+            end_date: newDueDate || null
         }).eq('id', state.currentProject.id);
 
         if(error) { alert('Save failed: ' + error.message); return; }
 
-        // If Scope changed, save it as a note to preserve data
         if(newScope !== (state.currentProject.description || '')) {
             await createSystemNote(`Updated Scope: ${newScope}`);
         }
 
-        // If Date changed, log it
-        if(newDate !== oldDate) {
-            await createSystemNote(`Changed Due Date from ${oldDate || 'N/A'} to ${newDate || 'N/A'}`);
+        if(newDueDate !== oldDate) {
+            await createSystemNote(`Changed Due Date from ${oldDate || 'N/A'} to ${newDueDate || 'N/A'}`);
         }
 
         alert('Project saved.');
@@ -354,8 +350,7 @@ function setupEventListeners() {
     
     fileInput.addEventListener('change', async (e) => {
         if(!e.target.files.length) return;
-        
-        statusSpan.style.display = 'inline-block'; // Show status
+        statusSpan.style.display = 'inline-block';
         
         for(let file of e.target.files) {
             const path = `${state.currentProject.id}/${file.name}`;
@@ -363,7 +358,7 @@ function setupEventListeners() {
             if(error && !error.message.includes('already exists')) alert(`Error uploading ${file.name}: ${error.message}`);
         }
         
-        statusSpan.style.display = 'none'; // Hide status
+        statusSpan.style.display = 'none';
         loadProjectDetails(state.currentProject.id);
     });
 
@@ -372,7 +367,6 @@ function setupEventListeners() {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-link').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
             btn.classList.add('active');
             document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
         });
@@ -388,7 +382,7 @@ function setupEventListeners() {
     });
 }
 
-// --- HELPER: Create Note ---
+// --- HELPERS ---
 async function createSystemNote(content) {
     let author = 'System';
     if(state.currentUser && state.currentUser.user_metadata && state.currentUser.user_metadata.full_name) {
@@ -404,7 +398,6 @@ async function createSystemNote(content) {
     });
 }
 
-// --- HELPER: Business Days Logic (from Schedule.js) ---
 function addBusinessDays(date, daysToAdd) {
     let d = dayjs(date);
     let added = 0;
@@ -416,7 +409,39 @@ function addBusinessDays(date, daysToAdd) {
     return d;
 }
 
-// --- LAUNCH PROJECT MODAL (Stolen from Schedule.js) ---
+// --- FILE HELPERS (Signed URLs) ---
+
+window.previewFile = async (fileName) => {
+    // 60 minute signed URL for preview
+    const { data, error } = await supabase.storage.from('project_files').createSignedUrl(`${state.currentProject.id}/${fileName}`, 3600);
+    if(data) {
+        const wrapper = document.getElementById('file-preview-wrapper');
+        const frame = document.getElementById('preview-frame');
+        wrapper.style.display = 'block';
+        frame.src = data.signedUrl;
+    } else {
+        console.error("Preview error:", error);
+        alert("Could not load preview. Try downloading.");
+    }
+};
+
+window.downloadFile = async (fileName) => {
+    const { data, error } = await supabase.storage.from('project_files').createSignedUrl(`${state.currentProject.id}/${fileName}`, 60, {
+        download: true
+    });
+    if(data) {
+        const a = document.createElement('a');
+        a.href = data.signedUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    } else {
+        alert("Error creating download link.");
+    }
+};
+
+// --- LAUNCH MODAL ---
 async function openLaunchProjectModal() {
     const { data: deals, error } = await supabase.from('deals_tw').select('*').order('created_at', { ascending: false });
     if (error) { alert("Error fetching deals: " + error.message); return; }
@@ -430,8 +455,6 @@ async function openLaunchProjectModal() {
 
     const today = dayjs();
     const start = today; 
-    
-    // Default phases logic
     const p1End = addBusinessDays(start, 2);  
     const p2Start = addBusinessDays(p1End, 1);
     const p2End = addBusinessDays(p2Start, 7); 
@@ -447,14 +470,8 @@ async function openLaunchProjectModal() {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h4 style="color:var(--text-bright); margin:0;">Phase Scheduling</h4>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; width:350px;">
-                    <div>
-                        <label style="margin:0; font-size:0.7rem; color:var(--text-dim);">Project Start:</label>
-                        <input type="date" id="master-start-date" class="form-control" style="width:100%;" value="${start.format('YYYY-MM-DD')}">
-                    </div>
-                    <div>
-                        <label style="margin:0; font-size:0.7rem; color:var(--primary-gold);">Target Completion:</label>
-                        <input type="date" id="master-end-date" class="form-control" style="width:100%; border:1px solid var(--primary-gold);" value="${defTarget}">
-                    </div>
+                    <div><label style="margin:0; font-size:0.7rem; color:var(--text-dim);">Project Start:</label><input type="date" id="master-start-date" class="form-control" style="width:100%;" value="${start.format('YYYY-MM-DD')}"></div>
+                    <div><label style="margin:0; font-size:0.7rem; color:var(--primary-gold);">Target Completion:</label><input type="date" id="master-end-date" class="form-control" style="width:100%; border:1px solid var(--primary-gold);" value="${defTarget}"></div>
                 </div>
             </div>
             <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; align-items:center; margin-bottom:5px; font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;"><span>Phase</span><span>Start</span><span>End</span><span>Est. Hrs</span></div>
@@ -469,6 +486,7 @@ async function openLaunchProjectModal() {
         const name = sel.options[sel.selectedIndex].dataset.name;
         const amt = sel.options[sel.selectedIndex].dataset.amt;
         const crdd = document.getElementById('master-end-date').value; 
+        const startD = document.getElementById('master-start-date').value;
 
         const dates = {
             p1s: document.getElementById('p1-start').value, p1e: document.getElementById('p1-end').value, p1h: document.getElementById('p1-hrs').value,
@@ -477,11 +495,10 @@ async function openLaunchProjectModal() {
             p4s: document.getElementById('p4-start').value, p4e: document.getElementById('p4-end').value, p4h: document.getElementById('p4-hrs').value,
         };
 
-        // Insert Project (No description to avoid schema error)
         const { data: proj, error: projError } = await supabase.from('projects').insert([{ 
             deal_id: sel.value, 
             name, 
-            start_date: dates.p1s, 
+            start_date: startD, 
             end_date: crdd, 
             project_value: amt, 
             status: 'Pre-Production' 
@@ -490,7 +507,6 @@ async function openLaunchProjectModal() {
         if(projError) { alert(projError.message); return; }
         const pid = proj[0].id;
 
-        // Insert Tasks
         const { data: t1 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff & Plan', start_date: dates.p1s, end_date: dates.p1e, estimated_hours: dates.p1h }).select();
         const { data: t2 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[1]?.id||2, name: 'CAD Drawings', start_date: dates.p2s, end_date: dates.p2e, estimated_hours: dates.p2h, dependency_task_id: t1[0].id }).select();
         const { data: t3 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[2]?.id||3, name: 'Fabrication', start_date: dates.p3s, end_date: dates.p3e, estimated_hours: dates.p3h, dependency_task_id: t2[0].id }).select();
@@ -499,7 +515,6 @@ async function openLaunchProjectModal() {
         loadProjectsList();
     });
     
-    // Wire up date logic for the modal
     setTimeout(() => {
         document.getElementById('master-start-date').addEventListener('change', (e) => {
             const s = dayjs(e.target.value);
@@ -519,25 +534,13 @@ async function openLaunchProjectModal() {
             document.getElementById('p3-end').value = d3e.format('YYYY-MM-DD');
             document.getElementById('p4-start').value = d4s.format('YYYY-MM-DD');
             document.getElementById('p4-end').value = d4e.format('YYYY-MM-DD');
-            
             document.getElementById('master-end-date').value = d4e.format('YYYY-MM-DD');
         });
     }, 100);
 }
 
-// --- HELPER: Status Color ---
 function getStatusColor(status) {
     if(status === 'In Progress') return 'var(--primary-blue)';
     if(status === 'Completed') return '#4CAF50';
     return 'var(--text-dim)';
 }
-
-window.previewFile = async (fileName) => {
-    const { data } = supabase.storage.from('project_files').getPublicUrl(`${state.currentProject.id}/${fileName}`);
-    if(data) {
-        const wrapper = document.getElementById('file-preview-wrapper');
-        const frame = document.getElementById('preview-frame');
-        wrapper.style.display = 'block';
-        frame.src = data.publicUrl;
-    }
-};
