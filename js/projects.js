@@ -30,8 +30,9 @@ let state = {
     contacts: [],
     files: [],
     notes: [],
+    bom: [], // NEW
     currentUser: null,
-    hideZeroValue: true // Default: Hide $0 projects
+    hideZeroValue: true 
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -43,7 +44,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     await setupUserMenuAndAuth(supabase, { currentUser: user });
     await setupGlobalSearch(supabase, user);
 
-    // Pre-load trades for the launch modal
     const { data: trades } = await supabase.from('shop_trades').select('*').order('id');
     state.trades = trades || [];
 
@@ -65,40 +65,33 @@ async function loadProjectsList() {
 }
 
 async function loadProjectDetails(projectId) {
-    // 1. Get Project Data
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
     state.currentProject = project;
 
-    // 2. Parallel Fetch
-    const [tasksRes, contactsRes, notesRes, filesRes] = await Promise.all([
+    const [tasksRes, contactsRes, notesRes, filesRes, bomRes] = await Promise.all([
         supabase.from('project_tasks').select('*').eq('project_id', projectId).order('start_date'),
         supabase.from('project_contacts').select('role, contacts(id, first_name, last_name, email, phone)').eq('project_id', projectId),
         supabase.from('project_notes').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
-        supabase.storage.from('project_files').list(`${projectId}`)
+        supabase.storage.from('project_files').list(`${projectId}`),
+        supabase.from('project_bom').select('*, inventory_items(sku, name, category, uom)').eq('project_id', projectId) // NEW BOM FETCH
     ]);
 
     state.tasks = tasksRes.data || [];
     state.contacts = contactsRes.data || [];
     state.notes = notesRes.data || [];
     state.files = (filesRes.data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
+    state.bom = bomRes.data || [];
 
     renderDetailView();
 }
 
 // --- 2. RENDERING ---
 
-function renderBOM() {
-    const bomTab = document.getElementById('tab-bom');
-    // Fetch BOM items from project_bom table
-    // Render a table of required materials vs allocated
-    // Add a button to "Allocated Stock" which subtracts from inventory_items.qty_on_hand
-}
 function renderProjectList() {
     const listEl = document.getElementById('project-list');
     const search = document.getElementById('project-search').value.toLowerCase();
     listEl.innerHTML = '';
 
-    // Filter Logic: Search Text AND (HideZero Toggle)
     const filtered = state.projects.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search);
         const matchesValue = !state.hideZeroValue || (p.project_value > 0);
@@ -108,7 +101,6 @@ function renderProjectList() {
     filtered.forEach(p => {
         const el = document.createElement('div');
         el.className = 'list-item'; 
-        
         if(state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
         
         el.innerHTML = `
@@ -135,22 +127,14 @@ function renderDetailView() {
     document.getElementById('empty-state').classList.add('hidden');
     document.getElementById('detail-content').classList.remove('hidden');
 
-    // Header Inputs
     document.getElementById('detail-name').value = p.name;
     document.getElementById('detail-status').value = p.status;
     document.getElementById('header-value-display').textContent = formatCurrency(p.project_value);
-    
-    // System ID (New)
     document.getElementById('detail-id').textContent = p.id;
-    
-    // Date Range
     document.getElementById('detail-start-date').value = p.start_date || '';
     document.getElementById('detail-due-date').value = p.end_date || '';
-    
-    // Description/Scope
     document.getElementById('detail-scope').value = p.description || ''; 
 
-    // Countdown Widget
     const widget = document.getElementById('countdown-widget');
     if(p.end_date) {
         const diff = dayjs(p.end_date).diff(dayjs(), 'day');
@@ -165,7 +149,6 @@ function renderDetailView() {
         widget.innerHTML = '';
     }
 
-    // KPI Calc
     const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
     const totalAct = state.tasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
     const progress = totalEst > 0 ? Math.round((totalAct / totalEst) * 100) : 0;
@@ -174,11 +157,40 @@ function renderDetailView() {
     document.getElementById('kpi-act').textContent = totalAct;
     document.getElementById('kpi-progress').textContent = `${progress}%`;
 
-    // Render Tabs
     renderTeam();
     renderMiniGantt();
     renderFiles();
     renderLogs();
+    renderBOM(); // NEW
+}
+
+function renderBOM() {
+    const tbody = document.getElementById('bom-list-body');
+    if(!tbody) return;
+    
+    tbody.innerHTML = state.bom.map(item => {
+        const inv = item.inventory_items || { name: 'Unknown Item', sku: '???', category: 'Misc', uom: 'ea' };
+        
+        let statusColor = '#888';
+        if(item.status === 'Pulled') statusColor = 'var(--primary-blue)';
+        if(item.status === 'Ordered') statusColor = 'var(--warning-yellow)';
+        
+        return `
+            <tr>
+                <td>
+                    <div style="font-weight:600; color:var(--text-bright);">${inv.name}</div>
+                    <div style="font-size:0.75rem; color:var(--text-dim); font-family:'Rajdhani';">${inv.sku}</div>
+                </td>
+                <td><span style="font-size:0.75rem; background:rgba(255,255,255,0.05); padding:2px 5px; border-radius:3px;">${inv.category}</span></td>
+                <td>${item.qty_required} ${inv.uom}</td>
+                <td>${item.qty_allocated} ${inv.uom}</td>
+                <td><span class="bom-status-pill" style="color:${statusColor}; border:1px solid ${statusColor};">${item.status}</span></td>
+                <td>
+                    <button class="btn-secondary" style="padding:4px 8px;" onclick="window.deleteBOM(${item.id})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim);">No materials added.</td></tr>';
 }
 
 function renderTeam() {
@@ -211,9 +223,8 @@ function renderMiniGantt() {
         return;
     }
 
-    // 1. Calculate Date Range (Tasks vs Project Due Date)
     let minDate = dayjs();
-    let maxDate = dayjs().add(14, 'day'); // Default buffer
+    let maxDate = dayjs().add(14, 'day');
 
     if(state.tasks.length > 0) {
         minDate = dayjs(state.tasks[0].start_date);
@@ -227,7 +238,6 @@ function renderMiniGantt() {
         });
     }
 
-    // If project has an end date, make sure the timeline includes it
     if(project.end_date) {
         const pEnd = dayjs(project.end_date);
         if(pEnd.isAfter(maxDate)) maxDate = pEnd;
@@ -245,7 +255,6 @@ function renderMiniGantt() {
     header.innerHTML = '';
     body.innerHTML = '';
 
-    // 2. Render Header Grid
     for(let i=0; i<totalDays; i++) {
         const d = start.add(i, 'day');
         const cell = document.createElement('div');
@@ -256,16 +265,15 @@ function renderMiniGantt() {
         header.appendChild(cell);
     }
 
-    // 3. Render Finish Line
     let targetPixel = null;
     if(project.end_date) {
         const finishDate = dayjs(project.end_date);
         const diff = finishDate.diff(start, 'day');
         if(diff >= 0 && diff < totalDays) {
-            targetPixel = (diff + 1) * dayWidth; // Right edge of the day
+            targetPixel = (diff + 1) * dayWidth; 
             const line = document.createElement('div');
             line.className = 'gantt-finish-line';
-            line.style.left = `${diff * dayWidth}px`; // Start of the deadline day
+            line.style.left = `${diff * dayWidth}px`; 
             line.title = `Due Date: ${finishDate.format('MMM D')}`;
             
             const flag = document.createElement('div');
@@ -277,7 +285,6 @@ function renderMiniGantt() {
         }
     }
 
-    // 4. Render Bars
     state.tasks.forEach((t, index) => {
         const tStart = dayjs(t.start_date);
         const tEnd = dayjs(t.end_date);
@@ -288,30 +295,24 @@ function renderMiniGantt() {
         const barWidth = (duration * dayWidth) - 10;
         
         const bar = document.createElement('div');
-        bar.className = 'gantt-task-bar'; // Updated class for taller bars
+        bar.className = 'gantt-task-bar'; 
         bar.style.left = `${barLeft}px`;
         bar.style.width = `${barWidth}px`;
-        bar.style.top = `${(index * 60) + 15}px`; // Increased vertical spacing for 50px bars
+        bar.style.top = `${(index * 60) + 15}px`; 
         
         const baseColor = TRADE_COLORS[t.trade_id] || '#555';
         
-        // --- OVERRUN LOGIC (Schedule Page Architecture) ---
         if (targetPixel !== null && (barLeft + barWidth) > targetPixel) {
-             // Task crosses deadline!
              const safeWidth = Math.max(0, targetPixel - barLeft);
              const safePercent = (safeWidth / barWidth) * 100;
-             
-             // Gradient: Safe Color -> Sharp Transition -> Alert Red
              bar.style.background = `linear-gradient(90deg, ${baseColor} ${safePercent}%, #ff4444 ${safePercent}%)`;
              bar.style.border = '1px solid #ff4444';
         } else {
-             // Safe Task
              bar.style.backgroundColor = baseColor;
         }
 
-        // Burn Rate / Progress Overlay
         const percent = t.estimated_hours ? (t.actual_hours / t.estimated_hours) : 0;
-        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)'; // Bright white or Red
+        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)'; 
         
         bar.innerHTML = `
             <span class="gantt-task-info">${t.name}</span>
@@ -371,14 +372,15 @@ function renderLogs() {
 function setupEventListeners() {
     document.getElementById('project-search').addEventListener('input', renderProjectList);
     document.getElementById('btn-launch-project').addEventListener('click', openLaunchProjectModal);
+    
+    // NEW: BOM Modal
+    document.getElementById('btn-add-bom').addEventListener('click', openAddBOMModal);
 
-    // Hide $0 Toggle
     document.getElementById('toggle-hide-zero').addEventListener('change', (e) => {
         state.hideZeroValue = e.target.checked;
         renderProjectList();
     });
 
-    // Save Changes
     document.getElementById('btn-save-main').addEventListener('click', async () => {
         if(!state.currentProject) return;
         
@@ -389,11 +391,10 @@ function setupEventListeners() {
         const newDueDate = document.getElementById('detail-due-date').value;
         const oldDate = state.currentProject.end_date;
 
-        // 1. Update DB (Including Description now)
         const { error } = await supabase.from('projects').update({
             name: newName,
             status: newStatus,
-            description: newScope, // Attempting to save scope directly
+            description: newScope, 
             start_date: newStartDate || null,
             end_date: newDueDate || null
         }).eq('id', state.currentProject.id);
@@ -403,7 +404,6 @@ function setupEventListeners() {
             alert('Save failed (Check console). Note: Scope saved to logs as backup.'); 
         }
 
-        // 2. System Notes (Backup/Audit)
         if(newScope !== (state.currentProject.description || '')) {
             await createSystemNote(`Updated Scope: ${newScope}`);
         }
@@ -417,14 +417,12 @@ function setupEventListeners() {
         loadProjectDetails(state.currentProject.id);
     });
 
-    // Delete Project
     document.getElementById('btn-delete-project').addEventListener('click', async () => {
         if (!state.currentProject) return;
         
         const confirmMsg = `Are you sure you want to delete project "${state.currentProject.name}"?\n\nThis will permanently remove the project and all associated tasks. This action cannot be undone.`;
         if (!confirm(confirmMsg)) return;
 
-        // Delete from DB
         const { error } = await supabase.from('projects').delete().eq('id', state.currentProject.id);
 
         if (error) {
@@ -432,7 +430,6 @@ function setupEventListeners() {
             return;
         }
 
-        // UI Cleanup
         alert('Project deleted.');
         state.currentProject = null;
         document.getElementById('detail-content').classList.add('hidden');
@@ -440,7 +437,6 @@ function setupEventListeners() {
         await loadProjectsList();
     });
 
-    // File Upload
     const btnUpload = document.getElementById('btn-upload-file');
     const fileInput = document.getElementById('file-input');
     const statusSpan = document.getElementById('upload-status');
@@ -461,7 +457,6 @@ function setupEventListeners() {
         loadProjectDetails(state.currentProject.id);
     });
 
-    // Tabs
     document.querySelectorAll('.tab-link').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-link').forEach(b => b.classList.remove('active'));
@@ -471,7 +466,6 @@ function setupEventListeners() {
         });
     });
 
-    // Add Note
     document.getElementById('btn-add-log').addEventListener('click', async () => {
         const txt = document.getElementById('new-log-input').value;
         if(!txt) return;
@@ -533,6 +527,68 @@ window.downloadFile = async (fileName) => {
         document.body.removeChild(a);
     }
 };
+
+// --- BOM LOGIC ---
+window.deleteBOM = async (id) => {
+    if(!confirm("Remove this material allocation?")) return;
+    await supabase.from('project_bom').delete().eq('id', id);
+    loadProjectDetails(state.currentProject.id);
+}
+
+async function openAddBOMModal() {
+    // Fetch inventory
+    const { data: items } = await supabase.from('inventory_items').select('*').order('name');
+    const safeItems = items || [];
+
+    const options = safeItems.map(i => `<option value="${i.id}">${i.sku} - ${i.name} (${i.qty_on_hand} in stock)</option>`).join('');
+
+    showModal('Add Material to BOM', `
+        <div style="margin-bottom:15px;">
+            <label>Select Item</label>
+            <select id="bom-item-select" class="form-control" style="background:var(--bg-dark); color:white;">
+                <option value="">-- Choose Material --</option>
+                ${options}
+            </select>
+            ${safeItems.length === 0 ? '<div style="color:var(--text-dim); font-size:0.8rem; margin-top:5px;">No inventory found. Add items in Inventory module first.</div>' : ''}
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div>
+                <label>Qty Required</label>
+                <input type="number" id="bom-req-qty" class="form-control" value="1">
+            </div>
+            <div>
+                <label>Status</label>
+                <select id="bom-status" class="form-control" style="background:var(--bg-dark); color:white;">
+                    <option value="Pending">Pending</option>
+                    <option value="Pulled">Pulled</option>
+                    <option value="Ordered">Ordered</option>
+                </select>
+            </div>
+        </div>
+        <button id="btn-save-bom" class="btn-primary" style="width:100%; margin-top:15px;">Add Allocation</button>
+    `, async () => {});
+
+    setTimeout(() => {
+        const saveBtn = document.getElementById('btn-save-bom');
+        if(saveBtn) saveBtn.onclick = async () => {
+            const itemId = document.getElementById('bom-item-select').value;
+            const qty = document.getElementById('bom-req-qty').value;
+            const status = document.getElementById('bom-status').value;
+
+            if(!itemId) return alert("Select an item.");
+
+            await supabase.from('project_bom').insert({
+                project_id: state.currentProject.id,
+                inventory_item_id: itemId,
+                qty_required: qty,
+                qty_allocated: 0, // Default to 0 allocated for now
+                status: status
+            });
+            hideModal();
+            loadProjectDetails(state.currentProject.id);
+        }
+    }, 100);
+}
 
 // --- LAUNCH MODAL ---
 async function openLaunchProjectModal() {
