@@ -33,7 +33,7 @@
         .kpi-value { font-family: 'Rajdhani', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--text-bright); }
         .kpi-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 
-        /* Gantt Specifics */
+        /* Gantt Specifics - Container only (Bars are now handled by projects.css) */
         .mini-gantt-container {
             width: 100%;
             overflow-x: auto; /* Horizontal Scroll Only */
@@ -46,36 +46,16 @@
             margin-top: 15px;
         }
 
-        .gantt-header-row { display: flex; height: 40px; border-bottom: 1px solid var(--border-color); background: var(--bg-medium); position: sticky; top: 0; z-index: 10; }
+        .gantt-header-row { display: flex; height: 50px; border-bottom: 1px solid var(--border-color); background: var(--bg-medium); position: sticky; top: 0; z-index: 10; }
         .gantt-date-cell { min-width: 50px; border-right: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-dim); }
         .gantt-body { position: relative; height: 100%; background-image: linear-gradient(90deg, var(--border-color) 1px, transparent 1px); background-size: 50px 100%; }
         
-        /* Taller bars & Burn Rate */
-        .gantt-bar {
-            position: absolute; height: 36px; border-radius: 4px; font-size: 0.75rem; 
-            display: flex; align-items: center; padding-left: 10px; color: white; font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden;
-            cursor: default; z-index: 2;
-        }
-
-        /* Burn Line Overlay (Progress Fill) - Made clearer */
-        .burn-line { 
-            position: absolute; bottom: 0; left: 0; height: 6px; 
-            z-index: 3; transition: width 0.3s ease; 
-            background: rgba(255,255,255,0.8); /* Stronger white */
-            border-bottom-left-radius: 4px;
-        }
-        .burn-line.over-budget {
-            background: #FF4444 !important; /* Red if over budget */
-            box-shadow: 0 0 5px rgba(255,0,0,0.5);
-        }
-
         /* File List */
         .file-row { display: flex; align-items: center; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); margin-bottom: 8px; border-radius: 4px; transition: 0.2s; }
         .file-row:hover { border-color: var(--primary-gold); }
         .file-icon { width: 30px; font-size: 1.2rem; color: var(--text-dim); text-align: center; margin-right: 10px; }
         
-        /* File Actions - Explicitly Styled */
+        /* File Actions */
         .file-actions { display: flex; gap: 15px; }
         .btn-file-action { 
             background: none; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; 
