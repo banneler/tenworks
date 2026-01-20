@@ -134,6 +134,9 @@ function renderDetailView() {
     document.getElementById('detail-status').value = p.status;
     document.getElementById('header-value-display').textContent = formatCurrency(p.project_value);
     
+    // System ID (New)
+    document.getElementById('detail-id').textContent = p.id;
+    
     // Date Range
     document.getElementById('detail-start-date').value = p.start_date || '';
     document.getElementById('detail-due-date').value = p.end_date || '';
