@@ -50,13 +50,12 @@ function updateClock() {
 
 async function fetchData() {
     console.log("Refreshing Shop Data...");
-    // Use simple string format for DB queries to avoid timezone shifts
-    const todayStr = dayjs().format('YYYY-MM-DD');
+    const today = dayjs().format('YYYY-MM-DD');
 
     const [projRes, taskRes, assignRes, talentRes, tradeRes] = await Promise.all([
         supabase.from('projects').select('*').neq('status', 'Completed').order('end_date'),
         supabase.from('project_tasks').select('*, projects(name)').neq('status', 'Completed'),
-        supabase.from('task_assignments').select('*, project_tasks(name, estimated_hours, projects(name), trade_id)').eq('assigned_date', todayStr),
+        supabase.from('task_assignments').select('*, project_tasks(name, estimated_hours, projects(name), trade_id)').eq('assigned_date', today),
         supabase.from('shop_talent').select('*').eq('active', true).order('name'),
         supabase.from('shop_trades').select('*')
     ]);
@@ -133,7 +132,7 @@ function renderGantt() {
         const laneCount = Math.max(1, lanes.length);
         const rowHeight = 60 + ((laneCount - 1) * 35); 
 
-        // Sidebar Row
+        // Sidebar
         const sbRow = document.createElement('div');
         sbRow.className = 'tv-row';
         sbRow.style.height = `${rowHeight}px`;
@@ -174,7 +173,6 @@ function renderGantt() {
             
             const barHeight = 28;
             const topOffset = 15 + (task.laneIndex * 33); 
-            
             bar.style.top = `${topOffset}px`;
             bar.style.left = `${Math.max(0, diff * dayWidth)}px`;
             bar.style.width = `${Math.max(10, (dur * dayWidth) - 10)}px`;
@@ -233,7 +231,7 @@ function packTasks(tasks) {
     return lanes; 
 }
 
-// --- MATRIX RENDERER (12 HOUR SHIFT) ---
+// --- RENDER MATRIX (12 HOUR SHIFT) ---
 function renderMatrix() {
     const list = document.getElementById('tv-matrix-list');
     const headerRow = document.getElementById('matrix-time-header');
@@ -272,17 +270,17 @@ function renderMatrix() {
                 const widthPct = (taskHours / 12) * 100;
                 const leftPct = ((currentHour - 6) / 12) * 100;
                 
-                // DYNAMIC TEXT SIZING
-                // Short Block (<= 2hr): Task Name Only, Small Font
-                // Med Block (< 4hr): Full Name, Small Font
-                // Long Block: Full Name, Standard Font
+                // DYNAMIC TEXT & FONT
                 let displayText = `${t.projects?.name} - ${t.name}`;
                 let fontSize = '0.75rem';
                 
-                if (taskHours <= 2) {
-                    displayText = t.name; // Drop project name
+                if (taskHours <= 1.5) {
+                    displayText = t.name; // Short name for 1hr block
+                    fontSize = '0.6rem';
+                } else if (taskHours <= 3) {
+                    displayText = t.name;
                     fontSize = '0.65rem';
-                } else if (taskHours < 4) {
+                } else if (taskHours < 5) {
                     fontSize = '0.7rem';
                 }
 
