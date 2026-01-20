@@ -42,7 +42,7 @@
             border: 1px solid var(--border-color);
             border-radius: 6px;
             position: relative;
-            height: 300px; /* Fixed height for mini view */
+            height: 350px; /* Increased height */
             margin-top: 15px;
         }
 
@@ -50,16 +50,20 @@
         .gantt-date-cell { min-width: 50px; border-right: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-dim); }
         .gantt-body { position: relative; height: 100%; background-image: linear-gradient(90deg, var(--border-color) 1px, transparent 1px); background-size: 50px 100%; }
         
-        /* Taller bars as requested */
+        /* Taller bars & Burn Rate */
         .gantt-bar {
-            position: absolute; height: 32px; border-radius: 4px; font-size: 0.75rem; 
+            position: absolute; height: 36px; border-radius: 4px; font-size: 0.75rem; 
             display: flex; align-items: center; padding-left: 10px; color: white; font-weight: 600;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden;
             cursor: default; z-index: 2;
         }
 
-        /* Burn Line (Actual vs Est) */
-        .burn-line { position: absolute; bottom: 0; left: 0; height: 4px; z-index: 3; transition: width 0.3s ease; }
+        /* Burn Line Overlay (Progress Fill) */
+        .burn-line { 
+            position: absolute; bottom: 0; left: 0; height: 6px; 
+            z-index: 3; transition: width 0.3s ease; 
+            background: rgba(255,255,255,0.7);
+        }
 
         /* File List */
         .file-row { display: flex; align-items: center; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); margin-bottom: 8px; border-radius: 4px; transition: 0.2s; }
@@ -81,15 +85,26 @@
             justify-content: center; font-size: 0.7rem; font-weight: bold; margin-right: 8px;
         }
 
-        /* Tabs */
-        .tab-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; gap: 20px; }
-        .tab-link { padding: 10px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; font-family: 'Rajdhani'; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid transparent; transition: 0.2s; }
+        /* Tab Navigation Row */
+        .tab-row {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-color); margin-bottom: 20px;
+        }
+        .tab-nav { display: flex; gap: 20px; }
+        .tab-link { padding: 10px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; font-family: 'Rajdhani'; font-weight: 600; text-transform: uppercase; border-bottom: 3px solid transparent; transition: 0.2s; }
         .tab-link.active { color: var(--primary-gold); border-bottom-color: var(--primary-gold); }
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* HEADER VALUE STYLING */
+        /* HEADER STYLING */
+        #detail-name {
+            background: transparent; border: none; width: 100%; 
+            font-family: 'Rajdhani'; font-size: 2rem; font-weight: 700; 
+            color: var(--text-bright); padding: 0; outline: none;
+        }
+        #detail-name:focus { border-bottom: 1px solid var(--primary-gold); }
+
         #header-value-display {
             font-family: 'Rajdhani', sans-serif;
             font-size: 2.2rem;
@@ -99,14 +114,15 @@
             line-height: 1;
         }
         
-        /* COUNTDOWN WIDGET */
         .countdown-badge {
             display: inline-block; padding: 4px 12px; border-radius: 20px; 
             font-weight: 700; font-size: 0.85rem; margin-top: 5px;
         }
 
-        /* Specific overrides to match Accounts Page Split View */
         .split-view { height: calc(100vh - 80px); }
+        
+        /* Remove orphan icon padding from list items */
+        .list-item .contact-info { padding-left: 5px; }
     </style>
 </head>
 
@@ -156,10 +172,9 @@
                         </div>
 
                         <div id="detail-content" class="hidden">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:15px;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
                                 <div style="flex:1; margin-right:20px;">
-                                    <label style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase;">Project Name</label>
-                                    <input type="text" id="detail-name" style="background:transparent; border:none; border-bottom:1px solid var(--border-color); width:100%; font-family:'Rajdhani'; font-size:1.8rem; font-weight:700; color:var(--text-bright); padding:5px 0;">
+                                    <input type="text" id="detail-name">
                                     
                                     <div style="display:flex; gap:15px; margin-top:10px; align-items: center;">
                                         <div>
@@ -172,6 +187,10 @@
                                             </select>
                                         </div>
                                         <div>
+                                            <label style="font-size:0.7rem; color:var(--text-dim);">Start Date</label>
+                                            <input type="date" id="detail-start-date" style="background:transparent; border:none; color:var(--text-bright); font-family:'Inter'; font-size:0.9rem;">
+                                        </div>
+                                        <div>
                                             <label style="font-size:0.7rem; color:var(--text-dim);">Due Date</label>
                                             <input type="date" id="detail-due-date" style="background:transparent; border:none; color:var(--text-bright); font-family:'Inter'; font-size:0.9rem;">
                                         </div>
@@ -181,15 +200,17 @@
                                 <div style="text-align:right;">
                                     <div id="header-value-display">$0.00</div>
                                     <div id="countdown-widget"></div>
-                                    <button id="btn-save-main" class="btn-primary" style="margin-top:10px;"><i class="fas fa-save"></i> Save Changes</button>
                                 </div>
                             </div>
 
-                            <div class="tab-nav">
-                                <button class="tab-link active" data-tab="overview">Overview</button>
-                                <button class="tab-link" data-tab="timeline">Timeline</button>
-                                <button class="tab-link" data-tab="files">Drawings & Files</button>
-                                <button class="tab-link" data-tab="log">Project Log</button>
+                            <div class="tab-row">
+                                <div class="tab-nav">
+                                    <button class="tab-link active" data-tab="overview">Overview</button>
+                                    <button class="tab-link" data-tab="timeline">Timeline</button>
+                                    <button class="tab-link" data-tab="files">Drawings & Files</button>
+                                    <button class="tab-link" data-tab="log">Project Log</button>
+                                </div>
+                                <button id="btn-save-main" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
                             </div>
 
                             <div id="tab-overview" class="tab-content active">
