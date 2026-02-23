@@ -95,7 +95,7 @@
     </style>
 </head>
 
-<body>
+<body data-nav="crm">
     <div id="loading-screen" class="hidden">
         <video autoplay muted playsinline>
             <source src="Constellation-Animation.mp4" type="video/mp4">
@@ -103,47 +103,8 @@
     </div>
 
     <div class="crm-container">
-        <nav class="nav-sidebar">
-            <div data-svg-loader="assets/logo.svg"></div>
+        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
 
-            <div class="global-search-container">
-                <input type="text" id="global-search-input" placeholder="Global Search...">
-                <div id="global-search-results" class="global-search-results hidden"></div>
-            </div>
-
-            <a href="command-center.html" class="nav-button">Command Center</a>
-            <a href="deals.html" class="nav-button">Deals</a>
-            <a href="contacts.html" class="nav-button">Contacts</a>
-            <a href="accounts.html" class="nav-button">Accounts</a>
-            <a href="irr.html" class="nav-button">IRR Calculator</a>
-            <a href="campaigns.html" class="nav-button">Campaigns</a>
-            <a href="sequences.html" class="nav-button">Sequences</a>
-            <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
-            
-            <div class="nav-bottom-section">
-                <div style="position: relative;">
-                    <a href="cognito.html" class="nav-button cognito-nav-link">
-                        <h1>C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#60a5fa;"></stop><stop offset="100%" style="stop-color:#3b82f6;"></stop></linearGradient></defs><g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round"><path d="M32.2,32.2 L45,45"></path><circle cx="20" cy="20" r="15"></circle></g></svg>gnito</h1>
-                    </a>
-                    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
-                </div>
-
-                <div class="user-menu" style="margin-top: auto;">
-                    <div class="user-menu-header">
-                        <div data-svg-loader="assets/user-icon.svg"></div>
-                        <span id="user-name-display">Loading...</span>
-                    </div>
-                    <div id="user-menu-popup" class="user-menu-popup">
-                        <button id="theme-toggle-btn" class="nav-button">
-                            Theme: <span id="theme-name">Dark</span>
-                        </button>
-                        <a href="user-guide.html" class="nav-button">User Guide</a>
-                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
-                    </div>
-                </div>
-            </div>
-        </nav>
-        
         <main class="content-area">
             <div id="ai-admin-view" class="content-view active-view">
                 <div class="tasks-header">
@@ -199,6 +160,7 @@
         </main>
     </div>
 
+    <script src="js/nav-loader.js"></script>
     <script type="module" src="js/ai-admin.js"></script>
     <script>
         (function() {

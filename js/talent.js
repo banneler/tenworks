@@ -5,13 +5,15 @@ import {
     hideModal, 
     setupUserMenuAndAuth, 
     loadSVGs,
-    setupGlobalSearch
+    setupGlobalSearch,
+    runWhenNavReady
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
+    runWhenNavReady(async () => {
     // ------------------------------------------------------------------------
     // 1. INITIALIZATION
     // ------------------------------------------------------------------------
@@ -24,21 +26,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     // 2. STATE
     // ------------------------------------------------------------------------
+    const STALE_AFTER_MS = 2 * 60 * 1000;
     let state = {
-        talent: [],         
-        trades: [],         
-        skills: [],         
-        availability: [],   
-        assignments: [],    
-        activeTasks: [],    
-        unassignedTasks: [], 
-        internalProjectID: null, 
-        viewDate: dayjs(),  
+        talent: [],
+        trades: [],
+        skills: [],
+        availability: [],
+        assignments: [],
+        activeTasks: [],
+        unassignedTasks: [],
+        internalProjectID: null,
+        viewDate: dayjs(),
         daysToShow: 30,
-        filterTradeId: null 
+        filterTradeId: null,
+        filterProjectId: null,
+        filterProjectName: null,
+        lastLoadedAt: null
     };
 
+    function showStalenessBanner() {
+        const el = document.getElementById('data-staleness-banner');
+        if (el) { el.style.display = 'flex'; el.classList.remove('hidden'); }
+    }
+    function hideStalenessBanner() {
+        const el = document.getElementById('data-staleness-banner');
+        if (el) { el.style.display = 'none'; el.classList.add('hidden'); }
+    }
+    function checkStaleness() {
+        if (state.lastLoadedAt != null && (Date.now() - state.lastLoadedAt) > STALE_AFTER_MS) showStalenessBanner();
+    }
+
     const TRADE_COLORS = { 1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2' };
+    const DEFAULT_HOURS_PER_WEEK = 40;
     function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
 
     // ------------------------------------------------------------------------
@@ -53,6 +72,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (nextBtn) nextBtn.addEventListener('click', () => { state.viewDate = state.viewDate.add(7, 'day'); renderMatrix(); });
     if (filterEl) filterEl.addEventListener('change', (e) => { state.filterTradeId = e.target.value ? parseInt(e.target.value) : null; renderMatrix(); });
     if (internalBtn) internalBtn.addEventListener('click', openInternalTaskModal);
+    document.getElementById('btn-capacity-report')?.addEventListener('click', openCapacityReportModal);
+
+    const talentRefreshBtn = document.getElementById('talent-refresh-btn');
+    const doTalentRefresh = async () => {
+        if (talentRefreshBtn) { talentRefreshBtn.disabled = true; talentRefreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refresh'; }
+        await loadTalentData();
+        if (talentRefreshBtn) { talentRefreshBtn.disabled = false; talentRefreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh'; }
+    };
+    if (talentRefreshBtn) talentRefreshBtn.addEventListener('click', doTalentRefresh);
+    document.getElementById('staleness-refresh-btn')?.addEventListener('click', doTalentRefresh);
+
+    window.addEventListener('focus', checkStaleness);
+    setInterval(checkStaleness, 30000);
+
+    supabase.channel('talent-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'project_tasks' }, () => loadTalentData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => loadTalentData())
+        .subscribe();
 
     const gridCanvas = document.getElementById('matrix-grid-canvas');
     const sidebarList = document.getElementById('matrix-resource-list');
@@ -66,7 +103,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 4. DATA FETCHING
+    // 4. DATA FETCHING (project_tasks + task_assignments = real-time vs Schedule/Projects)
     // ------------------------------------------------------------------------
     async function loadTalentData() {
         console.log("Loading Talent Matrix Data...");
@@ -95,23 +132,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.assignments = assignRes.data || [];
         state.activeTasks = activeRes.data || [];
 
+        state.lastLoadedAt = Date.now();
+        hideStalenessBanner();
         recalcStagingLane(); 
         populateFilterDropdown();
         renderMatrix();
     }
 
     function recalcStagingLane() {
-        state.unassignedTasks = state.activeTasks.filter(task => {
+        const tasksSource = state.filterProjectId
+            ? state.activeTasks.filter(t => t.project_id == state.filterProjectId)
+            : state.activeTasks;
+        state.unassignedTasks = tasksSource.filter(task => {
             const daysBooked = state.assignments.filter(a => a.task_id === task.id).length;
-            const hoursBooked = daysBooked * 8; 
+            const hoursBooked = daysBooked * 8;
             const remaining = (task.estimated_hours || 0) - hoursBooked;
-            
+
             task.remaining_hours = remaining > 0 ? remaining : 0;
             task.hours_booked = hoursBooked;
 
             return remaining > 0;
-        }).sort((a,b) => dayjs(a.start_date).diff(dayjs(b.start_date)));
-        
+        }).sort((a, b) => dayjs(a.start_date).diff(dayjs(b.start_date)));
+
         renderStagingLane();
     }
 
@@ -132,25 +174,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderStagingLane() {
         const list = document.getElementById('unassigned-pool-list');
         const count = document.getElementById('pool-count');
-        if(!list) return;
+        const filterChip = document.getElementById('staging-project-filter-chip');
+        if (!list) return;
 
         list.innerHTML = '';
         count.textContent = `${state.unassignedTasks.length} Pending`;
 
+        if (filterChip) {
+            if (state.filterProjectId && state.filterProjectName) {
+                filterChip.style.display = 'flex';
+                filterChip.innerHTML = `<span style="color:var(--text-dim);">Showing:</span> <span style="font-weight:600; color:var(--primary-gold);">${state.filterProjectName}</span> <a href="talent.html" id="staging-clear-filter" style="margin-left:8px; font-size:0.75rem; color:var(--text-dim);">Clear</a>`;
+                const clearBtn = document.getElementById('staging-clear-filter');
+                if (clearBtn) clearBtn.addEventListener('click', (e) => { e.preventDefault(); state.filterProjectId = null; state.filterProjectName = null; history.replaceState({}, '', 'talent.html'); recalcStagingLane(); renderMatrix(); });
+            } else {
+                filterChip.style.display = 'none';
+                filterChip.innerHTML = '';
+            }
+        }
+
         state.unassignedTasks.forEach(task => {
             const card = document.createElement('div');
             card.className = 'pool-card';
-            card.draggable = true; 
-            
+            card.draggable = true;
+
             const color = getTradeColor(task.trade_id);
-            card.style.borderTopColor = color; 
+            card.style.borderTopColor = color;
 
             const total = task.estimated_hours || 8;
             const booked = task.hours_booked || 0;
             const remaining = task.remaining_hours;
             const percent = Math.min((booked / total) * 100, 100);
             const s = dayjs(task.start_date).format('MMM D');
-            
+            const projectId = task.project_id;
+            const scheduleUrl = projectId ? `schedule.html?project_id=${projectId}` : 'schedule.html';
+            const projectsUrl = projectId ? `projects.html` : 'projects.html';
+
             card.innerHTML = `
                 <div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -165,12 +223,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div style="font-size:0.75rem; color:var(--text-dim); margin-top:3px;">${task.projects?.name}</div>
                 </div>
                 <div style="margin-top:auto;">
-                    <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; margin-bottom:8px;">
+                    <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; margin-bottom:6px;">
                         <div style="width:${percent}%; height:100%; background:${color};"></div>
                     </div>
-                    <div style="font-size:0.75rem; color:var(--text-bright); display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">
-                        <span><i class="far fa-calendar"></i> ${s}</span>
+                    <div style="font-size:0.7rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">
+                        <span style="color:var(--text-bright);"><i class="far fa-calendar"></i> ${s}</span>
                         <span style="color:${color}; font-weight:bold;">${remaining}h left</span>
+                        <a href="${scheduleUrl}" class="staging-link" style="color:var(--primary-gold); text-decoration:none;" title="View on Schedule" onclick="event.stopPropagation();">Schedule</a>
                     </div>
                 </div>
             `;
@@ -300,7 +359,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const isWeekend = d.day() === 0 || d.day() === 6;
 
                 const avail = state.availability.find(a => a.talent_id === person.id && a.date === dateStr);
-                const dailyAssignments = state.assignments.filter(a => a.talent_id === person.id && a.assigned_date === dateStr);
+                let dailyAssignments = state.assignments.filter(a => a.talent_id === person.id && a.assigned_date === dateStr);
+                if (state.filterProjectId) {
+                    dailyAssignments = dailyAssignments.filter(a => {
+                        const t = state.activeTasks.find(task => task.id === a.task_id);
+                        return t && t.project_id == state.filterProjectId;
+                    });
+                }
 
                 const cell = document.createElement('div');
                 cell.className = 'grid-cell';
@@ -582,5 +647,70 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, 100);
     }
 
-    loadTalentData();
+    function openCapacityReportModal() {
+        const viewStart = state.viewDate.startOf('week');
+        const weeks = [];
+        for (let i = 0; i < 5; i++) {
+            const weekStart = viewStart.add(i * 7, 'day');
+            weeks.push({ start: weekStart.format('YYYY-MM-DD'), label: 'Week of ' + weekStart.format('MMM D') });
+        }
+        const capacityByPerson = {};
+        state.talent.forEach(p => {
+            capacityByPerson[p.id] = Number(p.hours_per_week) || DEFAULT_HOURS_PER_WEEK;
+        });
+        const loadByPersonWeek = {};
+        state.assignments.forEach(a => {
+            const hrs = typeof a.hours === 'number' && a.hours >= 0 ? a.hours : 8;
+            const d = dayjs(a.assigned_date);
+            const weekKey = d.startOf('week').format('YYYY-MM-DD');
+            const key = `${a.talent_id}|${weekKey}`;
+            loadByPersonWeek[key] = (loadByPersonWeek[key] || 0) + hrs;
+        });
+        const rows = [];
+        let overloadCount = 0;
+        state.talent.forEach(p => {
+            const cap = capacityByPerson[p.id] || DEFAULT_HOURS_PER_WEEK;
+            weeks.forEach(w => {
+                const key = `${p.id}|${w.start}`;
+                const booked = loadByPersonWeek[key] || 0;
+                const pct = cap > 0 ? Math.round((booked / cap) * 100) : 0;
+                const over = booked > cap;
+                if (over) overloadCount++;
+                rows.push({ name: p.name, weekLabel: w.label, booked, cap, pct, over });
+            });
+        });
+        const overloadPeople = new Set(rows.filter(r => r.over).map(r => r.name)).size;
+        const tableRows = rows.map(r =>
+            `<tr style="${r.over ? 'background:rgba(231,76,60,0.15);' : ''}">
+                <td>${r.name}</td><td>${r.weekLabel}</td><td>${r.booked}h</td><td>${r.cap}h</td>
+                <td style="${r.over ? 'color:var(--danger-red); font-weight:bold;' : ''}">${r.pct}%</td>
+                <td>${r.over ? '<span style="color:var(--danger-red);">Over</span>' : '—'}</td>
+            </tr>`
+        ).join('');
+        showModal('Capacity report (visible range)', `
+            <p style="color:var(--text-dim); margin-bottom:12px;">Booked vs capacity by person and week. Capacity = ${DEFAULT_HOURS_PER_WEEK}h/week default (or <code>hours_per_week</code> on talent).</p>
+            ${overloadPeople > 0 ? `<p style="color:var(--danger-red); font-weight:600;">${overloadPeople} person(s) over capacity in this range.</p>` : ''}
+            <div style="max-height:320px; overflow:auto;">
+                <table class="bom-table" style="font-size:0.85rem;">
+                    <thead><tr><th>Person</th><th>Week of</th><th>Booked</th><th>Capacity</th><th>%</th><th>Status</th></tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>
+        `, () => {});
+    }
+
+    await loadTalentData();
+
+    const params = new URLSearchParams(window.location.search);
+    const projectIdParam = params.get('project_id');
+    if (projectIdParam) {
+        const id = parseInt(projectIdParam, 10) || projectIdParam;
+        state.filterProjectId = id;
+        const first = state.activeTasks.find(t => t.project_id == id);
+        state.filterProjectName = first?.projects?.name || 'Project';
+        history.replaceState({}, '', 'talent.html');
+        recalcStagingLane();
+        renderMatrix();
+    }
+    }); // runWhenNavReady
 });

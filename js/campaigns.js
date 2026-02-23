@@ -14,7 +14,8 @@ import {
     setupUserMenuAndAuth,
     loadSVGs,
     setupGlobalSearch,
-    checkAndSetNotifications
+    checkAndSetNotifications,
+    runWhenNavReady
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1466,5 +1467,5 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    initializePage();
+    runWhenNavReady(function () { initializePage(); });
 });

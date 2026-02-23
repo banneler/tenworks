@@ -5,7 +5,7 @@
     <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TenWorks Fab Shop</title>
+    <title>TenWorks Command Center</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,64 +15,29 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 
-<body class="theme-dark">
+<body class="theme-dark" data-nav="crm">
     <div class="crm-container">
-       <nav class="nav-sidebar">
-            <div data-svg-loader="assets/logo.svg"></div>
-
-            <div class="global-search-container">
-                <input type="text" id="global-search-input" placeholder="Global Search...">
-                <div id="global-search-results" class="global-search-results hidden"></div>
-            </div>
-
-            <a href="command-center.html" class="nav-button active">Fabrication Shop</a>
-            <a href="deals.html" class="nav-button">Deals</a>
-            <a href="contacts.html" class="nav-button">Contacts</a>
-            <a href="accounts.html" class="nav-button">Accounts</a>
-           
-            <a href="campaigns.html" class="nav-button">Campaigns</a>
-            <a href="sequences.html" class="nav-button">Sequences</a>
-            <a href="social_hub.html" class="nav-button">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
-            
-            <div class="nav-bottom-section">
-                <div style="position: relative;">
-                    <a href="cognito.html" class="nav-button cognito-nav-link">
-                        <h1>
-                            C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-                                <defs>
-                                    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" style="stop-color:#d6ad81;"></stop> <stop offset="100%" style="stop-color:#b38c62;"></stop> </linearGradient>
-                                </defs>
-                                <g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round">
-                                    <path d="M32.2,32.2 L45,45"></path>
-                                    <circle cx="20" cy="20" r="15"></circle>
-                                </g>
-                            </svg>gnito
-                        </h1>
-                    </a>
-                    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
-                </div>
-
-                <div class="user-menu" style="margin-top: auto;">
-                    <div class="user-menu-header">
-                        <div data-svg-loader="assets/user-icon.svg"></div>
-                        <span id="user-name-display">Loading...</span>
-                    </div>
-                    <div id="user-menu-popup" class="user-menu-popup">
-                                               <a href="ai-admin.html" class="nav-button" style="border-bottom: 1px solid var(--border-color); margin-bottom: 5px;">
-                       </i> &nbsp;AI Admin
-                </a>
-                        
-                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
         
         <main class="content-area">
             <div id="dashboard" class="content-view active-view">
                 
                 <div id="ai-briefing-container" class="hidden"></div>
+
+                <div id="erp-overview" class="erp-overview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <a href="projects.html" id="erp-active-projects" class="erp-card" style="background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; text-decoration: none; color: inherit;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Active Projects</div>
+                        <div id="erp-active-projects-count" style="font-family: 'Rajdhani', sans-serif; font-size: 1.75rem; font-weight: 700; color: var(--primary-blue);">—</div>
+                    </a>
+                    <a href="talent.html" id="erp-staffing-gaps" class="erp-card" style="background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; text-decoration: none; color: inherit;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Staffing Gaps</div>
+                        <div id="erp-staffing-gaps-count" style="font-family: 'Rajdhani', sans-serif; font-size: 1.75rem; font-weight: 700; color: var(--warning-yellow);">—</div>
+                    </a>
+                    <a href="proposals.html" id="erp-pending-proposals" class="erp-card" style="background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; text-decoration: none; color: inherit;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Pending Proposals</div>
+                        <div id="erp-pending-proposals-count" style="font-family: 'Rajdhani', sans-serif; font-size: 1.75rem; font-weight: 700; color: var(--text-light);">—</div>
+                    </a>
+                </div>
 
                 <div class="tasks-header">
                     <div class="tasks-header-left">
@@ -169,6 +134,7 @@
     </div>
     </div>
   
+    <script src="js/nav-loader.js"></script>
     <script type="module" src="js/command-center.js"></script>
 </body>
 

@@ -13,7 +13,8 @@ import {
     setupUserMenuAndAuth,
     loadSVGs,
     setupGlobalSearch,
-    checkAndSetNotifications
+    checkAndSetNotifications,
+    runWhenNavReady
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -263,7 +264,7 @@ document.addEventListener("DOMContentLoaded", async () => {
  const renderDealsPage = () => {
     if (!dealsTableBody) return;
 
-    const dealsForList = getFunnelDeals();
+    const dealsForList = [...getFunnelDeals(), ...state.deals.filter(d => d.stage === 'Closed Won')];
     
     const dealsWithAccount = dealsForList.map((deal) => ({ 
         ...deal, 
@@ -327,7 +328,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         </td>
         <td>
             <div class="button-group-wrapper">
-                <button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button>
+                ${deal.stage === 'Closed Won'
+                    ? `<a href="proposals.html?deal_id=${deal.id}" class="btn-secondary" style="text-decoration: none;" title="Generate Proposal"><i class="fas fa-file-contract"></i> Proposal</a>
+                       <a href="projects.html?launch_deal_id=${deal.id}" class="btn-secondary" style="text-decoration: none;" title="Launch Project"><i class="fas fa-rocket"></i> Launch</a>`
+                    : `<a href="proposals.html?deal_id=${deal.id}" class="btn-secondary" style="text-decoration: none;" title="Generate Proposal"><i class="fas fa-file-contract"></i> Proposal</a>
+                       <button class="btn-secondary edit-deal-btn" data-deal-id="${deal.id}">Edit</button>`
+                }
             </div>
         </td>`;
 });
@@ -387,6 +393,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <i class="fas fa-calendar-alt"></i>
                         ${deal.close_month ? formatMonthYear(deal.close_month, { month: 'short', year: 'numeric' }) : ''}
                     </span>
+                    <a href="proposals.html?deal_id=${deal.id}" class="kanban-card-proposal-link" title="Generate Proposal" style="margin-left: auto; font-size: 0.8rem; color: var(--primary-blue); text-decoration: none;"><i class="fas fa-file-contract"></i></a>
                 </div>
             </div>`;
     };
@@ -650,5 +657,5 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    initializePage();
+    runWhenNavReady(function () { initializePage(); });
 });

@@ -39,6 +39,24 @@ export function setEffectiveUser(userId, fullName) {
 }
 
 /**
+ * Run a callback when the nav partial has been injected (e.g. by nav-loader.js).
+ * Use this for setup that depends on nav DOM (global search, user menu, SVGs).
+ * If nav is already present, runs immediately; otherwise waits for the 'navReady' event.
+ * @param {Function} callback - Called when nav is ready (no arguments).
+ */
+export function runWhenNavReady(callback) {
+    const container = document.getElementById('nav-container');
+    if (container && container.children.length > 0) {
+        callback();
+        return;
+    }
+    window.addEventListener('navReady', function onReady() {
+        window.removeEventListener('navReady', onReady);
+        callback();
+    });
+}
+
+/**
  * Initializes the global state on application startup.
  * @param {SupabaseClient} supabase The Supabase client.
  * @returns {Promise<object>} The fully initialized state object.

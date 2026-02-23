@@ -18,17 +18,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body data-nav="erp">
     <div class="crm-container">
-        <nav class="nav-sidebar">
-            <div data-svg-loader="assets/logo.svg"></div>
-            <a href="schedule.html" class="nav-button">Schedule</a>
-            <a href="talent.html" class="nav-button">Talent Matrix</a>
-            <a href="inventory.html" class="nav-button active">Inventory</a> <a href="projects.html" class="nav-button">Projects</a>
-            <div class="nav-bottom-section">
-                <div class="user-menu"><span id="user-name-display">Loading...</span></div>
-            </div>
-        </nav>
+        <nav class="nav-sidebar" id="nav-container"><!-- ERP nav loaded by nav-loader.js --></nav>
 
         <main class="content-area">
             <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -44,7 +36,7 @@
                     <div class="kpi-label">Total Stock Value</div>
                     <div class="kpi-value" id="metric-value" style="color:var(--completed-color)">$0.00</div>
                 </div>
-                <div class="kpi-card">
+                <div class="kpi-card" id="kpi-low-stock" style="cursor:pointer;" title="Click to show low-stock items">
                     <div class="kpi-label">Low Stock Alerts</div>
                     <div class="kpi-value" id="metric-low-stock" style="color:var(--danger-red)">0</div>
                 </div>
@@ -52,17 +44,35 @@
                     <div class="kpi-label">Items Allocated</div>
                     <div class="kpi-value" id="metric-allocated" style="color:var(--primary-gold)">0</div>
                 </div>
+                <div class="kpi-card" id="kpi-short" style="cursor:pointer;" title="Click to show items short">
+                    <div class="kpi-label">Items Short</div>
+                    <div class="kpi-value" id="metric-short" style="color:var(--danger-red)">0</div>
+                </div>
             </div>
 
-            <div class="table-container" style="background:var(--bg-medium); border-radius:8px; border:1px solid var(--border-color); padding:15px;">
-                <div style="margin-bottom:15px; display:flex; gap:10px;">
-                    <input type="text" id="inventory-search" placeholder="Search SKU or Name..." class="form-control" style="flex:1;">
+            <div id="open-orders-section" class="table-container" style="margin-bottom:20px; display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h4 style="margin:0; color:var(--text-bright);">Open orders</h4>
+                </div>
+                <table class="bom-table" style="margin:0;">
+                    <thead>
+                        <tr><th>Item</th><th>Qty ordered</th><th>Qty received</th><th>Expected</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody id="open-orders-body"></tbody>
+                </table>
+                <div id="open-orders-empty" style="display:none; padding:15px; color:var(--text-dim); text-align:center;">No open orders. Use “Order more” on an item to create one.</div>
+            </div>
+
+            <div class="table-container" id="inventory-table-container" style="background:var(--bg-medium); border-radius:8px; border:1px solid var(--border-color); padding:15px;"> style="background:var(--bg-medium); border-radius:8px; border:1px solid var(--border-color); padding:15px;">
+                <div style="margin-bottom:15px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <input type="text" id="inventory-search" placeholder="Search SKU or Name..." class="form-control" style="flex:1; min-width:180px;">
                     <select id="inventory-filter" class="form-control" style="width:200px;">
                         <option value="All">All Categories</option>
                         <option value="Sheet">Sheet Metal</option>
                         <option value="Tube">Tube/Bar</option>
                         <option value="Hardware">Hardware</option>
                     </select>
+                    <span id="filter-indicator" style="display:none; font-size:0.85rem; color:var(--text-dim);">Showing: <span id="filter-label"></span> <a href="#" id="filter-show-all" style="color:var(--primary-gold); margin-left:6px;">Show all</a></span>
                 </div>
                 <table id="inventory-table">
                     <thead>
@@ -73,6 +83,7 @@
                             <th>Location</th>
                             <th>Qty On Hand</th>
                             <th>Allocated</th>
+                            <th>Available</th>
                             <th>Value</th>
                             <th>Actions</th>
                         </tr>
@@ -91,6 +102,7 @@
         </div>
     </div>
 
+    <script src="js/nav-loader.js"></script>
     <script type="module" src="js/inventory.js"></script>
 </body>
 </html>

@@ -122,29 +122,15 @@
     </style>
 </head>
 
-<body>
+<body data-nav="erp">
     <div class="crm-container">
-        
-        <nav class="nav-sidebar">
-            <div data-svg-loader="assets/logo.svg"></div> 
-            <div class="global-search-container"><input type="text" id="global-search-input" placeholder="Search..."><div id="global-search-results" class="global-search-results hidden"></div></div>
-            <a href="schedule.html" class="nav-button">Schedule</a>
-            <a href="talent.html" class="nav-button active">Talent Matrix</a>
-            <a href="deals.html" class="nav-button">Deals</a>
-            <a href="projects.html" class="nav-button">Projects</a>
-            <a href="contacts.html" class="nav-button">Contacts</a>
-            <a href="accounts.html" class="nav-button">Accounts</a>
-           
-            <div class="nav-bottom-section">
-               
-                <div class="user-menu" style="margin-top: auto;">
-                    <div class="user-menu-header"><div data-svg-loader="assets/user-icon.svg"></div><span id="user-name-display">Loading...</span></div>
-                    <div id="user-menu-popup" class="user-menu-popup"><button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button></div>
-                </div>
-            </div>
-        </nav>
+        <nav class="nav-sidebar" id="nav-container"><!-- ERP nav loaded by nav-loader.js --></nav>
 
         <main class="content-area">
+            <div id="data-staleness-banner" class="data-staleness-banner hidden" style="display:none; align-items:center; justify-content:space-between; padding:10px 20px; background:var(--warning-yellow); color:#1a1a1a; font-size:0.9rem;">
+                <span><i class="fas fa-info-circle"></i> Data may be stale. Click <strong>Refresh</strong> to load the latest.</span>
+                <button type="button" id="staleness-refresh-btn" class="btn-primary" style="padding:6px 14px; font-size:0.85rem;"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
             <div class="projects-view"> 
                 
      <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px;">
@@ -165,7 +151,10 @@
         <button id="btn-internal-task" class="btn-primary" style="padding: 10px 15px; font-size: 0.9rem; background: var(--bg-medium); border:1px solid var(--border-color);">
             <i class="fas fa-wrench"></i> Internal Task
         </button>
-        <button onclick="window.location.reload()" class="btn-primary" style="padding: 10px 20px; font-size: 0.9rem;">
+        <button id="btn-capacity-report" class="btn-secondary" style="padding: 10px 15px; font-size: 0.9rem;">
+            <i class="fas fa-chart-bar"></i> Capacity Report
+        </button>
+        <button id="talent-refresh-btn" class="btn-primary" style="padding: 10px 20px; font-size: 0.9rem;" title="Reload schedule data">
             <i class="fas fa-sync-alt"></i> Refresh
         </button>
     </div>
@@ -188,6 +177,7 @@
                 <div class="bottom-staging-lane">
                     <div class="staging-header">
                         <span><i class="fas fa-box-open" style="color:var(--text-dim); margin-right:10px;"></i> Unassigned Tasks <span style="font-weight:400; color:var(--text-dim); font-size:0.9rem; margin-left:10px;">(Drag Up to Assign)</span></span>
+                        <div id="staging-project-filter-chip" style="display:none; align-items:center; gap:4px;"></div>
                         <span id="pool-count" style="background:var(--primary-blue); color:white; padding:4px 10px; border-radius:4px; font-size:0.8rem;">0 Pending</span>
                     </div>
                     <div id="unassigned-pool-list" class="staging-content">
@@ -202,6 +192,7 @@
         <div class="modal-content"><h3 id="modal-title"></h3><div id="modal-body"></div><div id="modal-actions" class="modal-actions"></div></div>
     </div>
 
+    <script src="js/nav-loader.js"></script>
     <script type="module" src="js/talent.js"></script>
 </body>
 </html>

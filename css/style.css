@@ -302,8 +302,8 @@ body:not(.theme-green) .nav-sidebar {
     background: none;
     border: none;
     color: var(--text-medium);
-    padding: 0.9375rem;
-    margin: 0.3125rem 0;
+    padding: 0.5rem 0.625rem;
+    margin: 0.125rem 0;
     text-align: left;
     font-size: 1rem;
     cursor: pointer;
@@ -348,6 +348,41 @@ body.theme-green .btn-secondary.active {
     background: transparent;
     border: 1px solid var(--text-light);
     box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
+}
+
+/* CRM | Production pill toggle (under global search) */
+.nav-pill-container {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 0.75rem;
+    border-radius: 9999px;
+    background: var(--bg-medium);
+    border: 1px solid var(--border-color);
+    padding: 2px;
+    width: 100%;
+}
+.nav-pill {
+    flex: 1;
+    text-align: center;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--text-medium);
+    border-radius: 9999px;
+    transition: color 0.15s, background 0.15s;
+}
+.nav-pill:hover {
+    color: var(--text-light);
+}
+.nav-pill.active {
+    background: var(--primary-blue);
+    color: #fff;
+    font-weight: 600;
+}
+.nav-pill:not(.active):hover {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .content-area {

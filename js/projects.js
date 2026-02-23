@@ -6,7 +6,8 @@ import {
     hideModal, 
     setupUserMenuAndAuth, 
     loadSVGs,
-    setupGlobalSearch 
+    setupGlobalSearch,
+    runWhenNavReady
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -14,28 +15,47 @@ const dayjs = window.dayjs;
 
 // --- TRADE COLORS (Matches Schedule Page) ---
 const TRADE_COLORS = {
-    1: '#546E7A', // Kickoff
-    2: '#1E88E5', // Design
-    3: '#D4AF37', // Fabrication (Gold)
-    4: '#8D6E63', // Wood
-    5: '#66BB6A', // Install
-    6: '#7E57C2'  // Finish
+    1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2'
 };
 
+const DEFAULT_LABOR_RATE = 75; // $/hr for job cost summary
+
+const TODAY = () => new Date().toISOString().slice(0, 10);
+const DAYS_AT_RISK = 14;
+
+const STALE_AFTER_MS = 2 * 60 * 1000;
 let state = {
     projects: [],
     trades: [],
     currentProject: null,
+    linkedProposal: null,
+    overdueProjectIds: new Set(),
+    atRiskProjectIds: new Set(),
     tasks: [],
     contacts: [],
     files: [],
     notes: [],
-    bom: [], // NEW
+    bom: [],
+    changeOrders: [],
     currentUser: null,
-    hideZeroValue: true 
+    hideZeroValue: true,
+    lastLoadedAt: null
 };
 
+function showStalenessBanner() {
+    const el = document.getElementById('data-staleness-banner');
+    if (el) { el.style.display = 'flex'; el.classList.remove('hidden'); }
+}
+function hideStalenessBanner() {
+    const el = document.getElementById('data-staleness-banner');
+    if (el) { el.style.display = 'none'; el.classList.add('hidden'); }
+}
+function checkStaleness() {
+    if (state.lastLoadedAt != null && (Date.now() - state.lastLoadedAt) > STALE_AFTER_MS) showStalenessBanner();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+    runWhenNavReady(async () => {
     await loadSVGs();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = 'index.html'; return; }
@@ -49,6 +69,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     setupEventListeners();
     await loadProjectsList();
+
+    const launchDealId = new URLSearchParams(window.location.search).get('launch_deal_id');
+    if (launchDealId) {
+        history.replaceState({}, '', window.location.pathname);
+        openLaunchProjectModal(launchDealId);
+    }
+    });
 });
 
 // --- 1. DATA LOADING ---
@@ -61,19 +88,46 @@ async function loadProjectsList() {
 
     if (error) console.error("Error loading projects:", error);
     state.projects = data || [];
+
+    const { data: tasksData } = await supabase.from('project_tasks').select('project_id, end_date, status').neq('status', 'Completed');
+    const allTasks = tasksData || [];
+    const today = TODAY();
+    const endPlus14 = new Date();
+    endPlus14.setDate(endPlus14.getDate() + DAYS_AT_RISK);
+    const endPlus14Str = endPlus14.toISOString().slice(0, 10);
+    state.overdueProjectIds = new Set();
+    state.atRiskProjectIds = new Set();
+    state.projects.forEach(p => {
+        if (!p.end_date || p.status === 'Completed') return;
+        if (p.end_date < today) state.overdueProjectIds.add(p.id);
+    });
+    const overdueTaskProjectIds = new Set(allTasks.filter(t => t.end_date && t.end_date < today).map(t => t.project_id));
+    state.projects.forEach(p => {
+        if (!p.end_date || p.status === 'Completed') return;
+        if (p.end_date >= today && p.end_date <= endPlus14Str && overdueTaskProjectIds.has(p.id)) state.atRiskProjectIds.add(p.id);
+    });
+
+    state.lastLoadedAt = Date.now();
+    hideStalenessBanner();
     renderProjectList();
 }
 
 async function loadProjectDetails(projectId) {
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
     state.currentProject = project;
+    state.linkedProposal = null;
+    if (project?.proposal_id) {
+        const { data: prop } = await supabase.from('proposals_tw').select('id, title, updated_at').eq('id', project.proposal_id).maybeSingle();
+        state.linkedProposal = prop || null;
+    }
 
-    const [tasksRes, contactsRes, notesRes, filesRes, bomRes] = await Promise.all([
+    const [tasksRes, contactsRes, notesRes, filesRes, bomRes, changeOrdersRes] = await Promise.all([
         supabase.from('project_tasks').select('*').eq('project_id', projectId).order('start_date'),
         supabase.from('project_contacts').select('role, contacts(id, first_name, last_name, email, phone)').eq('project_id', projectId),
         supabase.from('project_notes').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
         supabase.storage.from('project_files').list(`${projectId}`),
-        supabase.from('project_bom').select('*, inventory_items(sku, name, category, uom)').eq('project_id', projectId) // NEW BOM FETCH
+        supabase.from('project_bom').select('*, inventory_items(sku, name, category, uom, cost_per_unit)').eq('project_id', projectId),
+        supabase.from('project_change_orders').select('*').eq('project_id', projectId).order('created_at', { ascending: true })
     ]);
 
     state.tasks = tasksRes.data || [];
@@ -81,6 +135,7 @@ async function loadProjectDetails(projectId) {
     state.notes = notesRes.data || [];
     state.files = (filesRes.data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
     state.bom = bomRes.data || [];
+    state.changeOrders = changeOrdersRes.data || [];
 
     renderDetailView();
 }
@@ -90,22 +145,28 @@ async function loadProjectDetails(projectId) {
 function renderProjectList() {
     const listEl = document.getElementById('project-list');
     const search = document.getElementById('project-search').value.toLowerCase();
+    const urlFilter = new URLSearchParams(window.location.search).get('filter');
     listEl.innerHTML = '';
 
-    const filtered = state.projects.filter(p => {
+    let filtered = state.projects.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search);
         const matchesValue = !state.hideZeroValue || (p.project_value > 0);
         return matchesSearch && matchesValue;
     });
+    if (urlFilter === 'overdue') filtered = filtered.filter(p => state.overdueProjectIds.has(p.id));
+    if (urlFilter === 'at_risk') filtered = filtered.filter(p => state.atRiskProjectIds.has(p.id));
 
     filtered.forEach(p => {
+        const isOverdue = state.overdueProjectIds.has(p.id);
+        const isAtRisk = state.atRiskProjectIds.has(p.id);
+        const badge = isOverdue ? '<span style="font-size:0.7rem; background:#c62828; color:fff; padding:2px 6px; border-radius:4px; margin-left:6px;">Overdue</span>' : (isAtRisk ? '<span style="font-size:0.7rem; background:var(--warning-yellow); color:#000; padding:2px 6px; border-radius:4px; margin-left:6px;">At risk</span>' : '');
         const el = document.createElement('div');
-        el.className = 'list-item'; 
-        if(state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
-        
+        el.className = 'list-item';
+        if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
+
         el.innerHTML = `
             <div class="contact-info" style="padding-left:0;">
-                <div class="contact-name">${p.name}</div>
+                <div class="contact-name">${p.name}${badge}</div>
                 <div class="account-name">
                     <span style="color:${getStatusColor(p.status)}">${p.status}</span> • ${formatCurrency(p.project_value)}
                 </div>
@@ -127,9 +188,61 @@ function renderDetailView() {
     document.getElementById('empty-state').classList.add('hidden');
     document.getElementById('detail-content').classList.remove('hidden');
 
-    document.getElementById('detail-name').value = p.name;
-    document.getElementById('detail-status').value = p.status;
-    document.getElementById('header-value-display').textContent = formatCurrency(p.project_value);
+    const proposalBtn = document.getElementById('btn-generate-proposal');
+    if (proposalBtn) {
+        proposalBtn.style.display = 'inline-flex';
+        proposalBtn.href = `proposals.html?project_id=${p.id}`;
+        if (p.deal_id) proposalBtn.href += `&deal_id=${p.deal_id}`;
+    }
+    const scheduleBtn = document.getElementById('btn-open-schedule');
+    if (scheduleBtn) {
+        scheduleBtn.style.display = 'inline-flex';
+        scheduleBtn.href = `schedule.html?project_id=${p.id}`;
+    }
+    const talentBtn = document.getElementById('btn-open-talent');
+    if (talentBtn) {
+        talentBtn.style.display = 'inline-flex';
+        talentBtn.href = `talent.html?project_id=${p.id}`;
+    }
+    const viewProposalBtn = document.getElementById('btn-view-proposal');
+    if (viewProposalBtn) {
+        if (state.linkedProposal) {
+            viewProposalBtn.style.display = 'inline-flex';
+            viewProposalBtn.href = `proposals.html?id=${state.linkedProposal.id}`;
+            viewProposalBtn.title = state.linkedProposal.title || 'View linked proposal';
+            viewProposalBtn.innerHTML = `<i class="fas fa-file-alt"></i> ${state.linkedProposal.title ? 'View: ' + state.linkedProposal.title : 'View proposal'}`;
+        } else {
+            viewProposalBtn.style.display = 'none';
+        }
+    }
+    const shareStatusBtn = document.getElementById('btn-share-status-link');
+    if (shareStatusBtn) shareStatusBtn.style.display = 'inline-flex';
+
+    document.getElementById('detail-name').value = p.name || '';
+    document.getElementById('detail-status').value = p.status || '';
+    const paymentUrlEl = document.getElementById('detail-payment-url');
+    if (paymentUrlEl) paymentUrlEl.value = p.payment_url || '';
+    const clientSummaryEl = document.getElementById('detail-client-summary');
+    if (clientSummaryEl) clientSummaryEl.value = p.client_summary || '';
+    const promptEl = document.getElementById('client-summary-prompt');
+    if (promptEl) {
+        const updatedAt = p.client_summary_updated_at ? new Date(p.client_summary_updated_at) : null;
+        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+        const isStale = !updatedAt || updatedAt < weekAgo;
+        if (isStale) {
+            promptEl.style.display = 'block';
+            promptEl.classList.remove('hidden');
+        } else {
+            promptEl.style.display = 'none';
+            promptEl.classList.add('hidden');
+        }
+    }
+    const originalValue = Number(p.project_value) || 0;
+    const changeOrderTotal = (state.changeOrders || []).reduce((sum, co) => sum + (Number(co.amount) || 0), 0);
+    const revisedValue = originalValue + changeOrderTotal;
+    document.getElementById('header-value-display').textContent = formatCurrency(originalValue);
+    const revEl = document.getElementById('header-revised-value');
+    if (revEl) revEl.textContent = changeOrderTotal !== 0 ? `Revised: ${formatCurrency(revisedValue)}` : '';
     document.getElementById('detail-id').textContent = p.id;
     document.getElementById('detail-start-date').value = p.start_date || '';
     document.getElementById('detail-due-date').value = p.end_date || '';
@@ -157,11 +270,69 @@ function renderDetailView() {
     document.getElementById('kpi-act').textContent = totalAct;
     document.getElementById('kpi-progress').textContent = `${progress}%`;
 
+    const laborCost = totalAct * DEFAULT_LABOR_RATE;
+    const materialCost = (state.bom || []).reduce((sum, row) => {
+        const inv = row.inventory_items || {};
+        const qty = Number(row.qty_allocated ?? row.qty_required) || 0;
+        const cost = Number(inv.cost_per_unit) || 0;
+        return sum + qty * cost;
+    }, 0);
+    const totalCost = laborCost + materialCost;
+    const laborEl = document.getElementById('job-cost-labor');
+    const materialEl = document.getElementById('job-cost-material');
+    const totalEl = document.getElementById('job-cost-total');
+    if (laborEl) laborEl.textContent = `Labor (${totalAct} hrs × $${DEFAULT_LABOR_RATE}/hr): ${formatCurrency(laborCost)}`;
+    if (materialEl) materialEl.textContent = `Material (BOM): ${formatCurrency(materialCost)}`;
+    if (totalEl) totalEl.textContent = `Total cost: ${formatCurrency(totalCost)}`;
+
+    const origEl = document.getElementById('contract-original');
+    const coLineEl = document.getElementById('contract-change-orders');
+    const revContractEl = document.getElementById('contract-revised');
+    const coListEl = document.getElementById('change-orders-list');
+    if (origEl) origEl.textContent = `Original: ${formatCurrency(originalValue)}`;
+    if (coLineEl) coLineEl.textContent = changeOrderTotal !== 0 ? `Change orders: +${formatCurrency(changeOrderTotal)}` : 'Change orders: none';
+    if (revContractEl) revContractEl.textContent = `Revised total: ${formatCurrency(revisedValue)}`;
+    if (coListEl) {
+        coListEl.innerHTML = (state.changeOrders || []).map(co =>
+            `<li style="margin-bottom:6px;">${(co.description || '—').replace(/</g, '&lt;')} · ${formatCurrency(co.amount)} <span style="font-size:0.8em; color:var(--text-dim);">(${co.status || 'pending'})</span> <button type="button" class="btn-secondary" style="padding:2px 6px; margin-left:6px; font-size:0.75rem;" onclick="window.deleteChangeOrder('${co.id}')">Remove</button></li>`
+        ).join('') || '<li style="color:var(--text-dim);">No change orders yet.</li>';
+    }
+    document.getElementById('btn-add-change-order').onclick = () => openAddChangeOrderModal();
+
     renderTeam();
     renderMiniGantt();
+    renderTaskList();
     renderFiles();
     renderLogs();
-    renderBOM(); // NEW
+    renderBOM();
+}
+
+function renderTaskList() {
+    const tbody = document.getElementById('project-task-list-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    state.tasks.forEach(t => {
+        const tr = document.createElement('tr');
+        const actualVal = t.actual_hours != null && t.actual_hours !== '' ? Number(t.actual_hours) : '';
+        tr.innerHTML = `
+            <td style="font-weight:600; color:var(--text-bright);">${t.name}</td>
+            <td>${t.estimated_hours ?? '-'}</td>
+            <td><input type="number" min="0" step="0.25" data-task-id="${t.id}" class="task-actual-input form-control" style="width:80px; padding:6px; background:var(--bg-dark); color:var(--text-bright); border:1px solid var(--border-color);" value="${actualVal}"></td>
+            <td><span style="font-size:0.8rem; color:var(--text-dim);">${t.status || 'Pending'}</span></td>
+            <td><button type="button" class="btn-secondary task-save-actual" data-task-id="${t.id}" style="padding:4px 10px;"><i class="fas fa-save"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.task-save-actual').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const taskId = btn.dataset.taskId;
+            const input = tbody.querySelector(`.task-actual-input[data-task-id="${taskId}"]`);
+            const val = parseFloat(input?.value) || 0;
+            const { error } = await supabase.from('project_tasks').update({ actual_hours: val }).eq('id', taskId);
+            if (error) alert('Update failed: ' + error.message);
+            else if (state.currentProject) await loadProjectDetails(state.currentProject.id);
+        });
+    });
 }
 
 function renderBOM() {
@@ -199,18 +370,36 @@ function renderTeam() {
         const contact = c.contacts;
         if(!contact) return '';
         return `
-            <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); margin-bottom:5px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:10px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); margin-bottom:5px;">
                 <div>
                     <a href="contacts.html?id=${contact.id}" style="font-weight:600; text-decoration:none; color:var(--text-bright);">${contact.first_name} ${contact.last_name}</a>
                     <div style="font-size:0.75rem; color:var(--primary-gold);">${c.role || 'Stakeholder'}</div>
                 </div>
-                <div style="text-align:right; font-size:0.8rem; color:var(--text-dim);">
+                <div style="text-align:right; font-size:0.8rem; color:var(--text-dim); display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
                     <div>${contact.email || ''}</div>
                     <div>${contact.phone || ''}</div>
+                    <button type="button" class="btn-secondary copy-portal-btn" style="padding:4px 10px; font-size:0.75rem; margin-top:4px;" data-contact-id="${contact.id}" title="Copy customer portal link (all projects for this contact)">Portal link</button>
                 </div>
             </div>
         `;
     }).join('') || '<div style="color:var(--text-dim); padding:10px; font-style:italic;">No contacts assigned.</div>';
+
+    teamEl.querySelectorAll('.copy-portal-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const contactId = btn.dataset.contactId;
+            if (!contactId) return;
+            const { data: token, error } = await supabase.rpc('get_or_create_contact_portal_token', { p_contact_id: contactId });
+            if (error) { alert('Could not get portal link: ' + error.message); return; }
+            const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html?portal=${token}`;
+            try {
+                await navigator.clipboard.writeText(url);
+                if (window.showToast) window.showToast('Customer portal link copied.');
+                else alert('Portal link copied. Customer will see all their projects in one page.');
+            } catch (_) {
+                prompt('Copy this customer portal link:', url);
+            }
+        });
+    });
 }
 
 function renderMiniGantt() {
@@ -311,7 +500,7 @@ function renderMiniGantt() {
              bar.style.backgroundColor = baseColor;
         }
 
-        const percent = t.estimated_hours ? (t.actual_hours / t.estimated_hours) : 0;
+        const percent = t.estimated_hours ? ((t.actual_hours || 0) / t.estimated_hours) : 0;
         const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)'; 
         
         bar.innerHTML = `
@@ -372,6 +561,54 @@ function renderLogs() {
 function setupEventListeners() {
     document.getElementById('project-search').addEventListener('input', renderProjectList);
     document.getElementById('btn-launch-project').addEventListener('click', openLaunchProjectModal);
+    const doProjectsRefresh = async () => {
+        const btn = document.getElementById('btn-refresh-projects');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+        await loadProjectsList();
+        if (state.currentProject) await loadProjectDetails(state.currentProject.id);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i>'; }
+    };
+    document.getElementById('btn-refresh-projects').addEventListener('click', doProjectsRefresh);
+    document.getElementById('staleness-refresh-btn')?.addEventListener('click', doProjectsRefresh);
+
+    document.getElementById('dismiss-summary-prompt')?.addEventListener('click', () => {
+        const el = document.getElementById('client-summary-prompt');
+        if (el) { el.style.display = 'none'; el.classList.add('hidden'); }
+    });
+
+    document.getElementById('btn-share-status-link')?.addEventListener('click', async () => {
+        if (!state.currentProject) return;
+        let token = state.currentProject.status_token;
+        if (!token) {
+            const newToken = crypto.randomUUID();
+            const { error } = await supabase.from('projects').update({ status_token: newToken }).eq('id', state.currentProject.id);
+            if (error) { alert('Could not create share link: ' + error.message); return; }
+            state.currentProject.status_token = newToken;
+            token = newToken;
+        }
+        const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html?token=${token}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            if (window.showToast) window.showToast('Status link copied to clipboard.');
+            else alert('Link copied to clipboard.');
+        } catch (_) {
+            prompt('Copy this status link for your client:', url);
+        }
+    });
+
+    window.addEventListener('focus', checkStaleness);
+    setInterval(checkStaleness, 30000);
+
+    supabase.channel('projects-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'project_tasks' }, async () => {
+            await loadProjectsList();
+            if (state.currentProject) await loadProjectDetails(state.currentProject.id);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, async () => {
+            await loadProjectsList();
+            if (state.currentProject) await loadProjectDetails(state.currentProject.id);
+        })
+        .subscribe();
     
     // NEW: BOM Modal
     document.getElementById('btn-add-bom').addEventListener('click', openAddBOMModal);
@@ -389,14 +626,20 @@ function setupEventListeners() {
         const newScope = document.getElementById('detail-scope').value;
         const newStartDate = document.getElementById('detail-start-date').value;
         const newDueDate = document.getElementById('detail-due-date').value;
+        const newPaymentUrl = document.getElementById('detail-payment-url')?.value?.trim() || null;
+        const newClientSummary = document.getElementById('detail-client-summary')?.value?.trim() || null;
         const oldDate = state.currentProject.end_date;
+        const summaryChanged = newClientSummary !== (state.currentProject.client_summary || '');
 
         const { error } = await supabase.from('projects').update({
             name: newName,
             status: newStatus,
             description: newScope, 
             start_date: newStartDate || null,
-            end_date: newDueDate || null
+            end_date: newDueDate || null,
+            payment_url: newPaymentUrl,
+            client_summary: newClientSummary,
+            client_summary_updated_at: summaryChanged ? new Date().toISOString() : state.currentProject.client_summary_updated_at
         }).eq('id', state.currentProject.id);
 
         if(error) { 
@@ -590,8 +833,49 @@ async function openAddBOMModal() {
     }, 100);
 }
 
+function openAddChangeOrderModal() {
+    if (!state.currentProject) return;
+    showModal('Add Change Order', `
+        <div style="margin-bottom:12px;">
+            <label>Description</label>
+            <input type="text" id="co-description" class="form-control" placeholder="e.g. Additional scope – Phase 2" style="background:var(--bg-dark); color:white; width:100%;">
+        </div>
+        <div style="margin-bottom:12px;">
+            <label>Amount ($)</label>
+            <input type="number" id="co-amount" class="form-control" step="0.01" min="0" value="0" style="background:var(--bg-dark); color:white; width:100%;">
+        </div>
+        <div>
+            <label>Status</label>
+            <select id="co-status" class="form-control" style="background:var(--bg-dark); color:white; width:100%;">
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+            </select>
+        </div>
+    `, async (modalBody) => {
+        const desc = (modalBody.querySelector('#co-description')?.value || '').trim();
+        const amount = parseFloat(modalBody.querySelector('#co-amount')?.value, 10);
+        const status = modalBody.querySelector('#co-status')?.value || 'pending';
+        if (!desc) { alert('Enter a description.'); return false; }
+        if (isNaN(amount) || amount < 0) { alert('Enter a valid amount.'); return false; }
+        const { error } = await supabase.from('project_change_orders').insert({
+            project_id: state.currentProject.id,
+            description: desc,
+            amount: amount,
+            status: status
+        });
+        if (error) { alert('Error adding change order: ' + error.message); return false; }
+        await loadProjectDetails(state.currentProject.id);
+    });
+}
+
+window.deleteChangeOrder = async (id) => {
+    if (!confirm('Remove this change order?')) return;
+    await supabase.from('project_change_orders').delete().eq('id', id);
+    if (state.currentProject) loadProjectDetails(state.currentProject.id);
+};
+
 // --- LAUNCH MODAL ---
-async function openLaunchProjectModal() {
+async function openLaunchProjectModal(preSelectDealId) {
     const { data: deals, error } = await supabase.from('deals_tw').select('*').order('created_at', { ascending: false });
     if (error) { alert("Error fetching deals: " + error.message); return; }
     if (!deals || deals.length === 0) { alert("No deals found in 'deals_tw' table."); return; }
@@ -644,17 +928,31 @@ async function openLaunchProjectModal() {
             p4s: document.getElementById('p4-start').value, p4e: document.getElementById('p4-end').value, p4h: document.getElementById('p4-hrs').value,
         };
 
-        const { data: proj, error: projError } = await supabase.from('projects').insert([{ 
-            deal_id: sel.value, 
-            name, 
-            start_date: startD, 
-            end_date: crdd, 
-            project_value: amt, 
-            status: 'Pre-Production' 
+        const dealId = sel.value;
+        const { data: proj, error: projError } = await supabase.from('projects').insert([{
+            deal_id: dealId,
+            name,
+            start_date: startD,
+            end_date: crdd,
+            project_value: amt,
+            status: 'Pre-Production'
         }]).select();
-        
-        if(projError) { alert(projError.message); return; }
+
+        if (projError) { alert(projError.message); return; }
         const pid = proj[0].id;
+
+        const { data: proposalRow } = await supabase.from('proposals_tw').select('id').eq('deal_id', dealId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+        if (proposalRow?.id) {
+            await supabase.from('projects').update({ proposal_id: proposalRow.id }).eq('id', pid);
+        }
+
+        const { data: deal } = await supabase.from('deals_tw').select('account_id').eq('id', dealId).single();
+        if (deal?.account_id) {
+            const { data: accountContacts } = await supabase.from('contacts').select('id').eq('account_id', deal.account_id);
+            if (accountContacts?.length) {
+                await supabase.from('project_contacts').insert(accountContacts.map(c => ({ project_id: pid, contact_id: c.id, role: 'Client' })));
+            }
+        }
 
         const { data: t1 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff & Plan', start_date: dates.p1s, end_date: dates.p1e, estimated_hours: dates.p1h }).select();
         const { data: t2 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[1]?.id||2, name: 'CAD Drawings', start_date: dates.p2s, end_date: dates.p2e, estimated_hours: dates.p2h, dependency_task_id: t1[0].id }).select();
@@ -665,6 +963,10 @@ async function openLaunchProjectModal() {
     });
     
     setTimeout(() => {
+        const launchDealSel = document.getElementById('launch-deal');
+        if (preSelectDealId && launchDealSel && launchDealSel.querySelector(`option[value="${preSelectDealId}"]`)) {
+            launchDealSel.value = preSelectDealId;
+        }
         document.getElementById('master-start-date').addEventListener('change', (e) => {
             const s = dayjs(e.target.value);
             const d1e = addBusinessDays(s, 2);

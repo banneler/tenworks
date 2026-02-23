@@ -94,40 +94,24 @@
     </style>
 </head>
 
-<body>
+<body data-nav="erp">
     <div class="crm-container">
-        <nav class="nav-sidebar">
-            <div data-svg-loader="assets/logo.svg"></div>
-            <div class="global-search-container">
-                <input type="text" id="global-search-input" placeholder="Global Search...">
-                <div id="global-search-results" class="global-search-results hidden"></div>
-            </div>
-            <a href="schedule.html" class="nav-button">Schedule</a>
-            <a href="talent.html" class="nav-button">Talent Matrix</a>
-            <a href="deals.html" class="nav-button">Deals</a>
-            <a href="projects.html" class="nav-button active">Projects</a>
-            <a href="contacts.html" class="nav-button">Contacts</a>
-            <a href="accounts.html" class="nav-button">Accounts</a>
-            <div class="nav-bottom-section">
-                <div class="user-menu">
-                    <div class="user-menu-header">
-                        <div data-svg-loader="assets/user-icon.svg"></div>
-                        <span id="user-name-display">Loading...</span>
-                    </div>
-                    <div id="user-menu-popup" class="user-menu-popup">
-                        <button id="logout-btn" class="nav-button" style="background-color: #773030;">Logout</button>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <nav class="nav-sidebar" id="nav-container"><!-- ERP nav loaded by nav-loader.js --></nav>
 
         <main class="content-area">
+            <div id="data-staleness-banner" class="data-staleness-banner hidden" style="display:none; align-items:center; justify-content:space-between; padding:10px 20px; background:var(--warning-yellow); color:#1a1a1a; font-size:0.9rem;">
+                <span><i class="fas fa-info-circle"></i> Data may be stale. Click <strong>Refresh</strong> to load the latest.</span>
+                <button type="button" id="staleness-refresh-btn" class="btn-primary" style="padding:6px 14px; font-size:0.85rem;"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
             <div id="projects-view" class="content-view active-view">
                 <div class="split-view">
                     
                     <div class="item-list-container">
                         <div style="padding: 15px; border-bottom: 1px solid var(--border-color);">
-                            <button id="btn-launch-project" class="btn-primary full-width"><i class="fas fa-rocket"></i> Launch Project</button>
+                            <div style="display:flex; gap:8px; margin-bottom:10px;">
+                                <button id="btn-launch-project" class="btn-primary" style="flex:1;"><i class="fas fa-rocket"></i> Launch Project</button>
+                                <button id="btn-refresh-projects" class="btn-secondary" title="Reload projects"><i class="fas fa-sync-alt"></i></button>
+                            </div>
                             <div class="filter-toggle-container">
                                 <span>Hide $0 Projects</span>
                                 <label class="toggle-switch">
@@ -173,6 +157,7 @@
                                 
                                 <div style="text-align:right;">
                                     <div id="header-value-display">$0.00</div>
+                                    <div id="header-revised-value" style="font-size:0.9rem; color:var(--text-dim);"></div>
                                     <div id="countdown-widget"></div>
                                 </div>
                             </div>
@@ -185,7 +170,12 @@
                                     <button class="tab-link" data-tab="log">Project Log</button>
                                     <button class="tab-link" data-tab="bom">BOM</button>
                                 </div>
-                                <div style="display:flex; gap:10px;">
+                                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                    <a id="btn-generate-proposal" href="#" class="btn-secondary" style="display: none; text-decoration: none; align-items: center;" title="Generate Proposal"><i class="fas fa-file-contract"></i> Generate Proposal</a>
+                                    <a id="btn-view-proposal" href="#" class="btn-secondary" style="display: none; text-decoration: none; align-items: center;" title="View linked proposal"><i class="fas fa-file-alt"></i> View proposal</a>
+                                    <a id="btn-open-schedule" href="#" class="btn-secondary" style="display: none; text-decoration: none; align-items: center;" title="Open in Schedule"><i class="fas fa-calendar-alt"></i> Open in Schedule</a>
+                                    <a id="btn-open-talent" href="#" class="btn-secondary" style="display: none; text-decoration: none; align-items: center;" title="Open in Talent"><i class="fas fa-users"></i> Open in Talent</a>
+                                    <button id="btn-share-status-link" class="btn-secondary" style="display: none;" title="Copy client status page link"><i class="fas fa-share-alt"></i> Share status link</button>
                                     <button id="btn-delete-project" class="btn-secondary" style="border-color:#d32f2f; color:#ff5252;" title="Delete Project"><i class="fas fa-trash"></i></button>
                                     <button id="btn-save-main" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
                                 </div>
@@ -206,12 +196,42 @@
                                         <div class="kpi-value" id="kpi-act">0</div>
                                     </div>
                                 </div>
+                                <div id="contract-value-summary" style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:12px 15px; margin-bottom:16px; font-size:0.9rem;">
+                                    <div style="color:var(--text-dim); margin-bottom:6px;">Contract value</div>
+                                    <div id="contract-original" style="color:var(--text-bright);"></div>
+                                    <div id="contract-change-orders" style="color:var(--text-bright); margin-top:4px;"></div>
+                                    <div id="contract-revised" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border-color); font-weight:700; color:var(--primary-gold);"></div>
+                                    <div style="margin-top:10px;">
+                                        <button type="button" id="btn-add-change-order" class="btn-secondary" style="padding:6px 12px; font-size:0.85rem;"><i class="fas fa-plus"></i> Add change order</button>
+                                    </div>
+                                    <ul id="change-orders-list" style="margin:12px 0 0 0; padding-left:20px; color:var(--text-bright); font-size:0.9rem;"></ul>
+                                </div>
+                                <div id="job-cost-summary" style="background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:12px 15px; margin-bottom:20px; font-size:0.9rem;">
+                                    <div style="color:var(--text-dim); margin-bottom:6px;">Job cost (actuals)</div>
+                                    <div id="job-cost-labor" style="color:var(--text-bright);"></div>
+                                    <div id="job-cost-material" style="color:var(--text-bright); margin-top:4px;"></div>
+                                    <div id="job-cost-total" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border-color); font-weight:700; color:var(--primary-gold);"></div>
+                                </div>
                                 <div style="margin-bottom: 20px;">
                                      <label style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px;">System ID (Quickbooks Map)</label>
                                      <div class="system-id-box">
                                          <span id="detail-id" style="font-family:'Inter'; font-size:0.85rem; color:var(--text-dim); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
                                          <button onclick="navigator.clipboard.writeText(document.getElementById('detail-id').innerText); alert('ID Copied');" style="background:none; border:none; color:var(--primary-gold); cursor:pointer; padding:0 5px;" title="Copy ID"><i class="fas fa-copy"></i></button>
                                      </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom:16px;">
+                                    <label style="font-size:0.7rem; color:var(--text-dim);">Payment link (client status page)</label>
+                                    <input type="url" id="detail-payment-url" placeholder="https://… (Stripe, QuickBooks, etc.)" style="width:100%; padding:10px 12px; background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text-bright); border-radius:6px; font-size:0.9rem;">
+                                </div>
+                                <div id="client-summary-prompt" class="client-summary-prompt hidden" style="display:none; margin-bottom:16px; padding:12px 14px; background:rgba(255,193,7,0.12); border:1px solid rgba(255,193,7,0.4); border-radius:8px; font-size:0.9rem;">
+                                    <strong style="color:var(--warning-yellow);">Update Client Project Summary</strong>
+                                    <p style="margin:8px 0 0 0; color:var(--text-bright);">Please update the summary below at least weekly so clients see current info on the status page.</p>
+                                    <button type="button" id="dismiss-summary-prompt" style="margin-top:8px; padding:4px 10px; font-size:0.8rem; background:var(--bg-medium); border:1px solid var(--border-color); color:var(--text-dim); border-radius:4px; cursor:pointer;">Dismiss</button>
+                                </div>
+                                <div class="form-group" style="margin-bottom:20px;">
+                                    <label style="font-size:0.7rem; color:var(--text-dim);">Client Project Summary</label>
+                                    <p style="font-size:0.75rem; color:var(--text-dim); margin:2px 0 8px 0;">Shown on the client status page. Update at least weekly.</p>
+                                    <textarea id="detail-client-summary" rows="4" placeholder="e.g. Fabrication is underway; delivery expected next week." style="width:100%; padding:12px; background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text-bright); border-radius:6px; font-size:0.9rem; line-height:1.5;"></textarea>
                                 </div>
                                 <div class="form-group" style="margin-bottom:25px;">
                                     <label>Scope / Description</label>
@@ -226,11 +246,19 @@
                             <div id="tab-timeline" class="tab-content">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                                     <h4 style="margin:0;">Task Timeline</h4>
-                                    <small style="color:var(--text-dim);">Read-only view. Edit in Schedule.</small>
+                                    <small style="color:var(--text-dim);">Log actual hours here or edit full task in Schedule.</small>
                                 </div>
                                 <div id="mini-gantt-container" class="mini-gantt-container">
                                     <div id="gantt-header" class="gantt-header-row"></div>
                                     <div id="gantt-body" class="gantt-body"></div>
+                                </div>
+                                <div style="margin-top:15px; overflow-x:auto;">
+                                    <table class="bom-table" style="margin-top:0;">
+                                        <thead>
+                                            <tr><th>Task</th><th>Est Hrs</th><th>Actual Hrs</th><th>Status</th><th></th></tr>
+                                        </thead>
+                                        <tbody id="project-task-list-body"></tbody>
+                                    </table>
                                 </div>
                             </div>
 
@@ -295,6 +323,7 @@
         </div>
     </div>
 
+    <script src="js/nav-loader.js"></script>
     <script type="module" src="js/projects.js"></script>
 </body>
 </html>

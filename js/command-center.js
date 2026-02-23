@@ -13,7 +13,8 @@ import {
     setupUserMenuAndAuth,
     loadSVGs,
     setupGlobalSearch,
-    checkAndSetNotifications
+    checkAndSetNotifications,
+    runWhenNavReady
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -141,6 +142,42 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.nurtureAccounts = state.accounts.filter(account => !activeAccountIds.has(account.id));
         
         renderDashboard();
+        loadErpOverview();
+    }
+
+    // --- ERP Overview (Sales-facing only: Active Projects, Staffing Gaps, Pending Proposals). Behind-schedule lives on Production (Schedule/Projects). ---
+    async function loadErpOverview() {
+        try {
+            const [projectsRes, tasksRes, assignmentsRes] = await Promise.all([
+                supabase.from('projects').select('*', { count: 'exact', head: true }).neq('status', 'Completed'),
+                supabase.from('project_tasks').select('id, estimated_hours').neq('status', 'Completed'),
+                supabase.from('task_assignments').select('task_id, assigned_date, hours')
+            ]);
+            const activeProjectsCount = projectsRes.count ?? 0;
+            const tasks = tasksRes.data || [];
+            const assignments = assignmentsRes.data || [];
+            const hoursByTask = {};
+            assignments.forEach(a => {
+                const hrs = typeof a.hours === 'number' && a.hours >= 0 ? a.hours : 8;
+                hoursByTask[a.task_id] = (hoursByTask[a.task_id] || 0) + hrs;
+            });
+            const tasksWithGaps = tasks.filter(t => {
+                const booked = hoursByTask[t.id] || 0;
+                const est = t.estimated_hours || 0;
+                return est > 0 && booked < est;
+            });
+            const staffingGapsCount = tasksWithGaps.length;
+            const pendingProposalsCount = (state.deals || []).filter(d => d.stage === 'Proposal').length;
+
+            const elProjects = document.getElementById('erp-active-projects-count');
+            const elGaps = document.getElementById('erp-staffing-gaps-count');
+            const elProposals = document.getElementById('erp-pending-proposals-count');
+            if (elProjects) elProjects.textContent = activeProjectsCount;
+            if (elGaps) elGaps.textContent = staffingGapsCount;
+            if (elProposals) elProposals.textContent = pendingProposalsCount;
+        } catch (e) {
+            console.warn('ERP overview load failed:', e);
+        }
     }
         
     // --- Core Logic ---
@@ -653,5 +690,5 @@ function renderDashboard() {
         }
     }
 
-    initializePage();
+    runWhenNavReady(function () { initializePage(); });
 });

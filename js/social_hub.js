@@ -9,6 +9,7 @@ import {
     setupUserMenuAndAuth,
     loadSVGs,
     setupGlobalSearch,
+    runWhenNavReady,
     updateLastVisited,
     checkAndSetNotifications
 } from './shared_constants.js';
@@ -219,5 +220,5 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    initializePage();
+    runWhenNavReady(function () { initializePage(); });
 });

@@ -6,13 +6,15 @@ import {
     hideModal, 
     setupUserMenuAndAuth, 
     loadSVGs, 
-    setupGlobalSearch 
+    setupGlobalSearch,
+    runWhenNavReady
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
+    runWhenNavReady(async () => {
     // ------------------------------------------------------------------------
     // 1. INITIALIZATION & AUTHENTICATION
     // ------------------------------------------------------------------------
@@ -30,6 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     // 2. CENTRAL STATE MANAGEMENT
     // ------------------------------------------------------------------------
+    const STALE_AFTER_MS = 2 * 60 * 1000; // 2 min
     let state = {
         currentView: 'resource', // Options: 'resource', 'project', 'machine'
         trades: [],
@@ -45,8 +48,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         hasMoved: false,
         // Filters
         showCompleted: false,
-        sortBy: 'start_date'
+        sortBy: 'start_date',
+        filterOverdue: false,
+        talent: [],
+        assignments: [],
+        lastLoadedAt: null
     };
+
+    function showStalenessBanner() {
+        const el = document.getElementById('data-staleness-banner');
+        if (el) { el.style.display = 'flex'; el.classList.remove('hidden'); }
+    }
+    function hideStalenessBanner() {
+        const el = document.getElementById('data-staleness-banner');
+        if (el) { el.style.display = 'none'; el.classList.add('hidden'); }
+    }
+    function checkStaleness() {
+        if (state.lastLoadedAt != null && (Date.now() - state.lastLoadedAt) > STALE_AFTER_MS) showStalenessBanner();
+    }
 
     // ------------------------------------------------------------------------
     // 3. HELPERS (BUSINESS DAYS & COLORS)
@@ -178,26 +197,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 5. DATA LOADING
+    // 5. DATA LOADING (shared project_tasks with Projects Gantt — single source of truth)
     // ------------------------------------------------------------------------
     async function loadShopData() {
         console.log("Loading Ten Works Production Data...");
         
-        const [tradesRes, tasksRes, projectsRes, availRes, machinesRes] = await Promise.all([
+        const [tradesRes, tasksRes, projectsRes, availRes, machinesRes, talentRes, assignRes] = await Promise.all([
             supabase.from('shop_trades').select('*').order('id'),
             supabase.from('project_tasks').select(`*, projects(name), shop_trades(name)`),
             supabase.from('projects').select('*').order('start_date'),
             supabase.from('talent_availability').select('*'),
-            supabase.from('shop_machines').select('*').order('name') // NEW FETCH
+            supabase.from('shop_machines').select('*').order('name'),
+            supabase.from('shop_talent').select('id, hours_per_week').eq('active', true),
+            supabase.from('task_assignments').select('talent_id, assigned_date, hours')
         ]);
 
         if (tradesRes.error) console.error("Error loading data:", tradesRes.error);
-        
+
         state.trades = tradesRes.data || [];
         state.tasks = tasksRes.data || [];
         state.projects = projectsRes.data || [];
-        state.availability = availRes.data || []; 
+        state.availability = availRes.data || [];
         state.machines = machinesRes.data || [];
+        state.talent = talentRes.data || [];
+        state.assignments = assignRes.data || [];
 
         renderGantt();
         updateMetrics();
@@ -252,9 +275,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             rows = state.machines;
         } else {
             // Project View
+            const today = dayjs().format('YYYY-MM-DD');
+            const overdueTaskProjectIds = new Set(
+                state.tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'Completed').map(t => t.project_id)
+            );
+            const endPlus14 = dayjs().add(14, 'day').format('YYYY-MM-DD');
+            const atRiskProjectIds = new Set(
+                state.projects.filter(p => p.status !== 'Completed' && p.end_date && p.end_date >= today && p.end_date <= endPlus14 && overdueTaskProjectIds.has(p.id)).map(p => p.id)
+            );
             rows = state.projects.filter(p => {
                 if (state.showCompleted) return true;
-                return p.status !== 'Completed';
+                if (p.status === 'Completed') return false;
+                if (state.filterOverdue) return overdueTaskProjectIds.has(p.id) || (p.end_date && p.end_date < today);
+                return true;
             });
 
             // Sort Projects
@@ -298,13 +331,20 @@ document.addEventListener("DOMContentLoaded", async () => {
                 rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>`;
             } else {
                 // Project Sidebar
+                const today = dayjs().format('YYYY-MM-DD');
+                const overdueTaskProjectIds = new Set(state.tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'Completed').map(t => t.project_id));
+                const endPlus14 = dayjs().add(14, 'day').format('YYYY-MM-DD');
+                const projectOverdue = rowItem.end_date && rowItem.end_date < today;
+                const projectAtRisk = !projectOverdue && rowItem.end_date && rowItem.end_date >= today && rowItem.end_date <= endPlus14 && overdueTaskProjectIds.has(rowItem.id);
+                const badge = projectOverdue ? ' <span style="font-size:0.65rem; background:#c62828; color:#fff; padding:1px 4px; border-radius:3px; margin-left:4px;">Overdue</span>' : (projectAtRisk ? ' <span style="font-size:0.65rem; background:var(--warning-yellow); color:#000; padding:1px 4px; border-radius:3px; margin-left:4px;">At risk</span>' : '');
+                rowEl.id = 'project-row-' + rowItem.id;
                 let statusColor = '#888';
-                if(rowItem.status === 'In Progress') statusColor = 'var(--primary-blue)';
-                if(rowItem.status === 'Completed') statusColor = '#4CAF50';
-                
+                if (rowItem.status === 'In Progress') statusColor = 'var(--primary-blue)';
+                if (rowItem.status === 'Completed') statusColor = '#4CAF50';
+
                 rowEl.innerHTML = `
                     <div class="resource-name" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:4px;" title="Manage Project">
-                        ${rowItem.name} <i class="fas fa-pencil-alt" style="font-size:0.7rem; margin-left:5px; opacity:0.5;"></i>
+                        ${rowItem.name}${badge} <i class="fas fa-pencil-alt" style="font-size:0.7rem; margin-left:5px; opacity:0.5;"></i>
                     </div>
                     <div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>
                 `;
@@ -610,7 +650,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </div>
                 <div>
                     <label>Actual Hours (Burn)</label>
-                    <input type="number" id="edit-actual" class="form-control" value="${task.actual_hours}">
+                    <input type="number" id="edit-actual" class="form-control" min="0" step="0.25" value="${task.actual_hours ?? ''}">
                 </div>
                 <div>
                     <label>Start Date</label>
@@ -657,13 +697,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             const saveBtn = document.getElementById('save-task-btn');
             if (saveBtn) saveBtn.onclick = async () => {
                 const newStatus = document.getElementById('edit-status').value;
-                const newActual = document.getElementById('edit-actual').value;
+                const newActual = parseFloat(document.getElementById('edit-actual').value) || 0;
                 const newStart = document.getElementById('edit-start').value;
                 const newEnd = document.getElementById('edit-end').value;
                 const newMachine = document.getElementById('edit-machine').value || null;
 
-                const { error } = await supabase.from('project_tasks').update({ 
-                    status: newStatus, 
+                const { error } = await supabase.from('project_tasks').update({
+                    status: newStatus,
                     actual_hours: newActual, 
                     start_date: newStart, 
                     end_date: newEnd,
@@ -685,33 +725,60 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, 100);
     }
 
+    const DEFAULT_HOURS_PER_WEEK = 40;
+
     function updateMetrics() {
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
         const totalRev = activeProjects.reduce((acc, p) => acc + (p.project_value || 0), 0);
-        
+
         const revenueEl = document.getElementById('metrics-revenue');
         const countEl = document.getElementById('metrics-count');
         const loadBar = document.getElementById('metrics-load-bar');
         const loadText = document.getElementById('metrics-load-text');
-        
-        if(revenueEl) revenueEl.textContent = formatCurrency(totalRev);
-        if(countEl) countEl.textContent = activeProjects.length;
 
-        const today = dayjs();
-        const activeTasks = state.tasks.filter(t => 
-            dayjs(t.start_date).isBefore(today) && dayjs(t.end_date).isAfter(today)
-        ).length;
-        
-        const capacity = 13; 
-        const load = Math.min((activeTasks / capacity) * 100, 100);
-        
-        if(loadBar) loadBar.style.width = `${load}%`;
-        if(loadText) loadText.textContent = `${Math.round(load)}%`;
+        if (revenueEl) revenueEl.textContent = formatCurrency(totalRev);
+        if (countEl) countEl.textContent = activeProjects.length;
+
+        const weekStart = dayjs().startOf('week');
+        const weekEnd = weekStart.add(6, 'day');
+        const weekStartStr = weekStart.format('YYYY-MM-DD');
+        const weekEndStr = weekEnd.format('YYYY-MM-DD');
+
+        const totalCapacity = (state.talent || []).reduce((sum, t) => sum + (Number(t.hours_per_week) || DEFAULT_HOURS_PER_WEEK), 0);
+        const weekAssignments = (state.assignments || []).filter(a => a.assigned_date >= weekStartStr && a.assigned_date <= weekEndStr);
+        const totalLoad = weekAssignments.reduce((sum, a) => sum + (typeof a.hours === 'number' && a.hours >= 0 ? a.hours : 8), 0);
+
+        const pct = totalCapacity > 0 ? Math.round((totalLoad / totalCapacity) * 100) : 0;
+        const barPct = totalCapacity > 0 ? Math.min((totalLoad / totalCapacity) * 100, 150) : 0;
+
+        if (loadBar) {
+            loadBar.style.width = `${barPct}%`;
+            loadBar.style.backgroundColor = pct > 100 ? 'var(--danger-red)' : (pct > 85 ? 'var(--warning-yellow)' : 'var(--primary-blue)');
+        }
+        if (loadText) loadText.textContent = `${pct}%`;
     }
 
     // ------------------------------------------------------------------------
     // 10. MISSION PLANNER (UNCHANGED)
     // ------------------------------------------------------------------------
+    const refreshBtn = document.getElementById('schedule-refresh-btn');
+    const doRefresh = async () => {
+        if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refresh'; }
+        await loadShopData();
+        if (refreshBtn) { refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh'; refreshBtn.disabled = false; }
+    };
+    if (refreshBtn) refreshBtn.addEventListener('click', doRefresh);
+    const stalenessRefreshBtn = document.getElementById('staleness-refresh-btn');
+    if (stalenessRefreshBtn) stalenessRefreshBtn.addEventListener('click', doRefresh);
+
+    window.addEventListener('focus', checkStaleness);
+    setInterval(checkStaleness, 30000);
+
+    supabase.channel('schedule-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'project_tasks' }, () => loadShopData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => loadShopData())
+        .subscribe();
+
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
         launchBtn.addEventListener('click', async () => {
@@ -775,17 +842,31 @@ document.addEventListener("DOMContentLoaded", async () => {
                     p4s: document.getElementById('p4-start').value, p4e: document.getElementById('p4-end').value, p4h: document.getElementById('p4-hrs').value,
                 };
 
-                const { data: proj, error: projError } = await supabase.from('projects').insert([{ 
-                    deal_id: sel.value, 
-                    name, 
-                    start_date: dates.p1s, 
-                    end_date: crdd, 
-                    project_value: amt, 
-                    status: 'Pre-Production' 
+                const dealId = sel.value;
+                const { data: proj, error: projError } = await supabase.from('projects').insert([{
+                    deal_id: dealId,
+                    name,
+                    start_date: dates.p1s,
+                    end_date: crdd,
+                    project_value: amt,
+                    status: 'Pre-Production'
                 }]).select();
-                
-                if(projError) { alert(projError.message); return; }
+
+                if (projError) { alert(projError.message); return; }
                 const pid = proj[0].id;
+
+                const { data: proposalRow } = await supabase.from('proposals_tw').select('id').eq('deal_id', dealId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
+                if (proposalRow?.id) {
+                    await supabase.from('projects').update({ proposal_id: proposalRow.id }).eq('id', pid);
+                }
+
+                const { data: deal } = await supabase.from('deals_tw').select('account_id').eq('id', dealId).single();
+                if (deal?.account_id) {
+                    const { data: accountContacts } = await supabase.from('contacts').select('id').eq('account_id', deal.account_id);
+                    if (accountContacts?.length) {
+                        await supabase.from('project_contacts').insert(accountContacts.map(c => ({ project_id: pid, contact_id: c.id, role: 'Client' })));
+                    }
+                }
 
                 const { data: t1 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff & Plan', start_date: dates.p1s, end_date: dates.p1e, estimated_hours: dates.p1h }).select();
                 const { data: t2 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[1]?.id||2, name: 'CAD Drawings', start_date: dates.p2s, end_date: dates.p2e, estimated_hours: dates.p2h, dependency_task_id: t1[0].id }).select();
@@ -822,5 +903,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     // START
-    loadShopData();
+    await loadShopData();
+
+    const params = new URLSearchParams(window.location.search);
+    const projectIdParam = params.get('project_id');
+    const filterOverdue = params.get('filter') === 'overdue';
+    if (filterOverdue) {
+        state.filterOverdue = true;
+        switchView('project');
+        history.replaceState({}, '', window.location.pathname + '?filter=overdue');
+    }
+    if (projectIdParam) {
+        switchView('project');
+        if (!filterOverdue) history.replaceState({}, '', window.location.pathname);
+        setTimeout(() => {
+            const row = document.getElementById('project-row-' + projectIdParam);
+            if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 150);
+    }
+    }); // runWhenNavReady
 });
