@@ -51,6 +51,12 @@ function plainTextToHtml(text) {
     return paras.map(p => '<p style="margin:0 0 0.75em 0">' + p.replace(/\n/g, '<br>') + '</p>').join('');
 }
 
+/** Same as cover letter / scope body: Georgia, 17px, 1.65, #1F2329. Use on each <p> so blank template CSS cannot override. */
+const COVER_AND_SCOPE_P_STYLE = "font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.65;color:#1F2329;font-weight:400;margin:0 0 0.75em 0";
+function plainTextToHtmlWithBodyFont(text) {
+    return plainTextToHtml(text).replace(/<p style="[^"]*">/g, '<p style="' + COVER_AND_SCOPE_P_STYLE + '">');
+}
+
 /** Strip HTML to plain text (e.g. when loading saved payload that may contain old Quill HTML). */
 function stripHtmlToPlain(str) {
     if (str == null || typeof str !== 'string') return '';
@@ -633,12 +639,56 @@ async function prefillFromProject(projectId) {
     updateReadiness();
 }
 
+// --- Two-step PDF: Compile = run full export once (no preview); Generate = same export again, show preview ---
+let pdfGenerateState = 'initial'; // 'initial' | 'compiling' | 'ready'
+
+function setGenerateButtonState(newState) {
+    pdfGenerateState = newState;
+    const btn = document.getElementById('btn-export-pdf');
+    if (!btn) return;
+    const icon = btn.querySelector('.btn-export-icon');
+    const text = btn.querySelector('.btn-export-text');
+    btn.setAttribute('data-state', newState);
+    btn.classList.remove('animate-pulse', 'bg-[var(--primary-blue)]', 'bg-[var(--bg-medium)]');
+    if (icon) {
+        icon.className = 'fas btn-export-icon ' + (newState === 'compiling' ? 'fa-cogs' : newState === 'ready' ? 'fa-file-pdf' : 'fa-cogs');
+    }
+    if (text) {
+        text.textContent = newState === 'initial' ? 'Compile Proposal' : newState === 'compiling' ? 'Compiling…' : 'Generate PDF';
+    }
+    if (newState === 'initial' || newState === 'ready') {
+        btn.classList.add('bg-[var(--primary-blue)]');
+        btn.disabled = false;
+    } else {
+        btn.classList.add('bg-[var(--bg-medium)]', 'animate-pulse');
+        btn.disabled = true;
+    }
+}
+
+function handleGenerateClick() {
+    if (pdfGenerateState === 'initial') compileAssets();
+    else if (pdfGenerateState === 'ready') exportPdf(true);
+}
+
+async function compileAssets() {
+    setGenerateButtonState('compiling');
+    try {
+        await exportPdf(false);
+    } catch (err) {
+        console.error('Compile failed:', err);
+        setGenerateButtonState('initial');
+        alert('Compile failed. ' + (err && err.message ? err.message : String(err)));
+    }
+}
+
 /**
  * All pages are rendered from HTML templates (Cover + Blank) via getTemplate + snapdom; no PDF backgrounds.
+ * When showPreview is false (Compile run), same code runs but we don't show the modal—so the second run (Generate) is pristine.
  */
-async function exportPdf() {
+async function exportPdf(showPreview = true) {
+    if (showPreview && pdfGenerateState !== 'ready') return;
     const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
+    if (overlay && showPreview) overlay.classList.remove('hidden');
 
     const wrap = document.getElementById('render-zones');
     const coverTemplate = document.getElementById('hidden-cover-template');
@@ -647,6 +697,11 @@ async function exportPdf() {
     const deliverablesTemplate = document.getElementById('hidden-deliverables-template');
     const exclusionsTemplate = document.getElementById('hidden-exclusions-template');
     if (wrap) { wrap.style.top = '0'; wrap.style.zIndex = '9999'; }
+
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
 
     try {
         syncScopeFromDom();
@@ -723,7 +778,9 @@ async function exportPdf() {
         };
 
         const addPageFromBlankTemplate = async (pageTitle, contentDataUrl, options = {}) => {
-            const { showHeaderTitle = true } = options;
+            const { showHeaderTitle = true, contentHtml: contentHtmlOption } = options;
+            const useHtml = typeof contentHtmlOption === 'string' && contentHtmlOption.length > 0;
+            const useImage = !useHtml && typeof contentDataUrl === 'string' && contentDataUrl.length > 0;
             const html = await getTemplate(BLANK_TEMPLATE);
             const iframe = document.createElement('iframe');
             iframe.setAttribute('style', 'position:absolute;left:0;top:0;width:816px;height:1056px;border:0;pointer-events:none;z-index:-1');
@@ -739,14 +796,19 @@ async function exportPdf() {
                 header.appendChild(titleSpan);
             }
             const contentEl = doc.querySelector('.proposal-content');
-            if (contentEl && contentDataUrl) {
-                contentEl.innerHTML = `<img src="${contentDataUrl}" alt="" style="width:100%;height:auto;display:block;object-fit:contain">`;
-                const img = contentEl.querySelector('img');
-                if (img) {
-                    await new Promise((resolve) => {
-                        if (img.complete) resolve();
-                        else { img.onload = resolve; img.onerror = resolve; setTimeout(resolve, 3000); }
-                    });
+            if (contentEl) {
+                if (useHtml) {
+                    contentEl.innerHTML = contentHtmlOption;
+                } else if (useImage) {
+                    contentEl.innerHTML = `<img src="${contentDataUrl}" alt="" style="width:100%;height:auto;display:block;object-fit:contain">`;
+                    const img = contentEl.querySelector('img');
+                    if (img) {
+                        await new Promise((resolve) => {
+                            if (img.complete) resolve();
+                            else { img.onload = resolve; img.onerror = resolve; setTimeout(resolve, 3000); }
+                        });
+                        await new Promise(r => setTimeout(r, 500));
+                    }
                 }
             }
             await doc.fonts.ready;
@@ -831,18 +893,8 @@ async function exportPdf() {
 
         const addCoverPage = async () => {
             const coverText = document.getElementById('cover-letter')?.value?.trim() || '';
-            if (!coverTemplate || !coverBody) return;
-            coverBody.innerHTML = plainTextToHtml(coverText);
-            coverTemplate.classList.remove('top-[-9999px]');
-            await new Promise(r => requestAnimationFrame(r));
-            await new Promise(r => requestAnimationFrame(r));
-            await new Promise(r => setTimeout(r, 50));
-            await waitBeforeSnap();
-            const coverCapture = await snapdom(coverTemplate, { scale: 2, backgroundColor: 'transparent' });
-            const coverCanvas = await coverCapture.toCanvas();
-            coverTemplate.classList.add('top-[-9999px]');
-            const coverDataUrl = coverCanvas.toDataURL('image/png');
-            await addPageFromBlankTemplate('COVER LETTER', coverDataUrl, { showHeaderTitle: false });
+            const coverLetterHtml = `<div style="font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.65;color:#1F2329;max-width:640px;margin:0 auto;box-sizing:border-box;">${plainTextToHtmlWithBodyFont(coverText)}</div>`;
+            await addPageFromBlankTemplate('COVER LETTER', null, { showHeaderTitle: false, contentHtml: coverLetterHtml });
         };
 
         const buildPricingHtml = (locations, includeProjectTotal = true) => {
@@ -1117,36 +1169,45 @@ async function exportPdf() {
         if (currentPdfBlobUrl) URL.revokeObjectURL(currentPdfBlobUrl);
         currentPdfBlobUrl = URL.createObjectURL(blob);
 
-        document.getElementById('pdf-preview-title').textContent = 'Generated Proposal Preview';
-        const previewIframe = document.getElementById('pdf-preview-iframe');
-        previewIframe.src = currentPdfBlobUrl + '#toolbar=0&navpanes=0&view=FitH';
-        await new Promise((resolve) => {
-            const done = () => { previewIframe.removeEventListener('load', done); previewIframe.removeEventListener('error', done); resolve(); };
-            previewIframe.addEventListener('load', done);
-            previewIframe.addEventListener('error', done);
-            setTimeout(done, 2000);
-        });
-        document.getElementById('pdf-preview-modal').classList.remove('hidden');
+        if (showPreview) {
+            document.getElementById('pdf-preview-title').textContent = 'Generated Proposal Preview';
+            const previewIframe = document.getElementById('pdf-preview-iframe');
+            previewIframe.src = currentPdfBlobUrl + '#toolbar=0&navpanes=0&view=FitH';
+            await new Promise((resolve) => {
+                const done = () => { previewIframe.removeEventListener('load', done); previewIframe.removeEventListener('error', done); resolve(); };
+                previewIframe.addEventListener('load', done);
+                previewIframe.addEventListener('error', done);
+                setTimeout(done, 2000);
+            });
+            document.getElementById('pdf-preview-modal').classList.remove('hidden');
 
-        const downloadBtn = document.getElementById('modal-download-btn');
-        if (downloadBtn) {
-            downloadBtn.classList.remove('hidden');
-            downloadBtn.onclick = () => {
-                const a = document.createElement('a');
-                a.href = currentPdfBlobUrl;
-                const rawName = document.getElementById('global-biz')?.value;
-                a.download = (rawName ? toTitleCase(rawName).replace(/\s+/g, '_') : 'Ten_Works') + '_Proposal.pdf';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            };
+            const downloadBtn = document.getElementById('modal-download-btn');
+            if (downloadBtn) {
+                downloadBtn.classList.remove('hidden');
+                downloadBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = currentPdfBlobUrl;
+                    const rawName = document.getElementById('global-biz')?.value;
+                    a.download = (rawName ? toTitleCase(rawName).replace(/\s+/g, '_') : 'Ten_Works') + '_Proposal.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+            }
+            const closeBtn = document.getElementById('modal-close-btn');
+            if (closeBtn) closeBtn.onclick = closePdfModal;
+            setGenerateButtonState('initial');
+        } else {
+            if (currentPdfBlobUrl) URL.revokeObjectURL(currentPdfBlobUrl);
+            currentPdfBlobUrl = null;
+            setGenerateButtonState('ready');
         }
-        const closeBtn = document.getElementById('modal-close-btn');
-        if (closeBtn) closeBtn.onclick = closePdfModal;
     } catch (e) {
         console.error(e);
         alert('PDF export failed. ' + (e && e.message ? e.message : String(e)));
     } finally {
+        document.documentElement.style.overflow = prevHtmlOverflow ?? '';
+        document.body.style.overflow = prevBodyOverflow ?? '';
         if (overlay) overlay.classList.add('hidden');
         if (wrap) { wrap.style.top = '-9999px'; wrap.style.zIndex = ''; }
     }
@@ -1302,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('btn-save').addEventListener('click', saveProposal);
     document.getElementById('btn-load').addEventListener('click', loadProposal);
-    document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
+    document.getElementById('btn-export-pdf').addEventListener('click', handleGenerateClick);
     document.getElementById('btn-add-location').addEventListener('click', () => addLocationBlock(''));
     const btnAddMaterial = document.getElementById('btn-add-material');
     if (btnAddMaterial) btnAddMaterial.addEventListener('click', addScopeMaterial);

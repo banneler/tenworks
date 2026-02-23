@@ -37,6 +37,18 @@
             line-height: 1.65;
             font-family: Georgia, 'Times New Roman', serif;
         }
+        /* PDF cover + scope body: same body font and content width so cover letter and scope narrative match */
+        #hidden-cover-template,
+        #print-cover-body {
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 17px;
+            line-height: 1.65;
+            color: #1F2329;
+        }
+        #print-cover-body {
+            max-width: 640px;
+            box-sizing: border-box;
+        }
         /* Dark panels beside cover letter (no bright white) */
         .cover-letter-side-panels .proposal-cover-panel {
             border-radius: 0.75rem !important;
@@ -59,7 +71,7 @@
                 <h1 class="text-xl font-bold text-white font-[family-name:var(--font-headers)]">Ten Works Proposal Generator</h1>
                 <div class="flex items-center gap-2">
                     <button type="button" id="btn-share-status-link" style="display:none;" class="px-4 py-2.5 font-medium text-white border border-white/20 hover:bg-white/10 transition" title="Copy client status page link"><i class="fas fa-share-alt mr-2"></i>Share status link</button>
-                    <button type="button" id="btn-export-pdf" class="px-5 py-2.5 font-semibold text-white bg-[var(--primary-blue)] hover:opacity-90 transition"><i class="fas fa-file-pdf mr-2"></i>Generate Proposal PDF</button>
+                    <button type="button" id="btn-export-pdf" data-state="initial" class="px-5 py-2.5 font-semibold text-white bg-[var(--primary-blue)] hover:opacity-90 transition disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"><i class="fas fa-cogs btn-export-icon" aria-hidden="true"></i><span class="btn-export-text">Compile Proposal</span></button>
                 </div>
             </header>
 
