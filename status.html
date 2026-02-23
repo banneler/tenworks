@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Status – TenWorks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #1a1d24;
+            --card: #23272e;
+            --border: #3a3f48;
+            --text: #e8eaed;
+            --dim: #9aa0a6;
+            --accent: #b38c62;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        body.portal-mode { align-items: center; justify-content: center; padding: 20px; }
+        .portal-layout {
+            display: flex;
+            width: 100%;
+            max-width: 960px;
+            min-height: 420px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .portal-sidebar {
+            width: 220px;
+            min-width: 220px;
+            padding: 20px 0;
+            border-right: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+        }
+        .portal-sidebar .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); padding: 0 20px 12px; }
+        .portal-sidebar .nav-item {
+            display: block;
+            width: 100%;
+            padding: 10px 20px;
+            text-align: left;
+            background: none;
+            border: none;
+            border-left: 3px solid transparent;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .portal-sidebar .nav-item:hover { background: rgba(255,255,255,0.06); }
+        .portal-sidebar .nav-item.active { border-left-color: var(--accent); background: rgba(179,140,98,0.1); color: var(--accent); }
+        .portal-main { flex: 1; overflow: auto; padding: 28px; display: flex; flex-direction: column; min-height: 0; }
+        .portal-project-card { flex: 0 0 auto; min-height: 0; }
+        .portal-footer {
+            display: flex;
+            align-items: stretch;
+            gap: 24px;
+            max-width: 960px;
+            width: 100%;
+            margin-top: 24px;
+        }
+        .portal-logo-card {
+            flex: 0 0 auto;
+            width: 160px;
+            min-height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .portal-logo-card img {
+            width: 100%;
+            max-width: 100px;
+            height: auto;
+            object-fit: contain;
+        }
+        .portal-questions-card {
+            flex: 1;
+            min-width: 0;
+            padding: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .portal-questions-card .questions-card-content { text-align: center; }
+        .portal-questions-card .contact { margin: 0; padding: 0; border: none; }
+        .portal-as-of {
+            width: 100%;
+            max-width: 960px;
+            margin: 16px 0 0;
+            padding: 0;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--dim);
+        }
+        .portal-brand {
+            width: 100%;
+            max-width: 960px;
+            margin: 4px 0 0;
+            padding: 0;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .portal-brand a { color: var(--accent); text-decoration: none; }
+        .portal-brand a:hover { text-decoration: underline; }
+        .container {
+            max-width: 680px;
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px 28px 40px 28px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+        }
+        @media (max-width: 600px) {
+            .portal-layout { flex-direction: column; }
+            .portal-footer { flex-direction: column; }
+            .portal-logo-card { width: auto; min-height: 100px; }
+            .portal-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+            .portal-sidebar .nav-label { width: 100%; padding: 0 0 8px; }
+            .portal-sidebar .nav-item { display: inline-block; width: auto; padding: 8px 14px; border-left: none; border-bottom: 2px solid transparent; }
+            .portal-sidebar .nav-item.active { border-left: none; border-bottom-color: var(--accent); }
+        }
+        .result-wrap { display: flex; flex-direction: column; min-height: 0; }
+        .card-header { margin-bottom: 20px; }
+        h1 {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            color: var(--text);
+        }
+        .subtitle { font-size: 0.85rem; color: var(--dim); margin: 0; }
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 540px) {
+            .card-grid { grid-template-columns: 1fr; }
+        }
+        .card-left .row { margin-bottom: 16px; }
+        .card-left .milestone { margin-top: 16px; }
+        .card-left .payment-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+        .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); margin-bottom: 4px; }
+        .value { font-size: 1rem; font-weight: 600; color: var(--text); }
+        .status-pill {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .status-pre { background: rgba(179,140,98,0.2); color: var(--accent); }
+        .status-in-progress { background: rgba(33,150,243,0.2); color: #42a5f5; }
+        .status-completed { background: rgba(76,175,80,0.2); color: #66bb6a; }
+        .status-hold { background: rgba(255,152,0,0.2); color: #ffb74d; }
+        .summary-block { padding: 14px; background: rgba(255,255,255,0.04); border-radius: 8px; border-left: 3px solid var(--accent); font-size: 0.9rem; line-height: 1.5; color: var(--text); white-space: pre-wrap; min-height: 0; }
+        .summary-block .label { margin-bottom: 6px; }
+        .summary-block.summary-empty { opacity: 0.85; }
+        .milestone { padding: 12px; background: rgba(179,140,98,0.08); border-radius: 8px; border-left: 3px solid var(--accent); }
+        .milestone .label { margin-bottom: 2px; }
+        .payment-section .label { margin-bottom: 8px; }
+        .btn-pay { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; background: var(--accent); color: #1a1d24; font-weight: 600; font-size: 1rem; border-radius: 8px; text-decoration: none; transition: opacity 0.2s; }
+        .btn-pay:hover { opacity: 0.95; }
+        .payment-none { font-size: 0.9rem; color: var(--dim); }
+        .card-footer { margin-top: 28px; padding-top: 20px; padding-bottom: 24px; border-top: 1px solid var(--border); }
+        .contact { }
+        .contact-heading { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); margin-bottom: 4px; }
+        .contact-sub { font-size: 0.9rem; color: var(--dim); margin-bottom: 12px; }
+        .contact-name { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+        .contact-item { font-size: 0.95rem; margin-bottom: 4px; }
+        .contact-item a { color: var(--accent); text-decoration: none; }
+        .contact-item a:hover { text-decoration: underline; }
+        .error { color: #f44336; text-align: center; padding: 20px; }
+        .loading { text-align: center; color: var(--dim); padding: 24px; }
+        .as-of { text-align: center; margin-top: 16px; margin-bottom: 0; font-size: 0.75rem; color: var(--dim); }
+        .brand { text-align: center; margin-top: 8px; margin-bottom: 0; font-size: 0.8rem; color: var(--dim); }
+        .brand-link { display: inline-block; margin-top: 8px; margin-bottom: 0; font-size: 0.8rem; color: var(--accent); text-decoration: none; }
+        .brand-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="content">
+            <div class="loading" id="loading">Loading status…</div>
+            <div id="result" style="display:none;"></div>
+            <div class="error" id="error" style="display:none;"></div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/status.js"></script>
+</body>
+</html>
