@@ -4485,14 +4485,15 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
 }
 
 /* GANTT FRAMEWORK */
+/* GANTT FRAMEWORK */
 .gantt-container-frame {
     display: grid;
     grid-template-columns: 260px 1fr;
     background: var(--bg-dark);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    height: 600px;
-    overflow: hidden;
+    height: 75vh; /* CHANGED: Use viewport height so it scales, or 'auto' if you want it to grow */
+    overflow: hidden; /* Keep this hidden to manage the internal scrolls */
 }
 
 /* LEFT SIDEBAR (Resources) */
@@ -4500,6 +4501,8 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     background: var(--bg-card);
     border-right: 1px solid var(--border-color);
     z-index: 10;
+    overflow-y: auto; /* ADDED: Allows the resource names to scroll vertically */
+    height: 100%;
 }
 
 .gantt-header-cell {
@@ -4544,14 +4547,13 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     background: #15181c; /* Slightly darker than card */
 }
 
-.gantt-timeline-header {
-    display: flex;
-    height: 50px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
-    position: sticky;
-    top: 0;
-    z-index: 5;
+/* RIGHT TIMELINE (The Grid) */
+.gantt-timeline-wrapper {
+    overflow-x: auto;
+    overflow-y: auto; /* CHANGED: Allows the grid/tasks to scroll vertically */
+    position: relative;
+    background: #15181c; 
+    height: 100%;
 }
 
 .date-cell {
