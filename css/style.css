@@ -4622,3 +4622,15 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     box-shadow: 0 0 6px var(--warning-yellow);
     z-index: 1;
 }
+/* High-Performance Highlight for Demo Projects */
+.gantt-task-bar[data-task-id^="9"] {
+    border: 2px solid #ffc700 !important; /* Gold Border */
+    box-shadow: 0 0 15px rgba(255, 199, 0, 0.4); /* Neon Glow */
+    animation: pulse-gold 2s infinite;
+}
+
+@keyframes pulse-gold {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
