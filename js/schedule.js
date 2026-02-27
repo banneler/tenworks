@@ -262,7 +262,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         gridCanvas.style.width = `${totalWidth}px`;
         
         gridCanvas.style.backgroundImage = 'linear-gradient(90deg, var(--border-color) 1px, transparent 1px)';
-        gridCanvas.style.backgroundSize = '100px 100%'; 
+        gridCanvas.style.backgroundSize = '100px 100%';
+        gridCanvas.style.backgroundPosition = '0.5px 0.5px'; /* Sub-pixel alignment */ 
 
         // B. DETERMINE ROWS
         resourceList.innerHTML = '';

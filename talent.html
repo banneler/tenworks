@@ -29,7 +29,7 @@
         /* HEADER & CONTROLS */
         .matrix-header-controls { display: flex; align-items: center; gap: 15px; background: var(--bg-medium); padding: 5px 15px; border-radius: 8px; border: 1px solid var(--border-color); }
         .date-nav-btn { background: transparent; border: none; color: var(--text-bright); cursor: pointer; font-size: 1rem; padding: 5px 10px; border-radius: 4px; transition: background 0.2s; }
-        .date-nav-btn:hover { background: var(--primary-blue); color: white; }
+        .date-nav-btn:hover { background: var(--primary-gold); color: white; }
         .trade-filter-select { background: var(--bg-dark); color: white; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; font-family: 'Rajdhani', sans-serif; font-weight: 600; min-width: 200px; }
         
         /* SCROLLBARS */
@@ -40,7 +40,7 @@
         /* GRID BASICS */
         .matrix-grid-row { display: flex; width: max-content; }
         .talent-name-clickable { cursor: pointer; transition: color 0.2s; }
-        .talent-name-clickable:hover { color: var(--primary-blue) !important; text-decoration: underline; }
+        .talent-name-clickable:hover { color: var(--primary-gold) !important; text-decoration: underline; }
 
         /* --- LAYOUT STRUCTURE (SPLIT SCREEN) --- */
         .projects-view {
@@ -50,33 +50,41 @@
             overflow: hidden;
         }
 
-        /* TOP: MATRIX (Flex Grow) */
+        /* TOP: MATRIX (Flex Grow) — TenWorks glass */
         #matrix-container {
             flex: 1; /* Takes available space */
-            border: 1px solid var(--border-color); 
-            background: var(--bg-dark); 
-            border-radius: 8px 8px 0 0; 
-            overflow: hidden; 
+            border: 1px solid var(--glass-border);
+            background: var(--glass-content-bg);
+            backdrop-filter: blur(var(--glass-content-blur));
+            -webkit-backdrop-filter: blur(var(--glass-content-blur));
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
             display: flex;
             margin-bottom: 0; /* Connect to bottom pane */
+            box-shadow: var(--glass-shadow);
         }
 
-        /* BOTTOM: STAGING LANE (Fixed Height) */
+        /* BOTTOM: STAGING LANE (Fixed Height) — TenWorks glass */
         .bottom-staging-lane {
-            height: 220px; 
+            height: 220px;
             min-height: 220px;
-            background: #1a1a1a; /* Slightly darker */
-            border: 1px solid var(--border-color);
-            border-top: 4px solid var(--primary-blue); /* Visual separator */
+            background: var(--glass-content-bg);
+            backdrop-filter: blur(var(--glass-content-blur));
+            -webkit-backdrop-filter: blur(var(--glass-content-blur));
+            border: 1px solid var(--glass-border);
+            border-top: 4px solid var(--primary-gold);
             border-radius: 0 0 8px 8px;
             display: flex;
             flex-direction: column;
+            box-shadow: var(--glass-shadow);
         }
 
         .staging-header {
             padding: 10px 20px;
-            background: var(--bg-medium);
-            border-bottom: 1px solid var(--border-color);
+            background: var(--glass-overlay-bg);
+            backdrop-filter: blur(var(--glass-overlay-blur));
+            -webkit-backdrop-filter: blur(var(--glass-overlay-blur));
+            border-bottom: 1px solid var(--glass-border);
             font-family: 'Rajdhani', sans-serif;
             font-weight: 700;
             display: flex;
@@ -119,6 +127,10 @@
         .talent-row-dimmed { opacity: 0.3; filter: grayscale(1); transition: all 0.3s; }
         .talent-row-highlight { background: rgba(255,255,255,0.05); transition: all 0.3s; }
 
+        /* Sub-pixel alignment: overlap borders to prevent 2px blurry lines (Phase 4) */
+        #matrix-grid-canvas .grid-cell { margin-right: -1px; }
+        #matrix-grid-canvas .matrix-grid-row { margin-bottom: -1px; }
+
     </style>
 </head>
 
@@ -160,7 +172,7 @@
     </div>
 </div>
 
-                <div id="matrix-container" class="gantt-container-frame">
+                <div id="matrix-container" class="gantt-container-frame erp-condensed">
                     <div class="gantt-sidebar" style="width: 260px; min-width: 260px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 2; background: var(--bg-dark);">
                         <div class="gantt-header-cell" style="height: 60px; min-height: 60px; padding: 0 15px; display: flex; align-items: center; font-weight: bold; color: var(--text-dim); border-bottom: 1px solid var(--border-color); background: var(--bg-medium);">
                             Team Member
@@ -178,7 +190,7 @@
                     <div class="staging-header">
                         <span><i class="fas fa-box-open" style="color:var(--text-dim); margin-right:10px;"></i> Unassigned Tasks <span style="font-weight:400; color:var(--text-dim); font-size:0.9rem; margin-left:10px;">(Drag Up to Assign)</span></span>
                         <div id="staging-project-filter-chip" style="display:none; align-items:center; gap:4px;"></div>
-                        <span id="pool-count" style="background:var(--primary-blue); color:white; padding:4px 10px; border-radius:4px; font-size:0.8rem;">0 Pending</span>
+                        <span id="pool-count" style="background:var(--primary-gold); color:white; padding:4px 10px; border-radius:4px; font-size:0.8rem;">0 Pending</span>
                     </div>
                     <div id="unassigned-pool-list" class="staging-content">
                         </div>

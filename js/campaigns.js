@@ -242,12 +242,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (campaignDetailsContent) {
             campaignDetailsContent.innerHTML = `
                 <div class="contact-info">
-                    <h4 class="contact-name" style="font-size: 1.5rem; color: var(--primary-blue);">${campaign.name}</h4>
+                    <h4 class="contact-name detail-heading-accent">${campaign.name}</h4>
                 </div>
                 <p><strong>Type:</strong> ${campaign.type}</p>
                 <p><strong>Status:</strong> <span style="color: var(--completed-color);">Active</span></p>
                 <hr>
-                <h4 class="contact-name" style="font-size: 1.1rem;">Included Contacts (${members.length})</h4>
+                <h4 class="contact-name">Included Contacts (${members.length})</h4>
                 <ul class="summary-contact-list">${memberListHtml}</ul>
                 ${emailInfoHtml}
             `;

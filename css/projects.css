@@ -1,16 +1,18 @@
 /* --- PROJECTS / SHOP LOAD VIEW --- */
 
-/* 1. Metrics Bar (The Heads Up Display) */
+/* 1. Metrics Bar (The Heads Up Display) — TenWorks glass */
 .project-metrics-bar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 20px;
-    background: var(--bg-medium);
-    border: 1px solid var(--border-color);
+    background: var(--glass-content-bg);
+    backdrop-filter: blur(var(--glass-content-blur));
+    -webkit-backdrop-filter: blur(var(--glass-content-blur));
+    border: 1px solid var(--glass-border);
     padding: 20px;
-    border-radius: 6px;
+    border-radius: var(--glass-radius);
     margin-bottom: 25px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    box-shadow: var(--glass-shadow);
 }
 
 .metric-card {
@@ -51,16 +53,19 @@
     transition: width 0.5s ease;
 }
 
-/* 2. The Gantt Frame */
+/* 2. The Gantt Frame — TenWorks glass */
 .gantt-container-frame {
     display: grid;
     grid-template-columns: 260px 1fr; /* Sidebar | Timeline */
-    background: var(--bg-dark);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    background: var(--glass-content-bg);
+    backdrop-filter: blur(var(--glass-content-blur));
+    -webkit-backdrop-filter: blur(var(--glass-content-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
     height: 650px; /* Tall enough for scrolling */
     overflow: hidden;
     position: relative;
+    box-shadow: var(--glass-shadow);
 }
 
 /* Sidebar (Trades) */
@@ -133,6 +138,7 @@
 .date-cell {
     min-width: 100px; /* Width of one day */
     border-right: 1px solid var(--border-color);
+    margin-right: -1px; /* Sub-pixel: overlap to prevent 2px blurry borders */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -151,7 +157,7 @@
     border-bottom: 2px solid var(--primary-blue);
 }
 
-/* The Blueprint Grid */
+/* The Blueprint Grid — sub-pixel alignment to prevent 2px blurry borders */
 .gantt-grid-body {
     position: relative;
     height: 100%;
@@ -159,6 +165,7 @@
         linear-gradient(var(--border-color) 1px, transparent 1px),
         linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
     background-size: 50px 70px; /* Adjusted to 50px dayWidth */
+    background-position: 0.5px 0.5px;
 }
 
 /* Task Bars - UPDATED TO BE TALLER */

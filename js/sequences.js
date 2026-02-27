@@ -123,7 +123,7 @@ const renderSequenceList = () => {
                         <div class="contact-name">${indicatorHtml} ${seq.name}</div>
                         <div class="sequence-list-stats"> 
                             <span class="account-name">Active: ${activeContacts}</span>
-                            <span class="contact-name" style="color: var(--primary-blue); font-size: 0.85rem;">Success: ${successRate}%</span>
+                            <span class="list-item-meta-accent">Success: ${successRate}%</span>
                         </div>
                     </div>
                 `;
@@ -192,21 +192,19 @@ function renderProductCheckboxes() {
 row.innerHTML = `
     <td>
         <div class="contact-info">
-            <div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim); justify-content: center;">
-                ${step.step_number}
-            </div>
+            <div class="contact-name sequence-step-meta">${step.step_number}</div>
         </div>
     </td>
-    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--primary-blue);">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
+    <td><div class="contact-info"><div class="contact-name sequence-step-type">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
     <td>
         <div class="contact-info">
-            <div class="contact-name" style="font-size: 0.9rem; justify-content: center;">
+            <div class="contact-name sequence-step-meta">
                 ${isEditingThisStep ? `<input type="number" class="edit-step-delay" value="${step.delay_days || 0}">` : (step.delay_days || 0)}
             </div>
         </div>
     </td>
-    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem;">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
-    <td><div class="contact-info"><div class="contact-name" style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 400; text-transform: none; letter-spacing: normal;">${isEditingThisStep ? `<textarea class="edit-step-message" style="width: 100%; min-height: 60px;">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
+    <td><div class="contact-info"><div class="contact-name sequence-step-meta">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
+    <td><div class="contact-info"><div class="contact-name sequence-step-body">${isEditingThisStep ? `<textarea class="edit-step-message" style="width: 100%; min-height: 60px;">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
     ${actionsHtml}
 `;
         });

@@ -462,7 +462,7 @@ const renderAccountList = () => {
                     ${sortedUnassigned.map(contact => createUnassignedCardHtml(contact)).join('')}
                 </div>`;
         } else {
-             unassignedContainer.innerHTML = `<h4>Unassigned Contacts</h4><p class="placeholder-text" style="margin: 0; text-align: left; font-style: italic; color: var(--text-medium);">None.</p>`;
+             unassignedContainer.innerHTML = `<h4>Unassigned Contacts</h4><p class="placeholder-text" style="margin: 0; text-align: left; font-style: italic; color: var(--text-dim);">None.</p>`;
         }
         
         setupOrgChartDragDrop();

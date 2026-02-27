@@ -8,53 +8,73 @@ html {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- THEME DEFINITIONS --- */
-/* --- THEME DEFINITIONS --- */
+/* ==========================================================================
+   TENWORKS FACELIFT — CANONICAL :root (TENWORKS_FACELIFT_GUIDELINES.md § 1.1)
+   ========================================================================== */
 :root {
-    /* LOGO PALETTE MAPPING */
-    /* Main Background (Logo Dark) */
-    --bg-dark: #1F2329; 
-    /* Card/Panel Background (Calculated mid-tone between Logo Dark and Logo Grey) */
-    --bg-medium: #23272e; 
-    /* Lighter Elements/Borders (Logo Medium Grey) */
-    --bg-light: #1f2329; 
-    
+    /* --- Primary brand (Gold is canonical) --- */
+    --primary-gold: #b38c62;
+    --primary-blue: var(--primary-gold);   /* legacy alias; do not use for new work */
+
+    /* --- Backgrounds (TenWorks Dark Slate family) --- */
+    --bg-dark: #1F2329;
+    --bg-medium: #23272e;
+    --bg-light: #1f2329;
+
+    /* --- Text (global; prevents page-scoped breaks) --- */
     --text-light: #ffffff;
+    --text-bright: #ffffff;                /* alias for headings / emphasis */
     --text-medium: #b0b0b0;
-    
-    /* BRAND COLOR (Logo Gold) - Replaces primary-blue */
-    --primary-blue: #b38c62; 
-    
-    --danger-red: #e74c3c;
-    --secondary-gray: #6d6d6d;
-    --border-color: #454a52; /* Matched to lighter grey for subtle borders */
-    
-    /* Adjusted secondary colors to match the gold tone better */
-    --completed-color: #98ff98; 
-    --warning-yellow: #f1c40f;
-    --meeting-purple: #8A2BE2;
-    
-    /* Gradient based on Logo Dark */
+    --text-dim: #9aa0a6;                  /* secondary labels, metadata */
+    --text-muted: #9aa0a6;                /* same as --text-dim for compatibility */
+
+    /* --- Borders & gradients --- */
+    --border-color: #454a52;
     --gradient-start: #1F2329;
     --gradient-end: #181b20;
-    
+
+    /* --- Semantic (status, alerts, pills) --- */
+    --danger-red: #e74c3c;
+    --warning-yellow: #f1c40f;
+    --completed-color: #98ff98;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --meeting-purple: #8A2BE2;
+    --secondary-gray: #6d6d6d;
+
+    /* --- Shadows --- */
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.5);
     --shadow-strong: rgba(0, 0, 0, 0.7);
-    
-    /* TYPOGRAPHY - TenWorks Pro */
-   --font-headers: 'Rajdhani', sans-serif; /* Industrial / Technical */
-    --font-body: 'Inter', 'Montserrat', sans-serif; /* Clean / UI */
+
+    /* --- Glassmorphism (TenWorks-tuned; § 1.2) --- */
+    --glass-overlay-bg: rgba(31, 35, 41, 0.6);      /* #1F2329 @ 0.6 */
+    --glass-overlay-blur: 4px;
+    --glass-content-bg: rgba(35, 39, 46, 0.7);      /* #23272e @ 0.7 */
+    --glass-content-blur: 24px;
+    --glass-border: rgba(69, 74, 82, 0.5);         /* #454a52 @ 0.5 */
+    --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    --glass-radius: 1rem;
+
+    /* --- Spacing scale (Constellation) --- */
+    --spacing: 0.25rem;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 1rem;
+
+    /* --- Typography --- */
+    --font-headers: 'Rajdhani', sans-serif;
+    --font-body: 'Inter', 'Montserrat', sans-serif;
     --font-main: var(--font-body);
-    
-    --logo-primary-color: var(--primary-blue);
+
+    /* --- Logo (references primary) --- */
+    --logo-primary-color: var(--primary-gold);
     --logo-secondary-color: var(--text-light);
-    
+
+    /* --- Theme extras (warning, success) --- */
     --warning-bg: #4d441a;
     --warning-text: #ffeb99;
     --warning-hover-bg: #6b5f25;
-    --success-color: #28a745;
-    --error-color: #dc3545;
 }
 
 /* Dark Theme (Explicit Overrides) */
@@ -301,7 +321,7 @@ body:not(.theme-green) .nav-sidebar {
 .nav-button {
     background: none;
     border: none;
-    color: var(--text-medium);
+    color: var(--text-dim);
     padding: 0.5rem 0.625rem;
     margin: 0.125rem 0;
     text-align: left;
@@ -319,28 +339,25 @@ body:not(.theme-green) .nav-button {
 
 .nav-button:hover {
     background-color: var(--bg-medium);
-    color: var(--text-light);
+    color: var(--text-bright);
     transform: translateX(3px);
 }
 
 .nav-button.active,
 .btn-secondary.active {
-    color: #ffffff; /* Ensure text remains white */
+    color: var(--text-bright);
     font-weight: bold;
     transform: translateY(-1px);
-    /* NEW GOLD GRADIENT */
-    background: linear-gradient(45deg, #b38c62, #d6ad81); 
-    /* NEW GOLD SHADOW */
-    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4); 
+    background: linear-gradient(45deg, var(--primary-gold), #d6ad81);
+    box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4);
     border: none;
 }
 
 body.theme-light .nav-button.active,
 body.theme-light .btn-secondary.active {
-    /* Override the blue gradient with the same Gold one */
-    background: linear-gradient(45deg, #b38c62, #d6ad81);
+    background: linear-gradient(45deg, var(--primary-gold), #d6ad81);
     box-shadow: 0 2px 8px rgba(179, 140, 98, 0.4);
-    color: #ffffff;
+    color: var(--text-bright);
 }
 
 body.theme-green .nav-button.active,
@@ -369,16 +386,16 @@ body.theme-green .btn-secondary.active {
     font-size: 0.8rem;
     font-weight: 500;
     text-decoration: none;
-    color: var(--text-medium);
+    color: var(--text-dim);
     border-radius: 9999px;
     transition: color 0.15s, background 0.15s;
 }
 .nav-pill:hover {
-    color: var(--text-light);
+    color: var(--text-bright);
 }
 .nav-pill.active {
-    background: var(--primary-blue);
-    color: #fff;
+    background: var(--primary-gold);
+    color: var(--text-bright);
     font-weight: 600;
 }
 .nav-pill:not(.active):hover {
@@ -594,11 +611,49 @@ body:not(.theme-green) .item-list {
     margin-bottom: 2px;
     display: flex;
     align-items: center;
+    color: var(--text-bright);
 }
 
 .account-name {
     font-size: 0.85em;
-    color: var(--text-medium);
+    color: var(--text-dim);
+}
+
+/* Actionable row / detail panel design tokens (Phase 3) */
+.detail-heading-accent {
+    font-size: 1.5rem;
+    color: var(--primary-gold);
+}
+.list-item-meta-accent {
+    font-size: 0.85rem;
+    color: var(--primary-gold);
+}
+.deal-table-meta {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+}
+.deal-table-products {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 400;
+    white-space: normal;
+    line-height: 1.2;
+}
+.sequence-step-meta {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    justify-content: center;
+}
+.sequence-step-type {
+    font-size: 0.9rem;
+    color: var(--primary-gold);
+}
+.sequence-step-body {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .list-item-actions {
@@ -611,7 +666,7 @@ body:not(.theme-green) .item-list {
     display: inline-block;
     width: 0.6rem;
     height: 0.6rem;
-    background-color: var(--primary-blue);
+    background-color: var(--primary-gold);
     border-radius: 2px;
     margin-left: 0.5rem;
     vertical-align: middle;
@@ -628,13 +683,13 @@ body.theme-green .contact-list-indicator {
 }
 
 .list-item.selected {
-    background-color: var(--primary-blue);
-    color: var(--text-light);
+    background-color: var(--primary-gold);
+    color: var(--text-bright);
     font-weight: bold;
 }
 
 body:not(.theme-green) .list-item.selected {
-    box-shadow: inset 3px 0 0 0 var(--primary-blue);
+    box-shadow: inset 3px 0 0 0 var(--primary-gold);
 }
 
 .list-item:last-child {
@@ -1156,14 +1211,16 @@ table input[type="checkbox"]:focus {
 }
 
 
-/* --- GLOBAL MODAL STYLES --- */
+/* --- GLOBAL MODAL STYLES (Glassmorphism Recipe § 1.2) --- */
 .modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: var(--glass-overlay-bg);
+    backdrop-filter: blur(var(--glass-overlay-blur));
+    -webkit-backdrop-filter: blur(var(--glass-overlay-blur));
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1171,24 +1228,68 @@ table input[type="checkbox"]:focus {
 }
 
 .modal-content {
-    background-color: var(--bg-medium);
     padding: 1.25rem;
     width: 90%;
-    max-width: 70rem; /* Changed this from 31.25rem to a wider value */
-    box-shadow: 0 8px 25px var(--shadow-strong);
+    max-width: 70rem;
     position: relative;
     z-index: 10000;
     display: flex;
     flex-direction: column;
     max-height: 90vh;
+    backdrop-filter: blur(var(--glass-content-blur));
+    -webkit-backdrop-filter: blur(var(--glass-content-blur));
+    background-color: var(--glass-content-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--glass-radius);
 }
 
-body:not(.theme-green) .modal-content {
-    border-radius: 10px;
+/* TenWorks glass panel for ERP sections (Phase 4) */
+.glass-panel {
+    background-color: var(--glass-content-bg);
+    backdrop-filter: blur(var(--glass-content-blur));
+    -webkit-backdrop-filter: blur(var(--glass-content-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--glass-radius);
 }
 
-body.theme-dark .modal-content {
-    background: linear-gradient(160deg, var(--bg-medium), var(--bg-dark));
+/* CRM glass wrappers: override solid backgrounds so glass transparency works */
+.details-panel.glass-panel {
+    background-color: var(--glass-content-bg);
+    backdrop-filter: blur(var(--glass-content-blur));
+    -webkit-backdrop-filter: blur(var(--glass-content-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--glass-radius);
+}
+
+.item-list-container.glass-panel {
+    background-color: var(--glass-content-bg);
+    backdrop-filter: blur(var(--glass-content-blur));
+    -webkit-backdrop-filter: blur(var(--glass-content-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--glass-radius);
+    padding: 1rem;
+}
+
+.item-list-container.glass-panel .item-list {
+    background-color: transparent;
+    border-color: var(--glass-border);
+}
+
+#list-view-container.glass-panel {
+    padding: 1rem;
+}
+
+.kanban-board-container.glass-panel {
+    padding: 1rem;
+}
+
+.kanban-board-container.glass-panel .kanban-column {
+    background-color: rgba(31, 35, 41, 0.5);
+    border: 1px solid var(--glass-border);
 }
 
 .modal-actions {
@@ -1490,14 +1591,16 @@ body:not(.theme-green) .table-container-scrollable {
     font-size: 0.75rem !important;
 }
 
-/* --- EMAIL VIEW MODAL --- */
+/* --- EMAIL VIEW MODAL (Glassmorphism Recipe § 1.2) --- */
 #email-view-modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: var(--glass-overlay-bg);
+    backdrop-filter: blur(var(--glass-overlay-blur));
+    -webkit-backdrop-filter: blur(var(--glass-overlay-blur));
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1510,18 +1613,13 @@ body:not(.theme-green) .table-container-scrollable {
     max-height: 80vh;
     display: flex;
     flex-direction: column;
-    /* The following styles were duplicated from .modal-content, kept here to ensure no HTML changes are needed for now */
-    background-color: var(--bg-medium);
     padding: 1.25rem;
-    box-shadow: 0 8px 25px var(--shadow-strong);
-}
-
-body:not(.theme-green) .email-view-modal {
-    border-radius: 10px;
-}
-
-body.theme-dark .email-view-modal {
-    background: linear-gradient(160deg, var(--bg-medium), var(--bg-dark));
+    backdrop-filter: blur(var(--glass-content-blur));
+    -webkit-backdrop-filter: blur(var(--glass-content-blur));
+    background-color: var(--glass-content-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--glass-radius);
 }
 
 .email-view-header {
@@ -1766,6 +1864,17 @@ body:not(.theme-green) .user-menu-popup {
 .user-menu-popup .nav-button {
     width: 100%;
     box-sizing: border-box;
+}
+.user-menu-popup .user-menu-nav-link {
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 5px;
+}
+.user-menu-popup .logout-btn-danger {
+    background-color: var(--danger-red);
+    color: var(--text-bright);
+}
+.user-menu-popup .logout-btn-danger:hover {
+    filter: brightness(1.1);
 }
 
 /* --- ALL MOBILE STYLES (768px and smaller) --- */
@@ -4313,18 +4422,21 @@ div.briefing-pre {
 /* Force all Primary Buttons to use the Gold variable */
 .btn-primary, 
 button.btn-primary,
-.nav-button.active,
+.nav-button.active {
+    background-color: var(--primary-gold) !important;
+    color: var(--text-bright) !important;
+    border-color: var(--primary-gold) !important;
+}
 .list-item.selected {
-    background-color: var(--primary-blue) !important;
-    color: #fff !important; /* Ensure text is white */
-    border-color: var(--primary-blue) !important;
+    background-color: var(--primary-gold) !important;
+    color: var(--text-bright) !important;
+    border-color: var(--primary-gold) !important;
 }
 
-/* Force links/text that were using the old blue to use Gold */
+/* Force links and .text-primary to use Gold; .contact-name uses actionable row (--text-bright) from rule above */
 a, 
-.text-primary, 
-.contact-name {
-    color: var(--primary-blue);
+.text-primary {
+    color: var(--primary-gold);
 }
 
 /* Hover State for Buttons */
@@ -4426,16 +4538,11 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     text-transform: none !important; /* Prevents industrial uppercase on body text */
     letter-spacing: normal !important;
 }
-/* When a list item is selected, force the Rajdhani name to turn dark for readability */
+/* Selected list item: primary and secondary text use bright for contrast on gold */
 .list-item.selected .contact-name,
-.list-item.selected .account-name {
-    color: #1F2329 !important; /* This is your Logo Dark background color */
-}
-
-/* Optional: If you want secondary text to be a slightly faded dark color */
 .list-item.selected .account-name,
 .list-item.selected small {
-    color: rgba(31, 35, 41, 0.8) !important;
+    color: var(--text-bright) !important;
 }
 /* METRICS BAR */
 .project-metrics-bar {
@@ -4619,4 +4726,97 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     background: var(--warning-yellow);
     box-shadow: 0 0 6px var(--warning-yellow);
     z-index: 1;
+}
+
+/* ==========================================================================
+   CONDENSED MODE (§ 3.2) — High-density ERP list/table spacing
+   ========================================================================== */
+.erp-condensed .list-item,
+.erp-condensed [class*="list-item"] {
+    padding: 0.375rem 0.75rem;
+}
+.erp-condensed td,
+.erp-condensed th {
+    padding: 0.35rem 0.6rem;
+}
+.erp-condensed tbody td {
+    font-size: 0.8125rem;
+}
+.erp-condensed .kpi-card,
+.erp-condensed [class*="kpi-card"] {
+    padding: 0.75rem 1rem;
+}
+
+/* ==========================================================================
+   GLOBAL LOADER (§ 2.3) — TenWorks Gold spinner + glass overlay
+   ========================================================================== */
+.global-loader-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--glass-overlay-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease-out;
+}
+.global-loader-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.global-loader-overlay.active[aria-busy="true"] {
+    cursor: wait;
+}
+.global-loader-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+}
+.global-loader-spinner {
+    width: 96px;
+    height: 96px;
+    color: var(--primary-gold);
+}
+.global-loader-spinner svg,
+.global-loader-spinner path,
+.global-loader-spinner circle {
+    stroke: var(--primary-gold);
+    fill: var(--primary-gold);
+}
+.global-loader-text {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--text-bright);
+    opacity: 0.95;
+}
+/* Constellation-style line-draw animation (TenWorks Gold) */
+.global-loader-constellation-line {
+    stroke: var(--primary-gold);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: global-loader-draw 2.2s ease-in-out infinite;
+}
+@keyframes global-loader-draw {
+    0% { stroke-dashoffset: 1; }
+    65% { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: 1; }
+}
+.global-loader-star {
+    fill: var(--primary-gold);
+    animation: global-loader-twinkle 2.2s ease-in-out infinite;
+}
+.global-loader-star:nth-child(2) { animation-delay: 0s; }
+.global-loader-star:nth-child(3) { animation-delay: 0.2s; }
+.global-loader-star:nth-child(4) { animation-delay: 0.4s; }
+.global-loader-star:nth-child(5) { animation-delay: 0.6s; }
+.global-loader-star:nth-child(6) { animation-delay: 0.8s; }
+@keyframes global-loader-twinkle {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.15); }
 }

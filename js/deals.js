@@ -293,16 +293,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         </td>
         <td>
             <div class="contact-info">
-                <div class="contact-name" style="font-size: 0.95rem; color: var(--text-medium);">
-                    ${deal.account_name}
-                </div>
+                <div class="contact-name deal-table-meta">${deal.account_name}</div>
             </div>
         </td>
         <td>
             <div class="contact-info">
-                <div class="contact-name" style="font-size: 0.95rem;">
-                    ${deal.stage}
-                </div>
+                <div class="contact-name deal-table-meta">${deal.stage}</div>
             </div>
         </td>
         <td>
@@ -314,16 +310,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         </td>
         <td>
             <div class="contact-info">
-                <div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">
-                    ${deal.close_month ? formatMonthYear(deal.close_month) : ""}
-                </div>
+                <div class="contact-name deal-table-meta">${deal.close_month ? formatMonthYear(deal.close_month) : ""}</div>
             </div>
         </td>
         <td>
             <div class="contact-info">
-                <div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif; color: var(--text-medium); white-space: normal; line-height: 1.2;">
-                    ${deal.products || ""}
-                </div>
+                <div class="contact-name deal-table-meta deal-table-products">${deal.products || ""}</div>
             </div>
         </td>
         <td>
@@ -393,7 +385,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <i class="fas fa-calendar-alt"></i>
                         ${deal.close_month ? formatMonthYear(deal.close_month, { month: 'short', year: 'numeric' }) : ''}
                     </span>
-                    <a href="proposals.html?deal_id=${deal.id}" class="kanban-card-proposal-link" title="Generate Proposal" style="margin-left: auto; font-size: 0.8rem; color: var(--primary-blue); text-decoration: none;"><i class="fas fa-file-contract"></i></a>
+                    <a href="proposals.html?deal_id=${deal.id}" class="kanban-card-proposal-link" title="Generate Proposal" style="margin-left: auto; font-size: 0.8rem; color: var(--primary-gold); text-decoration: none;"><i class="fas fa-file-contract"></i></a>
                 </div>
             </div>`;
     };
