@@ -1,0 +1,46 @@
+--- /Users/ba/Constellation-V/js/ai-admin.js	2026-02-26 23:17:06
++++ /Users/ba/tenworks/js/ai-admin.js	2026-02-27 14:14:43
+@@ -2,7 +2,8 @@
+     SUPABASE_URL, SUPABASE_ANON_KEY, setupUserMenuAndAuth, 
+     loadSVGs, updateActiveNavLink, initializeAppState, 
+     setupModalListeners, setupGlobalSearch, checkAndSetNotifications,
+-    injectGlobalNavigation, hideGlobalLoader
++    runWhenNavReady,
++    hideGlobalLoader
+ } from './shared_constants.js';
+ 
+ document.addEventListener("DOMContentLoaded", async () => {
+@@ -180,10 +181,10 @@
+     }
+ 
+     async function initializePage() {
+-        injectGlobalNavigation();
++        try {
+         await loadSVGs();
+-        const globalState = await initializeAppState(supabase); 
+-        
++        const globalState = await initializeAppState(supabase);
++
+         if (globalState.currentUser) {
+             state.currentUser = globalState.currentUser;
+             await setupUserMenuAndAuth(supabase, globalState); 
+@@ -192,7 +193,6 @@
+             updateActiveNavLink();
+             setupModalListeners();
+             await loadConfigs();
+-            hideGlobalLoader();
+ 
+             tabContainer.addEventListener('click', (e) => {
+                 const tab = e.target.closest('.irr-tab');
+@@ -244,7 +244,10 @@
+             hideGlobalLoader();
+             window.location.href = "index.html";
+         }
++        } finally {
++            hideGlobalLoader();
++        }
+     }
+ 
+-    initializePage();
++    runWhenNavReady(function () { initializePage(); });
+ });

@@ -5,17 +5,20 @@ import {
     SUPABASE_ANON_KEY,
     formatDate,
     setupModalListeners,
-    // _rebindModalActionListeners, // This is no longer needed
     getCurrentModalCallbacks,
     setCurrentModalCallbacks,
     showModal,
     hideModal,
     updateActiveNavLink,
     setupUserMenuAndAuth,
+    initializeAppState,
+    getState,
     loadSVGs,
+    showGlobalLoader,
+    hideGlobalLoader,
     setupGlobalSearch,
     checkAndSetNotifications,
-    runWhenNavReady
+    runWhenNavReady,
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -26,6 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         campaigns: [],
         contacts: [],
         accounts: [],
+        activities: [],
         emailTemplates: [],
         user_quotas: [],
         campaignMembers: [],
@@ -62,92 +66,172 @@ document.addEventListener("DOMContentLoaded", async () => {
         return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     };
 
-    // --- HELPER FUNCTIONS FOR PHONE NUMBERS ---
-
-    /**
-     * Sanitizes a single phone number string for use in a tel: link.
-     * Replaces the first common extension separator with ';' (pause) and strips invalid characters.
-     * @param {string} phone - The raw phone number string.
-     * @returns {string} A sanitized string for a tel: href.
-     */
-    function sanitizeForTel(phone) {
-        if (!phone) return '';
-        
-        let href = phone.trim();
-        
-        // 1. Replace the *first* common extension separator with a semicolon.
-        // Looks for (with optional spaces): ext. ext x | # or a space-flanked 9
-        href = href.replace(/(\s*(ext\.?|x|\||#| 9 )\s*)/i, ';');
-        
-        // 2. Strip all non-dialable characters (spaces, dashes, parens)
-        // for the href, but keep '+' for country codes and ';' for the pause.
-        href = href.replace(/[^0-9+;]/g, '');
-        
-        return href;
-    }
-
-    /**
-     * Renders one or more clickable phone links into a container.
-     * Splits a phone string by separators and makes each number clickable.
-     * @param {HTMLElement} container - The element to inject the links into.
-     * @param {string} phoneString - The raw string containing one or more phone numbers.
-     */
-    function renderClickablePhones(container, phoneString) {
-        if (!container) return;
-        
-        container.innerHTML = ''; // Clear existing content
-        
-        if (!phoneString || phoneString.trim() === '') {
-            container.textContent = 'No Phone Number';
-            return;
-        }
-        
-        // Split by common separators, then filter out empty strings
-        const phoneNumbers = phoneString.split(/\s*[\/|]|\s+or\s+/i)
-                                      .map(p => p.trim())
-                                      .filter(p => p.length > 0);
-        
-        if (phoneNumbers.length === 0) {
-             container.textContent = 'No Phone Number'; // Fallback
-             return;
-        }
-
-        phoneNumbers.forEach((phoneText, index) => {
-            const sanitizedHref = sanitizeForTel(phoneText);
-            
-            // Don't render a link if it's just an empty string after sanitizing
-            if (sanitizedHref === '') {
-                 container.textContent = phoneText; // just show the text
-                 return;
-            }
-
-            const link = document.createElement('a');
-            link.href = `tel:${sanitizedHref}`;
-            link.textContent = phoneText; // Use the original (but trimmed) text
-            link.className = 'contact-name-link'; // Match styling
-            
-            container.appendChild(link);
-            
-            // Add a separator if it's not the last item
-            if (index < phoneNumbers.length - 1) {
-                const separator = document.createTextNode(' / ');
-                container.appendChild(separator);
-            }
-        });
-    }
-    // --- END HELPER FUNCTIONS ---
-
 
     // --- DOM SELECTORS ---
-    const newCampaignBtn = document.getElementById('new-campaign-btn');
-    const manageTemplatesBtn = document.getElementById('manage-templates-btn');
-    const deleteCampaignBtn = document.getElementById('delete-campaign-btn');
     const activeCampaignList = document.getElementById('campaign-list-active');
     const pastCampaignList = document.getElementById('campaign-list-past');
     const campaignDetailsContent = document.getElementById('campaign-details-content');
-    const callBlitzUI = document.getElementById('call-blitz-ui');
-    const emailMergeUI = document.getElementById('email-merge-ui');
-    const guidedEmailUI = document.getElementById('guided-email-ui');
+    const campaignDetailsFlippable = document.getElementById('campaign-details-flippable');
+    const campaignDetailsEmailBack = document.getElementById('campaign-details-email-back');
+    const runCampaignBody = document.getElementById('run-campaign-body');
+    const rcSummary = document.getElementById('rc-summary');
+    const rcLayout = document.getElementById('rc-layout');
+    const rcContactCard = document.getElementById('rc-contact-card');
+    const rcContactContent = rcContactCard ? rcContactCard.querySelector('.run-campaign-contact-content') : null;
+    const rcMiddlePanel = document.getElementById('rc-middle-panel');
+    const rcActivitiesList = document.getElementById('rc-activities-list');
+
+    const NULL_CONTACT_HTML = `
+        <span class="run-campaign-null-placeholder">Select a campaign</span>
+        <small>Create a Call Blitz, Guided Email, or Email Merge campaign to get started.</small>`;
+
+    const NULL_MIDDLE_HTML = `
+        <span class="run-campaign-notes-placeholder">Notes</span>
+        <textarea disabled placeholder=" " aria-label="Notes (disabled until campaign selected)"></textarea>`;
+
+    const NULL_ACTIVITY_HTML = `<p class="run-campaign-null-activity-text">No contact selected.</p>`;
+
+    const CALL_BLITZ_CONTACT_HTML = `
+        <div class="run-campaign-contact-name-row">
+            <span id="contact-name-call-blitz"></span>
+            <a href="#" id="contact-phone-call-blitz" class="run-campaign-contact-link"></a>
+        </div>
+        <small id="contact-company-call-blitz"></small>
+        <div class="run-campaign-contact-actions">
+            <button type="button" id="log-call-btn" class="run-campaign-icon-btn run-campaign-icon-log" title="Log Call & Next"><i class="fas fa-check"></i></button>
+            <button type="button" id="skip-call-btn" class="run-campaign-icon-btn run-campaign-icon-skip" title="Skip & Next"><i class="fas fa-forward"></i></button>
+        </div>`;
+
+    const CALL_BLITZ_MIDDLE_HTML = `
+        <div class="run-campaign-call-notes-form">
+            <div class="run-campaign-body-inner run-campaign-body-box rc-blitz-notes">
+                <span class="run-campaign-notes-placeholder" id="call-notes-placeholder">Notes</span>
+                <textarea id="call-notes" name="x-call-notes" autocomplete="nope"></textarea>
+            </div>
+        </div>`;
+
+    const GUIDED_EMAIL_CONTACT_HTML = `
+        <div class="run-campaign-contact-name-row">
+            <span id="contact-name-guided-email"></span>
+            <a href="#" id="contact-email-guided-email" class="run-campaign-contact-link"></a>
+        </div>
+        <small id="contact-company-guided-email"></small>
+        <div class="run-campaign-contact-actions">
+            <button type="button" id="open-email-client-btn" class="run-campaign-icon-btn run-campaign-icon-log" title="Open in Email Client & Next"><i class="fas fa-envelope"></i></button>
+            <button type="button" id="skip-email-btn" class="run-campaign-icon-btn run-campaign-icon-skip" title="Skip & Next"><i class="fas fa-forward"></i></button>
+        </div>`;
+
+    const GUIDED_EMAIL_MIDDLE_HTML = `
+        <div class="run-campaign-email-form">
+            <span id="email-to-address" class="hidden" aria-hidden="true"></span>
+            <input type="text" id="email-subject" name="x-email-subject" placeholder="Subject" autocomplete="one-time-code" readonly>
+            <div class="run-campaign-body-inner run-campaign-body-box">
+                <span class="run-campaign-notes-placeholder" id="email-body-placeholder">Body</span>
+                <textarea id="email-body-textarea" name="x-email-body" autocomplete="nope"></textarea>
+                <div class="merge-fields-buttons run-campaign-merge-pills">
+                    <button type="button" class="btn-secondary" data-field="[FirstName]">First</button>
+                    <button type="button" class="btn-secondary" data-field="[LastName]">Last</button>
+                    <button type="button" class="btn-secondary" data-field="[AccountName]">Account</button>
+                </div>
+            </div>
+        </div>`;
+
+    const EMAIL_MERGE_SUMMARY_HTML = `
+        <div id="email-merge-ui">
+            <p id="email-summary-text"></p>
+            <div class="action-buttons">
+                <button id="export-txt-btn" class="btn-secondary">Download Email Template (.txt)</button>
+                <button id="export-csv-btn" class="btn-primary">Download Contacts (.csv)</button>
+            </div>
+        </div>`;
+
+    const setNullState = () => {
+        if (rcContactCard) rcContactCard.classList.add('run-campaign-null-contact');
+        if (rcMiddlePanel) rcMiddlePanel.classList.add('rc-null');
+        if (rcContactContent) rcContactContent.innerHTML = NULL_CONTACT_HTML;
+        if (rcMiddlePanel) rcMiddlePanel.innerHTML = NULL_MIDDLE_HTML;
+        if (rcActivitiesList) rcActivitiesList.innerHTML = NULL_ACTIVITY_HTML;
+        if (rcSummary) { rcSummary.classList.add('hidden'); rcSummary.innerHTML = ''; }
+        if (rcLayout) rcLayout.classList.remove('hidden');
+    };
+
+    const clearNullState = () => {
+        if (rcContactCard) rcContactCard.classList.remove('run-campaign-null-contact');
+        if (rcMiddlePanel) rcMiddlePanel.classList.remove('rc-null');
+    };
+
+    let createCampaignConfirmResolve = null;
+
+    let tomSelectCampaignType = null;
+    let tomSelectEmailSource = null;
+    let tomSelectTemplate = null;
+    let tomSelectIndustry = null;
+
+    function initTomSelect(el, opts = {}) {
+        if (typeof window.TomSelect === 'undefined') return null;
+        try {
+            return new window.TomSelect(el, { create: false, ...opts });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function destroyCampaignTomSelects() {
+        [tomSelectCampaignType, tomSelectEmailSource, tomSelectTemplate, tomSelectIndustry].forEach(ts => {
+            if (ts) { ts.destroy(); }
+        });
+        tomSelectCampaignType = tomSelectEmailSource = tomSelectTemplate = tomSelectIndustry = null;
+    }
+
+    function getCampaignSelectValue(id) {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        const map = {
+            'campaign-type': tomSelectCampaignType,
+            'email-source-type': tomSelectEmailSource,
+            'template-selector': tomSelectTemplate,
+            'filter-industry': tomSelectIndustry
+        };
+        const ts = map[id];
+        if (ts) {
+            const v = ts.getValue();
+            return Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
+        }
+        return el.value ?? '';
+    }
+
+    function getFilterStatus() {
+        const customerActive = document.querySelector('.customer-filter-customer.active');
+        const prospectActive = document.querySelector('.customer-filter-prospect.active');
+        if (customerActive && prospectActive) return ''; // both on = All
+        if (customerActive) return 'customer';
+        if (prospectActive) return 'prospect';
+        return '__none__'; // neither on = show none
+    }
+
+    function getFilterStarredOnly() {
+        const btn = document.getElementById('filter-starred-btn');
+        return btn ? btn.classList.contains('is-organic') : false;
+    }
+
+    function initCampaignTomSelects() {
+        const campaignTypeEl = document.getElementById('campaign-type');
+        const emailSourceEl = document.getElementById('email-source-type');
+        const templateEl = document.getElementById('template-selector');
+        const industryEl = document.getElementById('filter-industry');
+        if (campaignTypeEl && !campaignTypeEl.tomselect) tomSelectCampaignType = initTomSelect(campaignTypeEl);
+        if (emailSourceEl && !emailSourceEl.tomselect) {
+            tomSelectEmailSource = initTomSelect(emailSourceEl);
+            setTimeout(() => {
+                const input = emailSourceEl.closest('.ts-wrapper')?.querySelector('input');
+                if (input) {
+                    input.setAttribute('autocomplete', 'one-time-code');
+                }
+            }, 0);
+        }
+        if (templateEl && !templateEl.tomselect) tomSelectTemplate = initTomSelect(templateEl);
+        if (industryEl && !industryEl.tomselect) tomSelectIndustry = initTomSelect(industryEl);
+    }
 
     // --- RENDER FUNCTIONS ---
     const renderCampaignList = () => {
@@ -177,41 +261,49 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     };
 
-   const renderCampaignListItem = (campaign, listElement) => {
+    const renderCampaignListItem = (campaign, listElement) => {
         const item = document.createElement("div");
         item.className = "list-item";
         item.dataset.id = campaign.id;
         if (campaign.id === state.selectedCampaignId) item.classList.add("selected");
 
-        // Applied Rajdhani font to Campaign Name and dimmed the type
         item.innerHTML = `
-            <div class="contact-info">
-                <div class="contact-name">${campaign.name}</div>
-                <small class="account-name">${campaign.type} Campaign</small>
+            <div>
+                <div>${campaign.name}</div>
+                <small>${campaign.type} Campaign</small>
             </div>
         `;
         listElement.appendChild(item);
     };
 
+    let activeRunMode = null; // 'call' | 'guided-email' | 'email-merge' | null
+
+    const updateCampaignActiveRow = () => {
+        const panel = document.getElementById('campaign-details');
+        if (!panel) return;
+        const campaign = state.campaigns.find(c => c.id === state.selectedCampaignId);
+        const runActive = campaign && !campaign.completed_at && activeRunMode !== null;
+        panel.classList.toggle('campaign-run-active', runActive);
+        panel.classList.toggle('campaign-top-active', !runActive);
+    };
+
     const renderCampaignDetails = async () => {
-        [campaignDetailsContent, callBlitzUI, emailMergeUI, guidedEmailUI].forEach(el => {
-            if (el) el.classList.add('hidden');
-        });
+        if (campaignDetailsContent) campaignDetailsContent.classList.add('hidden');
 
         const campaign = state.campaigns.find(c => c.id === state.selectedCampaignId);
 
-        if (deleteCampaignBtn) {
-            const canDelete = campaign && !campaign.completed_at;
-            deleteCampaignBtn.disabled = !canDelete;
-        }
-
         if (!campaign) {
             if (campaignDetailsContent) {
-                campaignDetailsContent.innerHTML = `<p>Select a campaign to see its details or create a new one.</p>`;
+                campaignDetailsContent.innerHTML = `<p class="campaign-details-null-text">Select a campaign to view details.</p>`;
                 campaignDetailsContent.classList.remove('hidden');
             }
+            activeRunMode = null;
+            setNullState();
+            updateCampaignActiveRow();
             return;
         }
+
+        if (campaignDetailsContent) campaignDetailsContent.classList.remove('hidden');
 
         await loadCampaignMembers(campaign.id);
 
@@ -220,50 +312,76 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             renderActiveCampaignDetails(campaign);
         }
+        updateCampaignActiveRow();
+    };
+
+    const resetCampaignDetailsFlip = () => {
+        if (campaignDetailsFlippable) {
+            campaignDetailsFlippable.classList.remove('campaign-details-flipped');
+        }
+        if (campaignDetailsEmailBack) {
+            campaignDetailsEmailBack.innerHTML = '';
+        }
     };
 
     const renderActiveCampaignDetails = (campaign) => {
+        resetCampaignDetailsFlip();
         const members = state.campaignMembers.map(member => state.contacts.find(c => c.id === member.contact_id)).filter(Boolean);
         const memberListHtml = members.length > 0 ? members.map(c => {
             const accountName = state.accounts.find(a => a.id === c.account_id)?.name || 'No Account';
             return `<li>${c.first_name} ${c.last_name} <span class="text-medium">(${accountName})</span></li>`;
         }).join('') : '<li>No contacts in this campaign.</li>';
 
-        let emailInfoHtml = '';
+        const hasStarted = state.campaignMembers.some(m => m.status !== 'Pending');
+        const statusLabel = 'Active';
+        const statusSlug = hasStarted ? 'active' : 'not-started';
+        const typeIcon = campaign.type === 'Call' ? 'fa-phone' : campaign.type === 'Guided Email' ? 'fa-paper-plane' : 'fa-envelope';
+
+        let emailCtaHtml = '';
         if (campaign.type === 'Email' || campaign.type === 'Guided Email') {
-            emailInfoHtml = `
-                <hr>
-                <h4>Email Content</h4>
-                <p><strong>Subject:</strong> ${campaign.email_subject || '(Not set)'}</p>
-                <pre class="email-body-summary">${campaign.email_body || '(Not set)'}</pre>
+            emailCtaHtml = `
+                <button type="button" id="show-email-details-btn" class="campaign-email-cta">
+                    <i class="fas fa-envelope"></i>
+                    <span>View email</span>
+                </button>
             `;
+            if (campaignDetailsEmailBack) {
+                const subj = (campaign.email_subject || '(Not set)').replace(/</g, '&lt;');
+                const body = (campaign.email_body || '(Not set)').replace(/</g, '&lt;').replace(/&/g, '&amp;');
+                campaignDetailsEmailBack.innerHTML = `
+                    <p class="campaign-email-back-subject"><strong>Subject:</strong> ${subj}</p>
+                    <pre class="email-body-summary">${body}</pre>
+                `;
+            }
         }
 
         if (campaignDetailsContent) {
             campaignDetailsContent.innerHTML = `
-                <div class="contact-info">
-                    <h4 class="contact-name detail-heading-accent">${campaign.name}</h4>
+                <div class="campaign-details-header-row">
+                    <span class="campaign-details-type-icon"><i class="fas ${typeIcon}"></i></span>
+                    <h3 class="campaign-details-name">${campaign.name}</h3>
+                    <span class="campaign-details-status-pill campaign-details-status-${statusSlug}">${statusLabel}</span>
+                    <button type="button" id="delete-campaign-details-btn" class="btn-danger btn-icon-header campaign-details-delete-btn" title="Delete campaign"><i class="fas fa-trash"></i></button>
                 </div>
-                <p><strong>Type:</strong> ${campaign.type}</p>
-                <p><strong>Status:</strong> <span style="color: var(--completed-color);">Active</span></p>
-                <hr>
-                <h4 class="contact-name">Included Contacts (${members.length})</h4>
-                <ul class="summary-contact-list">${memberListHtml}</ul>
-                ${emailInfoHtml}
+                <div class="campaign-details-contacts-wrap">
+                    <ul class="summary-contact-list">${memberListHtml}</ul>
+                </div>
+                ${emailCtaHtml}
             `;
             campaignDetailsContent.classList.remove('hidden');
         }
 
-        if (campaign.type === 'Call' && callBlitzUI) {
+        if (campaign.type === 'Call') {
             renderCallBlitzUI();
-        } else if (campaign.type === 'Email' && emailMergeUI) {
+        } else if (campaign.type === 'Email') {
             renderEmailMergeUI();
-        } else if (campaign.type === 'Guided Email' && guidedEmailUI) {
+        } else if (campaign.type === 'Guided Email') {
             renderGuidedEmailUI();
         }
     };
 
     const renderCompletedCampaignSummary = (campaign) => {
+        resetCampaignDetailsFlip();
         const completedMembers = state.campaignMembers.filter(m => m.status === 'Completed');
         const skippedMembers = state.campaignMembers.filter(m => m.status === 'Skipped');
         let memberHtml = (members, status) => {
@@ -273,54 +391,78 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return `<li>${contact ? `${contact.first_name} ${contact.last_name}` : 'Unknown Contact'}</li>`;
             }).join('');
         };
-        let emailBodyHtml = '';
-        if (campaign.email_body) {
-            emailBodyHtml = `<h4>Email Template Used</h4><pre class="email-body-summary">${campaign.email_body}</pre>`;
+        const typeIcon = campaign.type === 'Call' ? 'fa-phone' : campaign.type === 'Guided Email' ? 'fa-paper-plane' : 'fa-envelope';
+        let emailCtaHtml = '';
+        if (campaign.email_body || campaign.email_subject) {
+            emailCtaHtml = `
+                <button type="button" id="show-email-details-btn" class="campaign-email-cta">
+                    <i class="fas fa-envelope"></i>
+                    <span>View email used</span>
+                </button>
+            `;
+            if (campaignDetailsEmailBack) {
+                const subj = (campaign.email_subject || '(Not set)').replace(/</g, '&lt;');
+                const body = (campaign.email_body || '').replace(/</g, '&lt;').replace(/&/g, '&amp;');
+                campaignDetailsEmailBack.innerHTML = `
+                    <p class="campaign-email-back-subject"><strong>Subject:</strong> ${subj}</p>
+                    <pre class="email-body-summary">${body || '(Not set)'}</pre>
+                `;
+            }
         }
+        activeRunMode = null;
+        setNullState();
         if (campaignDetailsContent) {
             campaignDetailsContent.innerHTML = `
-                <h4>${campaign.name}</h4>
-                <p><strong>Status:</strong> Complete</p>
-                <p><strong>Completed On:</strong> ${formatDate(campaign.completed_at)}</p>
+                <div class="campaign-details-header-row">
+                    <span class="campaign-details-type-icon"><i class="fas ${typeIcon}"></i></span>
+                    <h3 class="campaign-details-name">${campaign.name}</h3>
+                    <span class="campaign-details-status-pill campaign-details-status-completed">Completed</span>
+                </div>
+                <p class="campaign-details-meta"><strong>Completed On:</strong> ${formatDate(campaign.completed_at)}</p>
                 <hr>
                 <h4>Contacts Engaged (${completedMembers.length})</h4>
-                <ul>${memberHtml(completedMembers, 'Engaged')}</ul>
+                <div class="campaign-details-contacts-wrap">
+                    <ul class="summary-contact-list">${memberHtml(completedMembers, 'Engaged')}</ul>
+                </div>
                 <hr>
                 <h4>Contacts Skipped (${skippedMembers.length})</h4>
-                <ul>${memberHtml(skippedMembers, 'Skipped')}</ul>
-                ${emailBodyHtml}`;
+                <div class="campaign-details-contacts-wrap">
+                    <ul class="summary-contact-list">${memberHtml(skippedMembers, 'Skipped')}</ul>
+                </div>
+                ${emailCtaHtml}`;
             campaignDetailsContent.classList.remove('hidden');
         }
     };
 
     const renderCallBlitzUI = () => {
-        if (!callBlitzUI) return;
-        callBlitzUI.classList.remove('hidden');
-        const summaryView = document.getElementById('call-summary-view');
-        const activeCallView = document.getElementById('active-call-view');
-        const summaryText = document.getElementById('call-summary-text');
-        const startBtn = document.getElementById('start-calling-btn');
-
-        if (!summaryView || !activeCallView || !summaryText || !startBtn) {
-            console.error("Call Blitz UI elements not found.");
-            return;
-        }
+        if (!rcMiddlePanel) return;
+        activeRunMode = 'call';
+        clearNullState();
 
         const pendingCalls = state.campaignMembers.filter(m => m.status === 'Pending');
         if (pendingCalls.length > 0) {
-            summaryText.textContent = `This campaign has ${pendingCalls.length} call(s) remaining.`;
-            startBtn.classList.remove('hidden');
+            if (rcSummary) { rcSummary.classList.add('hidden'); rcSummary.innerHTML = ''; }
+            if (rcLayout) rcLayout.classList.remove('hidden');
+            rcContactContent.innerHTML = CALL_BLITZ_CONTACT_HTML;
+            rcMiddlePanel.innerHTML = CALL_BLITZ_MIDDLE_HTML;
+            rcActivitiesList.innerHTML = '';
+            displayCurrentCall();
         } else {
-            summaryText.textContent = 'All calls for this campaign are complete!';
-            startBtn.classList.add('hidden');
+            if (rcSummary) {
+                rcSummary.innerHTML = `<p>All calls for this campaign are complete!</p>`;
+                rcSummary.classList.remove('hidden');
+            }
+            if (rcLayout) rcLayout.classList.add('hidden');
         }
-        summaryView.classList.remove('hidden');
-        activeCallView.classList.add('hidden');
     };
 
     const renderEmailMergeUI = () => {
-        if (!emailMergeUI) return;
-        emailMergeUI.classList.remove('hidden');
+        if (!rcSummary) return;
+        activeRunMode = 'email-merge';
+        clearNullState();
+        rcSummary.innerHTML = EMAIL_MERGE_SUMMARY_HTML;
+        rcSummary.classList.remove('hidden');
+        if (rcLayout) rcLayout.classList.add('hidden');
         const summaryText = document.getElementById('email-summary-text');
         if (summaryText) {
             summaryText.textContent = `This campaign includes ${state.campaignMembers.length} contact(s).`;
@@ -328,28 +470,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     const renderGuidedEmailUI = () => {
-        if (!guidedEmailUI) return;
-        guidedEmailUI.classList.remove('hidden');
-        const summaryView = document.getElementById('guided-email-summary-view');
-        const activeEmailView = document.getElementById('active-email-view');
-        const summaryText = document.getElementById('guided-email-summary-text');
-        const startBtn = document.getElementById('start-guided-email-btn');
-
-        if (!summaryView || !activeEmailView || !summaryText || !startBtn) {
-            console.error("Guided Email UI elements not found.");
-            return;
-        }
+        if (!rcMiddlePanel) return;
+        activeRunMode = 'guided-email';
+        clearNullState();
 
         const pendingEmails = state.campaignMembers.filter(m => m.status === 'Pending');
         if (pendingEmails.length > 0) {
-            summaryText.textContent = `This campaign has ${pendingEmails.length} email(s) to send.`;
-            startBtn.classList.remove('hidden');
+            if (rcSummary) { rcSummary.classList.add('hidden'); rcSummary.innerHTML = ''; }
+            if (rcLayout) rcLayout.classList.remove('hidden');
+            rcContactContent.innerHTML = GUIDED_EMAIL_CONTACT_HTML;
+            rcMiddlePanel.innerHTML = GUIDED_EMAIL_MIDDLE_HTML;
+            rcActivitiesList.innerHTML = '';
+            displayCurrentEmail();
         } else {
-            summaryText.textContent = 'All guided emails for this campaign are complete!';
-            startBtn.classList.add('hidden');
+            if (rcSummary) {
+                rcSummary.innerHTML = `<p>All guided emails for this campaign are complete!</p>`;
+                rcSummary.classList.remove('hidden');
+            }
+            if (rcLayout) rcLayout.classList.add('hidden');
         }
-        summaryView.classList.remove('hidden');
-        activeEmailView.classList.add('hidden');
     };
 
     const checkForCampaignCompletion = async (campaignId) => {
@@ -378,41 +517,73 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     const startCallBlitz = () => {
-        const summaryView = document.getElementById('call-summary-view');
-        const activeCallView = document.getElementById('active-call-view');
-        if (!summaryView || !activeCallView) return;
-
-        summaryView.classList.add('hidden');
-        activeCallView.classList.remove('hidden');
+        if (rcSummary) { rcSummary.classList.add('hidden'); rcSummary.innerHTML = ''; }
+        if (rcLayout) rcLayout.classList.remove('hidden');
+        if (rcContactContent) rcContactContent.innerHTML = CALL_BLITZ_CONTACT_HTML;
+        if (rcMiddlePanel) rcMiddlePanel.innerHTML = CALL_BLITZ_MIDDLE_HTML;
+        if (rcActivitiesList) rcActivitiesList.innerHTML = '';
         displayCurrentCall();
+    };
+
+    const updateNotesPlaceholder = (textareaId, placeholderId) => {
+        const textarea = document.getElementById(textareaId);
+        const placeholder = document.getElementById(placeholderId);
+        if (!textarea || !placeholder) return;
+        placeholder.classList.toggle('hidden', textarea.value.trim() !== '');
+    };
+
+    const fitContactLink = (el) => {
+        if (!el) return;
+        el.style.fontSize = '';
+        const len = (el.textContent || '').length;
+        if (len > 28) el.style.fontSize = '0.65rem';
+        else if (len > 22) el.style.fontSize = '0.7rem';
+        else if (len > 16) el.style.fontSize = '0.75rem';
+    };
+
+    const populateRunCampaignRecentActivity = (contactId, listElementId) => {
+        const listEl = document.getElementById(listElementId);
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        const activities = (state.activities || [])
+            .filter((act) => act.contact_id === contactId)
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (activities.length === 0) {
+            listEl.innerHTML = '<p class="recent-activities-empty text-sm text-[var(--text-medium)] px-2 py-4">No activities yet.</p>';
+        } else {
+            activities.forEach((act) => {
+                const typeLower = (act.type || '').toLowerCase();
+                let iconClass = 'icon-default', icon = 'fa-circle-info', iconPrefix;
+                if (typeLower.includes('cognito') || typeLower.includes('intelligence')) { icon = 'fa-magnifying-glass'; }
+                else if (typeLower.includes('email')) { iconClass = 'icon-email'; icon = 'fa-envelope'; }
+                else if (typeLower.includes('call')) { iconClass = 'icon-call'; icon = 'fa-phone'; }
+                else if (typeLower.includes('meeting')) { iconClass = 'icon-meeting'; icon = 'fa-video'; }
+                else if (typeLower.includes('linkedin')) { iconClass = 'icon-linkedin'; icon = 'fa-linkedin-in'; iconPrefix = 'fa-brands'; }
+                const item = document.createElement('div');
+                item.className = 'recent-activity-item';
+                item.innerHTML = `
+                    <div class="activity-icon-wrap ${iconClass}"><i class="${iconPrefix || 'fas'} ${icon}"></i></div>
+                    <div class="activity-body">
+                        <div class="activity-description">${act.type}: ${(act.description || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                        <div class="activity-date">${formatDate(act.date)}</div>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
     };
 
     const displayCurrentCall = () => {
         const pendingCalls = state.campaignMembers.filter(m => m.status === 'Pending');
         const contactNameEl = document.getElementById('contact-name-call-blitz');
         const contactCompanyEl = document.getElementById('contact-company-call-blitz');
-        
-        // --- THIS IS THE FIX ---
-        // 1. Get the element. It might be an <a> tag from the original HTML
-        let phoneEl = document.getElementById('contact-phone-call-blitz');
+        const phoneLinkEl = document.getElementById('contact-phone-call-blitz');
         const callNotesEl = document.getElementById('call-notes');
 
-        if (!contactNameEl || !contactCompanyEl || !phoneEl || !callNotesEl) {
+        if (!contactNameEl || !contactCompanyEl || !phoneLinkEl || !callNotesEl) {
             console.error("Missing call blitz contact info elements.");
             return;
         }
-
-        // 2. Check if it's an <a> tag. If so, replace it with a <span>
-        //    so we can safely inject our *new* <a> tags into it.
-        if (phoneEl.tagName === 'A') {
-            const newSpan = document.createElement('span');
-            newSpan.id = phoneEl.id; // Give the new span the same ID
-            newSpan.className = phoneEl.className; // Copy over any classes
-            phoneEl.parentNode.replaceChild(newSpan, phoneEl);
-            phoneEl = newSpan; // Re-assign our variable to the new span
-        }
-        // --- END FIX ---
-
 
         // CORRECTED LOGIC: Check if there are any pending calls left.
         if (pendingCalls.length === 0) {
@@ -438,13 +609,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('log-call-btn').dataset.memberId = currentMember.id;
         document.getElementById('skip-call-btn').dataset.memberId = currentMember.id;
 
-        contactNameEl.textContent = `${contact.first_name || ''} ${contact.last_name || ''}`;
+        contactNameEl.textContent = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unknown';
         contactCompanyEl.textContent = account ? account.name : 'No Company';
-        
-        // Now, this function will render into the <span> (phoneEl)
-        renderClickablePhones(phoneEl, contact.phone);
-        
+        phoneLinkEl.href = contact.phone ? `tel:${contact.phone}` : '#';
+        phoneLinkEl.textContent = contact.phone || 'No Phone';
+        if (contact.phone) phoneLinkEl.removeAttribute('tabindex');
+        else phoneLinkEl.setAttribute('tabindex', '-1');
         callNotesEl.value = '';
+        updateNotesPlaceholder('call-notes', 'call-notes-placeholder');
+        populateRunCampaignRecentActivity(contact.id, 'rc-activities-list');
         callNotesEl.focus();
     };
 
@@ -480,7 +653,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             account_id: contact.account_id,
             type: 'Call',
             description: `Campaign Call: "${campaign.name}". Notes: ${notes}`,
-            user_id: state.currentUser.id,
+            user_id: getState().effectiveUserId,
             date: new Date().toISOString()
         });
         if (activityError) {
@@ -503,6 +676,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         currentMember.status = 'Completed'; // Update local state immediately
+        state.activities.push({ contact_id: contact.id, account_id: contact.account_id, type: 'Call', description: `Campaign Call: "${campaign.name}". Notes: ${notes}`, user_id: getState().effectiveUserId, date: new Date().toISOString() });
         displayCurrentCall(); // Refresh UI for next call
         await checkForCampaignCompletion(currentMember.campaign_id);
     };
@@ -534,12 +708,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     const startGuidedEmail = () => {
-        const summaryView = document.getElementById('guided-email-summary-view');
-        const activeEmailView = document.getElementById('active-email-view');
-        if (!summaryView || !activeEmailView) return;
-
-        summaryView.classList.add('hidden');
-        activeEmailView.classList.remove('hidden');
+        if (rcSummary) { rcSummary.classList.add('hidden'); rcSummary.innerHTML = ''; }
+        if (rcLayout) rcLayout.classList.remove('hidden');
+        if (rcContactContent) rcContactContent.innerHTML = GUIDED_EMAIL_CONTACT_HTML;
+        if (rcMiddlePanel) rcMiddlePanel.innerHTML = GUIDED_EMAIL_MIDDLE_HTML;
+        if (rcActivitiesList) rcActivitiesList.innerHTML = '';
         displayCurrentEmail();
     };
 
@@ -580,14 +753,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('skip-email-btn').dataset.memberId = currentMember.id;
 
 
-        let emailBody = campaign.email_body || '';
+        let emailBody = (campaign.email_body || '').trim();
         emailBody = emailBody.replace(/\[FirstName\]/g, contact.first_name || '');
         emailBody = emailBody.replace(/\[LastName\]/g, contact.last_name || '');
         emailBody = emailBody.replace(/\[AccountName\]/g, account ? account.name : '');
 
+        const contactNameGuided = document.getElementById('contact-name-guided-email');
+        const contactEmailGuided = document.getElementById('contact-email-guided-email');
+        const contactCompanyGuided = document.getElementById('contact-company-guided-email');
+        if (contactNameGuided) contactNameGuided.textContent = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unknown';
+        if (contactCompanyGuided) contactCompanyGuided.textContent = account ? account.name : 'No Company';
+        if (contactEmailGuided) {
+            contactEmailGuided.href = contact.email ? `mailto:${contact.email}` : '#';
+            contactEmailGuided.textContent = contact.email || 'No Email';
+            fitContactLink(contactEmailGuided);
+        }
         emailToAddressEl.textContent = contact.email || 'No Email';
         emailSubjectEl.value = campaign.email_subject || '';
         emailBodyTextareaEl.value = emailBody;
+        updateNotesPlaceholder('email-body-textarea', 'email-body-placeholder');
+        populateRunCampaignRecentActivity(contact.id, 'rc-activities-list');
         emailBodyTextareaEl.focus();
     };
 
@@ -596,7 +781,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const subject = document.getElementById('email-subject')?.value;
         const body = document.getElementById('email-body-textarea')?.value;
 
-        if (!to) {
+        if (!to || to === 'No Email') {
             alert("Cannot open email client: Contact has no email address.");
             return;
         }
@@ -627,7 +812,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             account_id: contact.account_id,
             type: 'Email',
             description: `Sent guided email for campaign: "${campaign.name}". Subject: ${subject || '(No Subject)'}`,
-            user_id: state.currentUser.id,
+            user_id: getState().effectiveUserId,
             date: new Date().toISOString()
         });
         if (activityError) console.error("Error logging guided email activity:", activityError);
@@ -642,6 +827,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (memberUpdateError) console.error("Error updating campaign member status (email):", memberUpdateError);
 
         currentMember.status = 'Completed'; // Update local state immediately
+        const newAct = { contact_id: currentMember.contact_id, account_id: contact.account_id, type: 'Email', description: `Sent guided email for campaign: "${campaign.name}". Subject: ${subject || '(No Subject)'}`, user_id: getState().effectiveUserId, date: new Date().toISOString() };
+        state.activities.push(newAct);
 
         // Delay to allow the mail client to open before processing the next item
         setTimeout(async () => {
@@ -679,220 +866,203 @@ document.addEventListener("DOMContentLoaded", async () => {
     // REMOVED: captureFormState and restoreFormState functions are no longer needed
     // REMOVED: handleShowAllContactsClick function is no longer needed
 
-    // NEW: Helper function to get contacts based on modal filters and campaign type
-    function getFilteredContacts() {
-        const industry = document.getElementById('filter-industry')?.value;
-        const status = document.getElementById('filter-status')?.value;
-        const type = document.getElementById('campaign-type')?.value;
+    async function createCampaignAndMembers() {
+        const name = document.getElementById('campaign-name')?.value.trim();
+        const type = getCampaignSelectValue('campaign-type');
+        const industry = getCampaignSelectValue('filter-industry');
+        const status = getFilterStatus();
+        const starredOnly = getFilterStarredOnly();
+        let email_subject = '';
+        let email_body = '';
 
-        const accountIdsByIndustry = industry ? new Set(state.accounts.filter(a => a.industry === industry).map(a => a.id)) : null;
-
-        return state.contacts.filter(contact => {
-            const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
-            if (!account) return false;
-
-            const industryMatch = !accountIdsByIndustry || accountIdsByIndustry.has(account.id);
-            const statusMatch = !status || (status === 'customer' && account.is_customer) || (status === 'prospect' && !account.is_customer);
-
-            // NEW: Add validation based on campaign type
-            let validationMatch = true;
-            if (type === 'Call') {
-                validationMatch = contact.phone && contact.phone.trim() !== '';
-            } else if (type === 'Email' || type === 'Guided Email') {
-                validationMatch = contact.email && contact.email.trim() !== '';
-            }
-
-            return industryMatch && statusMatch && validationMatch;
-        });
-    }
-
-    async function handleNewCampaignClick() {
-        const visibleTemplates = state.emailTemplates.filter(template =>
-            !template.is_cloned || template.user_id === state.currentUser.id
-        );
-
-        const myTemplates = visibleTemplates
-            .filter(t => t.user_id === state.currentUser.id)
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-        const sharedTemplates = visibleTemplates
-            .filter(t => t.user_id !== state.currentUser.id)
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-        let myTemplatesOptions = '';
-        if (myTemplates.length > 0) {
-            myTemplatesOptions = `
-                <optgroup label="My Templates">
-                    ${myTemplates.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
-                </optgroup>
-            `;
+        if (!name) {
+            alert('Campaign name is required.');
+            return false;
         }
 
+            if (type === 'Email' || type === 'Guided Email') {
+                const emailSource = getCampaignSelectValue('email-source-type');
+                if (emailSource === 'template') {
+                    const templateId = Number(getCampaignSelectValue('template-selector'));
+                const selectedTemplate = state.emailTemplates.find(t => t.id === templateId);
+                if (selectedTemplate) {
+                    email_subject = selectedTemplate.subject;
+                    email_body = selectedTemplate.body;
+                } else {
+                    alert("Please select a valid template.");
+                    return false;
+                }
+            } else {
+                email_subject = document.getElementById('campaign-email-subject')?.value.trim();
+                email_body = document.getElementById('campaign-email-body')?.value;
+            }
+        }
+
+        const accountIdsByIndustry = industry ? new Set(state.accounts.filter(a => a.industry === industry).map(a => a.id)) : null;
+        const matchingContacts = state.contacts.filter(contact => {
+            if (!contact.account_id) return false;
+            const account = state.accounts.find(a => a.id === contact.account_id);
+            if (!account) return false;
+            const industryMatch = !accountIdsByIndustry || accountIdsByIndustry.has(account.id);
+            const statusMatch = !status || (status === 'customer' && account.is_customer) || (status === 'prospect' && !account.is_customer);
+            const starredMatch = !starredOnly || contact.is_organic === true;
+            return industryMatch && statusMatch && starredMatch;
+        });
+
+        if (matchingContacts.length === 0) {
+            alert('No contacts match the selected filters. Please adjust filters or add contacts/accounts.');
+            return false;
+        }
+
+        const confirmEl = document.getElementById('create-campaign-confirm');
+        const confirmMsg = document.getElementById('create-campaign-confirm-message');
+        if (confirmMsg) confirmMsg.textContent = `This campaign will include ${matchingContacts.length} contacts. Proceed?`;
+        if (confirmEl) confirmEl.classList.remove('hidden');
+        const confirmProceed = await new Promise(resolve => {
+            createCampaignConfirmResolve = resolve;
+        });
+        if (confirmEl) confirmEl.classList.add('hidden');
+        createCampaignConfirmResolve = null;
+        if (!confirmProceed) return false;
+
+        const filter_criteria = { industry, status, starred_only: starredOnly };
+        const { data: newCampaign, error: campaignError } = await supabase.from('campaigns').insert({
+            name, type, filter_criteria, email_subject, email_body, user_id: getState().effectiveUserId
+        }).select().single();
+        if (campaignError) {
+            alert('Error saving campaign: ' + campaignError.message);
+            return false;
+        }
+
+        const membersToInsert = matchingContacts.map(c => ({
+            campaign_id: newCampaign.id,
+            contact_id: c.id,
+            user_id: getState().effectiveUserId,
+            status: 'Pending'
+        }));
+        const { error: membersError } = await supabase.from('campaign_members').insert(membersToInsert);
+        if (membersError) {
+            alert('Error saving campaign members: ' + membersError.message);
+            await supabase.from('campaigns').delete().eq('id', newCampaign.id);
+            return false;
+        }
+
+        alert(`Campaign "${name}" created successfully with ${matchingContacts.length} members.`);
+        state.selectedCampaignId = newCampaign.id;
+        await loadAllData();
+        return true;
+    }
+
+    function renderCreateCampaignForm() {
+        const container = document.getElementById('new-campaign-form-container');
+        if (!container) return;
+        destroyCampaignTomSelects();
+
+        const visibleTemplates = state.emailTemplates.filter(t =>
+            !t.is_cloned || t.user_id === getState().effectiveUserId
+        );
+        const myTemplates = visibleTemplates.filter(t => t.user_id === getState().effectiveUserId).sort((a, b) => a.name.localeCompare(b.name));
+        const sharedTemplates = visibleTemplates.filter(t => t.user_id !== getState().effectiveUserId).sort((a, b) => a.name.localeCompare(b.name));
+
+        let myTemplatesOptions = myTemplates.length > 0
+            ? `<optgroup label="My Templates">${myTemplates.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>`
+            : '';
         let sharedTemplatesOptions = '';
         if (sharedTemplates.length > 0) {
             const sharedOptionsHtml = sharedTemplates.map(t => {
                 const creator = state.user_quotas.find(p => p && p.user_id === t.user_id);
                 const creatorName = creator ? creator.full_name : '';
                 const initials = getInitials(creatorName);
-                const displayName = `${t.name} ${initials ? `(${initials})` : ''}`.trim();
-                return `<option value="${t.id}">${displayName}</option>`;
+                return `<option value="${t.id}">${t.name} ${initials ? `(${initials})` : ''}</option>`;
             }).join('');
-
-            sharedTemplatesOptions = `
-                <optgroup label="Shared Templates">
-                    ${sharedOptionsHtml}
-                </optgroup>
-            `;
+            sharedTemplatesOptions = `<optgroup label="Shared Templates">${sharedOptionsHtml}</optgroup>`;
         }
         const templateOptions = myTemplatesOptions + sharedTemplatesOptions;
-
         const uniqueIndustries = [...new Set(state.accounts.map(a => a.industry).filter(Boolean))].sort();
         const industryOptions = uniqueIndustries.map(i => `<option value="${i}">${i}</option>`).join('');
 
-        const modalBody = `
+        const formHtml = `
             <div id="new-campaign-form">
-                <label for="campaign-name">Campaign Name:</label>
-                <input type="text" id="campaign-name" required placeholder="e.g., Q3 Tech Customer Outreach">
-                <label for="campaign-type">Campaign Type:</label>
-                <select id="campaign-type"><option value="Call">Call Blitz</option><option value="Email">Email Merge</option><option value="Guided Email">Guided Email</option></select>
-
-                <div id="email-section-container" class="hidden">
-                    <label for="email-source-type">Email Source:</label>
-                    <select id="email-source-type"><option value="write">Write New Email</option><option value="template">Use a Template</option></select>
-
-                    <div id="template-select-container" class="hidden">
-                        <label for="template-selector">Select Template:</label>
-                        <select id="template-selector"><option value="">--Select--</option>${templateOptions}</select>
-                    </div>
-
-                    <div id="email-write-container">
-                        <label for="campaign-email-subject">Email Subject:</label>
-                        <input type="text" id="campaign-email-subject" placeholder="Your email subject line">
-                        <label for="campaign-email-body">Email Message:</label>
-                        <div class="merge-fields-buttons">
-                            <button type="button" class="btn-secondary" data-field="[FirstName]">First Name</button>
-                            <button type="button" class="btn-secondary" data-field="[LastName]">Last Name</button>
-                            <button type="button" class="btn-secondary" data-field="[AccountName]">Account Name</button>
+                <div class="campaign-form-name-row">
+                    <label for="campaign-name">Campaign Name:</label>
+                    <input type="text" id="campaign-name" required placeholder="e.g., Q3 Tech Customer Outreach">
+                </div>
+                <div class="campaign-form-columns">
+                    <div class="campaign-form-col campaign-form-col-type">
+                        <label for="campaign-type">Campaign Type:</label>
+                        <select id="campaign-type"><option value="Call">Call Blitz</option><option value="Email">Email Merge</option><option value="Guided Email">Guided Email</option></select>
+                        <div id="email-section-container" class="hidden">
+                            <label for="email-source-type">Email Source:</label>
+                            <select id="email-source-type" autocomplete="one-time-code"><option value="write">Write New Email</option><option value="template">Use a Template</option></select>
+                            <div id="template-select-container" class="hidden">
+                                <label for="template-selector">Select Template:</label>
+                                <select id="template-selector"><option value="">--Select--</option>${templateOptions}</select>
+                            </div>
+                            <div id="email-write-container">
+                                <input type="text" id="campaign-email-subject" name="x-campaign-subject" placeholder="Subject" autocomplete="one-time-code">
+                                <div class="create-campaign-body-inner create-campaign-body-box">
+                                    <span class="create-campaign-body-placeholder" id="campaign-email-body-placeholder">Body</span>
+                                    <textarea id="campaign-email-body" rows="8" name="x-campaign-body" autocomplete="nope"></textarea>
+                                    <div class="merge-fields-buttons" id="create-campaign-merge-pills">
+                                        <button type="button" class="btn-secondary" data-field="[FirstName]">First</button>
+                                        <button type="button" class="btn-secondary" data-field="[LastName]">Last</button>
+                                        <button type="button" class="btn-secondary" data-field="[AccountName]">Account</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="template-email-preview" class="hidden">
+                                <p><strong>Subject:</strong> <span id="preview-template-subject"></span></p>
+                                <pre id="preview-template-body" class="email-body-summary"></pre>
+                            </div>
                         </div>
-                        <textarea id="campaign-email-body" rows="8" placeholder="Hi [FirstName], ..."></textarea>
+                        <div class="create-campaign-actions">
+                            <button type="button" id="create-campaign-submit-btn" class="btn-primary btn-icon-header" title="Create Campaign"><i class="fas fa-plus"></i></button>
+                        </div>
                     </div>
-                    <div id="template-email-preview" class="hidden">
-                        <p><strong>Subject:</strong> <span id="preview-template-subject"></span></p>
-                        <pre id="preview-template-body" class="email-body-summary"></pre>
+                    <div class="campaign-form-col campaign-form-col-filters">
+                        <label for="filter-industry">Account Industry</label>
+                        <select id="filter-industry"><option value="">All</option>${industryOptions}</select>
+                        <label>Customer / Prospect</label>
+                        <div class="customer-status-icon-row">
+                            <button type="button" class="customer-filter-btn customer-filter-customer" data-role="customer" title="Customers">
+                                <i class="fas fa-user-check"></i>
+                            </button>
+                            <button type="button" class="customer-filter-btn customer-filter-prospect" data-role="prospect" title="Prospects">
+                                <i class="fas fa-user"></i>
+                            </button>
+                            <button type="button" id="filter-starred-btn" class="organic-star campaign-filter-star" title="Show only starred contacts">★</button>
+                        </div>
+                        <div id="contact-preview-container" class="contact-preview-container"></div>
                     </div>
                 </div>
-
-                <hr><h4>Filter Target Contacts</h4>
-                <label for="filter-industry">Account Industry:</label><select id="filter-industry"><option value="">All</option>${industryOptions}</select>
-                <label for="filter-status">Customer Status:</label><select id="filter-status"><option value="">All</option><option value="customer">Customers Only</option><option value="prospect">Prospects Only</option></select>
-                <div id="contact-preview-container" style="margin-top: 1rem;"></div>
             </div>`;
-
-        const createCampaignAndMembers = async () => {
-            const name = document.getElementById('campaign-name')?.value.trim();
-            const type = document.getElementById('campaign-type')?.value;
-            const industry = document.getElementById('filter-industry')?.value;
-            const status = document.getElementById('filter-status')?.value;
-            let email_subject = '';
-            let email_body = '';
-
-            if (!name) {
-                alert('Campaign name is required.');
-                return false;
-            }
-
-            if (type === 'Email' || type === 'Guided Email') {
-                const emailSource = document.getElementById('email-source-type')?.value;
-                if (emailSource === 'template') {
-                    const templateId = Number(document.getElementById('template-selector')?.value);
-                    const selectedTemplate = state.emailTemplates.find(t => t.id === templateId);
-                    if (selectedTemplate) {
-                        email_subject = selectedTemplate.subject;
-                        email_body = selectedTemplate.body;
-                    } else {
-                        alert("Please select a valid template.");
-                        return false;
-                    }
-                } else {
-                    email_subject = document.getElementById('campaign-email-subject')?.value.trim();
-                    email_body = document.getElementById('campaign-email-body')?.value;
-                }
-            }
-
-            // MODIFIED: Use the new helper function to get filtered contacts
-            const matchingContacts = getFilteredContacts();
-
-            if (matchingContacts.length === 0) {
-                alert('No contacts match the selected filters. Please adjust filters or add contacts/accounts.');
-                return false;
-            }
-
-            const confirmProceed = await new Promise(resolve => {
-                showModal(
-                    "Confirm Campaign Creation",
-                    `This campaign will include ${matchingContacts.length} contacts. Proceed?`,
-                    () => resolve(true),
-                    true,
-                    `<button id="modal-confirm-btn" class="btn-primary">Yes, Create</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`,
-                    () => resolve(false)
-                );
-            });
-
-            if (!confirmProceed) {
-                return false;
-            }
-
-            const filter_criteria = {
-                industry,
-                status
-            };
-            const {
-                data: newCampaign,
-                error: campaignError
-            } = await supabase.from('campaigns').insert({
-                name,
-                type,
-                filter_criteria,
-                email_subject,
-                email_body,
-                user_id: state.currentUser.id
-            }).select().single();
-            if (campaignError) {
-                alert('Error saving campaign: ' + campaignError.message);
-                return false;
-            }
-
-            // BUG FIX: Ensure new members have a 'Pending' status.
-            const membersToInsert = matchingContacts.map(c => ({
-                campaign_id: newCampaign.id,
-                contact_id: c.id,
-                user_id: state.currentUser.id,
-                status: 'Pending'
-            }));
-            const {
-                error: membersError
-            } = await supabase.from('campaign_members').insert(membersToInsert);
-            if (membersError) {
-                alert('Error saving campaign members: ' + membersError.message);
-                await supabase.from('campaigns').delete().eq('id', newCampaign.id);
-                return false;
-            }
-
-            alert(`Campaign "${name}" created successfully with ${matchingContacts.length} members.`);
-            state.selectedCampaignId = newCampaign.id;
-            await loadAllData();
-            return true;
-        };
-
-        showModal("Create New Campaign", modalBody, createCampaignAndMembers);
-
-        // REMOVED: restoreFormState is no longer needed
-        setupCampaignModalListeners();
+        container.innerHTML = formHtml;
+        setupCampaignFormListeners();
+        initCampaignTomSelects();
     }
 
-    function setupCampaignModalListeners() {
-        const industryFilter = document.getElementById('filter-industry');
-        const statusFilter = document.getElementById('filter-status');
+    function handleNewCampaignClick() {
+        renderCreateCampaignForm();
+        const flippable = document.getElementById('campaign-tools-flippable');
+        const card = document.getElementById('campaign-tools-card');
+        if (flippable) flippable.classList.remove('campaign-tools-flipped');
+        if (document.getElementById('campaign-tools-title')) document.getElementById('campaign-tools-title').textContent = 'Create New Campaign';
+        const flipBtn = document.getElementById('campaign-tools-flip-btn');
+        const flipIcon = document.getElementById('campaign-tools-flip-icon');
+        if (flipBtn) { flipBtn.title = 'Manage Templates'; flipBtn.setAttribute('aria-label', 'Manage Templates'); }
+        if (flipIcon) flipIcon.className = 'fas fa-file-lines';
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function setupCampaignFormListeners() {
+        const submitBtn = document.getElementById('create-campaign-submit-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+                const ok = await createCampaignAndMembers();
+                if (ok) renderCreateCampaignForm();
+            });
+        }
+
         const campaignTypeSelect = document.getElementById('campaign-type');
         const emailSectionContainer = document.getElementById('email-section-container');
         const emailSourceSelect = document.getElementById('email-source-type');
@@ -906,43 +1076,52 @@ document.addEventListener("DOMContentLoaded", async () => {
         const previewTemplateBody = document.getElementById('preview-template-body');
 
         const updateContactPreview = () => {
-            // MODIFIED: Use the new helper function to get filtered contacts
-            const matchingContacts = getFilteredContacts();
+            const industry = getCampaignSelectValue('filter-industry');
+            const status = getFilterStatus();
+            const starredOnly = getFilterStarredOnly();
+
+            const accountIdsByIndustry = industry ? new Set(state.accounts.filter(a => a.industry === industry).map(a => a.id)) : null;
+            const matchingContacts = state.contacts.filter(contact => {
+                const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
+                if (!account) return false;
+                const industryMatch = !accountIdsByIndustry || accountIdsByIndustry.has(account.id);
+                const statusMatch = !status || (status === 'customer' && account.is_customer) || (status === 'prospect' && !account.is_customer);
+                const starredMatch = !starredOnly || contact.is_organic === true;
+                return industryMatch && statusMatch && starredMatch;
+            });
 
             const previewContainer = document.getElementById('contact-preview-container');
             if (previewContainer) {
-                // MODIFIED: Added a note to clarify filtering behavior
-                let previewHtml = `<p><strong>${matchingContacts.length}</strong> contacts match your filters.</p>
-                                   <p class="text-small"><em>Note: Contacts require a phone for Call campaigns or an email for Email campaigns.</em></p>`;
-                
-                const listContent = matchingContacts.map(c => {
+                let previewHtml = `<p><strong>${matchingContacts.length}</strong> contacts match your filters.</p>`;
+                const listContent = matchingContacts.slice(0, 8).map(c => {
                     const accountName = state.accounts.find(a => a.id === c.account_id)?.name || 'No Account';
                     return `<li><strong>${c.first_name || ''} ${c.last_name || ''}</strong> <span class="text-medium">(${accountName})</span></li>`;
                 }).join('');
-
                 if (matchingContacts.length > 0) {
-                    previewHtml += `<div class="table-container-scrollable" style="max-height: 150px;">
-                                        <ul class="summary-contact-list">${listContent}</ul>
-                                    </div>`;
+                    previewHtml += `<div class="filtered-contact-list"><ul>${listContent}</ul></div>`;
                 }
-
                 previewContainer.innerHTML = previewHtml;
-
-                // REMOVED: No longer need to handle 'show all' button clicks.
             }
         };
 
         if (campaignTypeSelect) {
             campaignTypeSelect.addEventListener('change', handleCampaignTypeChange);
         }
+        if (subjectInput) {
+            subjectInput.setAttribute('readonly', '');
+            subjectInput.addEventListener('focus', () => subjectInput.removeAttribute('readonly'), { once: true });
+        }
 
-        // MODIFIED: Function now calls updateContactPreview to refresh the list
         function handleCampaignTypeChange() {
-            const showEmailSection = campaignTypeSelect?.value === 'Email' || campaignTypeSelect?.value === 'Guided Email';
+            const showEmailSection = getCampaignSelectValue('campaign-type') === 'Email' || getCampaignSelectValue('campaign-type') === 'Guided Email';
             if (emailSectionContainer) {
                 emailSectionContainer.classList.toggle('hidden', !showEmailSection);
             }
-            updateContactPreview(); // Refresh contact list on type change
+            const mergePills = document.getElementById('create-campaign-merge-pills');
+            if (mergePills) {
+                const useTemplate = getCampaignSelectValue('email-source-type') === 'template';
+                mergePills.classList.toggle('hidden', !showEmailSection || useTemplate);
+            }
         }
 
         if (emailSourceSelect) {
@@ -950,10 +1129,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         function handleEmailSourceChange() {
-            const useTemplate = emailSourceSelect?.value === 'template';
+            const useTemplate = getCampaignSelectValue('email-source-type') === 'template';
             if (templateSelectContainer) templateSelectContainer.classList.toggle('hidden', !useTemplate);
             if (emailWriteContainer) {
                 emailWriteContainer.classList.toggle('hidden', useTemplate);
+            }
+            const mergePills = document.getElementById('create-campaign-merge-pills');
+            if (mergePills) {
+                const showEmailSection = getCampaignSelectValue('campaign-type') === 'Email' || getCampaignSelectValue('campaign-type') === 'Guided Email';
+                mergePills.classList.toggle('hidden', useTemplate || !showEmailSection);
             }
             if (templateEmailPreview) {
                 if (useTemplate) {
@@ -979,8 +1163,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         function handleTemplateSelectChange() {
-            if (emailSourceSelect && emailSourceSelect.value !== 'template') return;
-            const templateId = Number(templateSelector?.value);
+            if (getCampaignSelectValue('email-source-type') !== 'template') return;
+            const templateId = Number(getCampaignSelectValue('template-selector'));
             const template = state.emailTemplates.find(t => t.id === templateId);
 
             if (subjectInput) subjectInput.value = template ? template.subject || '' : '';
@@ -994,12 +1178,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
 
-        if (industryFilter) {
-            industryFilter.addEventListener('change', updateContactPreview);
+        document.getElementById('filter-industry')?.addEventListener('change', updateContactPreview);
+        const filterStarredBtn = document.getElementById('filter-starred-btn');
+        if (filterStarredBtn) {
+            filterStarredBtn.addEventListener('click', () => {
+                filterStarredBtn.classList.toggle('is-organic');
+                updateContactPreview();
+            });
         }
-        if (statusFilter) {
-            statusFilter.addEventListener('change', updateContactPreview);
-        }
+
+        document.getElementById('filter-industry')?.addEventListener('change', updateContactPreview);
+
+        document.querySelectorAll('.customer-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('active');
+                updateContactPreview();
+            });
+        });
 
         if (campaignTypeSelect) handleCampaignTypeChange();
         if (emailSourceSelect) handleEmailSourceChange();
@@ -1009,7 +1204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function handleMergeFieldClick(e) {
         const field = e.target.dataset.field;
-        const activeTextarea = document.getElementById('template-body') || document.getElementById('campaign-email-body');
+        const activeTextarea = document.getElementById('template-body') || document.getElementById('campaign-email-body') || document.getElementById('email-body-textarea');
 
         if (!activeTextarea || activeTextarea.readOnly) {
             console.error("No editable textarea found for merge field insertion.");
@@ -1024,6 +1219,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             activeTextarea.setSelectionRange(startPos + field.length, startPos + field.length);
         } catch (error) {
             activeTextarea.value += field;
+        }
+        if (activeTextarea.id === 'campaign-email-body') {
+            updateNotesPlaceholder('campaign-email-body', 'campaign-email-body-placeholder');
+        }
+        if (activeTextarea.id === 'email-body-textarea') {
+            updateNotesPlaceholder('email-body-textarea', 'email-body-placeholder');
         }
     }
 
@@ -1091,7 +1292,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 account_id: contact?.account_id,
                 type: 'Email',
                 description: `Included in mail merge export for campaign: "${campaignName}".`,
-                user_id: state.currentUser.id,
+                user_id: getState().effectiveUserId,
                 date: new Date().toISOString()
             };
         });
@@ -1109,7 +1310,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function renderTemplateManager() {
         const visibleTemplates = state.emailTemplates.filter(template =>
-            !template.is_cloned || template.user_id === state.currentUser.id
+            !template.is_cloned || template.user_id === getState().effectiveUserId
         );
 
         let templateListHtml = visibleTemplates.map(template => {
@@ -1118,12 +1319,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             let actionButtonsHtml = '';
             let attributionHtml = '';
 
-            const cloneButton = `<button class="btn-secondary btn-clone-template" data-id="${templateId}">Clone</button>`;
+            const cloneButton = `<button class="btn-secondary btn-icon-header btn-clone-template" data-id="${templateId}" title="Clone"><i class="fas fa-copy"></i></button>`;
 
-            if (template.user_id === state.currentUser.id) {
+            if (template.user_id === getState().effectiveUserId) {
                 actionButtonsHtml = `
-                    <button class="btn-secondary btn-edit-template" data-id="${templateId}">Edit</button>
-                    <button class="btn-danger btn-delete-template" data-id="${templateId}">Delete</button>
+                    <button class="btn-secondary btn-icon-header btn-edit-template" data-id="${templateId}" title="Edit"><i class="fas fa-pencil-alt"></i></button>
+                    <button class="btn-danger btn-icon-header btn-delete-template" data-id="${templateId}" title="Delete"><i class="fas fa-trash"></i></button>
                     ${cloneButton}
                 `;
             } else {
@@ -1149,11 +1350,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             templateListHtml = "<p>No templates available. Try creating one!</p>";
         }
 
-        const managerBody = `<div id="template-manager">${templateListHtml}<hr><button id="create-new-template-btn" class="btn-primary full-width">Create New Template</button></div>`;
-        const customFooter = `<button class="btn-secondary" id="modal-exit-btn">Exit</button>`;
-
-        showModal("Email Template Manager", managerBody, null, true, customFooter);
-        setupTemplateManagerListeners();
+        const managerBody = `<div id="template-manager">${templateListHtml}</div><hr><button id="create-new-template-btn" class="btn-primary full-width">Create New Template</button>`;
+        const container = document.getElementById('template-manager-container');
+        if (container) {
+            container.innerHTML = managerBody;
+            setupTemplateManagerListeners();
+        }
     }
 
     function setupTemplateManagerListeners() {
@@ -1173,11 +1375,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.querySelectorAll('#template-manager .btn-clone-template').forEach(button => {
             button.addEventListener('click', handleCloneTemplateClick);
         });
-
-        const exitButton = document.getElementById('modal-exit-btn');
-        if (exitButton) {
-            exitButton.addEventListener('click', hideModal);
-        }
     }
 
     async function handleCloneTemplateClick(e) {
@@ -1201,7 +1398,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             name: newName,
             subject: originalTemplate.subject,
             body: originalTemplate.body,
-            user_id: state.currentUser.id,
+            user_id: getState().effectiveUserId,
             is_cloned: true
         }).select().single();
 
@@ -1236,79 +1433,102 @@ document.addEventListener("DOMContentLoaded", async () => {
         handleDeleteTemplate(templateId);
     }
 
+    let templateFormEditing = null;
+
     function openTemplateForm(templateToEdit = null) {
         const isEditing = templateToEdit !== null;
-        const modalTitle = isEditing ? "Edit Email Template" : "Create New Email Template";
-        const currentTemplateName = templateToEdit?.name || '';
-        const currentTemplateSubject = templateToEdit?.subject || '';
-        const currentTemplateBody = templateToEdit?.body || '';
+        templateFormEditing = templateToEdit;
+        const titleEl = document.getElementById('template-form-inline-title');
+        const formEl = document.getElementById('template-form-inline');
+        const wrapper = document.getElementById('template-form-inline-wrapper');
+        if (!titleEl || !formEl || !wrapper) return;
 
-        const formBody = `
+        titleEl.textContent = isEditing ? "Edit Email Template" : "Create New Email Template";
+        const currentTemplateName = (templateToEdit?.name || '').replace(/"/g, '&quot;');
+        const currentTemplateSubject = (templateToEdit?.subject || '').replace(/"/g, '&quot;');
+        const currentTemplateBody = (templateToEdit?.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        formEl.innerHTML = `
             <div id="template-form-container">
                 <label for="template-name">Template Name:</label><input type="text" id="template-name" value="${currentTemplateName}" required>
-                <label for="template-subject">Subject:</label><input type="text" id="template-subject" value="${currentTemplateSubject}">
+                <label for="template-subject">Subject:</label><input type="text" id="template-subject" name="x-template-subject" value="${currentTemplateSubject}" autocomplete="nope">
                 <label for="template-body">Email Body:</label>
+                <textarea id="template-body" rows="10" name="x-template-body" autocomplete="nope">${(templateToEdit?.body || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</textarea>
                 <div class="merge-fields-buttons">
-                    <button type="button" class="btn-secondary" data-field="[FirstName]">First Name</button>
-                    <button type="button" class="btn-secondary" data-field="[LastName]">Last Name</button>
-                    <button type="button" class="btn-secondary" data-field="[AccountName]">Account Name</button>
+                    <button type="button" class="btn-secondary" data-field="[FirstName]">First</button>
+                    <button type="button" class="btn-secondary" data-field="[LastName]">Last</button>
+                    <button type="button" class="btn-secondary" data-field="[AccountName]">Account</button>
                 </div>
-                <textarea id="template-body" rows="10">${currentTemplateBody}</textarea>
             </div>`;
 
-        showModal(modalTitle, formBody, async () => {
-            const name = document.getElementById('template-name')?.value.trim();
-            if (!name) {
-                alert('Template name is required.');
-                return false;
-            }
+        wrapper.classList.remove('hidden');
 
+        const saveBtn = document.getElementById('template-form-save-btn');
+        const cancelBtn = document.getElementById('template-form-cancel-btn');
+        const onSave = async () => {
+            const name = document.getElementById('template-name')?.value.trim();
+            if (!name) { alert('Template name is required.'); return; }
             const templateData = {
                 name,
                 subject: document.getElementById('template-subject')?.value.trim(),
                 body: document.getElementById('template-body')?.value,
-                user_id: state.currentUser.id
+                user_id: getState().effectiveUserId
             };
-
             let error;
-            if (isEditing) {
-                const {
-                    error: updateError
-                } = await supabase.from('email_templates').update(templateData).eq('id', templateToEdit.id);
+            if (templateFormEditing) {
+                const { error: updateError } = await supabase.from('email_templates').update(templateData).eq('id', templateFormEditing.id);
                 error = updateError;
             } else {
-                const {
-                    error: insertError
-                } = await supabase.from('email_templates').insert(templateData);
+                const { error: insertError } = await supabase.from('email_templates').insert(templateData);
                 error = insertError;
             }
-
             if (error) {
                 alert("Error saving template: " + error.message);
-                return false;
+                return;
             }
-
             alert(`Template "${name}" saved successfully!`);
+            wrapper.classList.add('hidden');
+            templateFormEditing = null;
             await loadAllData();
             renderTemplateManager();
-            return true;
-        });
+        };
+        const onCancel = () => { wrapper.classList.add('hidden'); templateFormEditing = null; };
+
+        saveBtn.replaceWith(saveBtn.cloneNode(true));
+        cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+        document.getElementById('template-form-save-btn').addEventListener('click', onSave);
+        document.getElementById('template-form-cancel-btn').addEventListener('click', onCancel);
     }
 
-    async function handleDeleteTemplate(templateId) {
-        showModal("Confirm Deletion", "Are you sure you want to delete this template? This cannot be undone.", async () => {
-            const {
-                error
-            } = await supabase.from('email_templates').delete().eq('id', templateId);
-            if (error) {
-                alert("Error deleting template: " + error.message);
-                return false;
-            }
-            alert("Template deleted successfully.");
-            await loadAllData();
-            renderTemplateManager();
-            return true;
-        });
+    let templateDeletePendingId = null;
+
+    function handleDeleteTemplate(templateId) {
+        templateDeletePendingId = templateId;
+        const msgEl = document.getElementById('template-delete-confirm-message');
+        const wrapper = document.getElementById('template-delete-confirm-inline');
+        if (msgEl) msgEl.textContent = "Are you sure you want to delete this template? This cannot be undone.";
+        if (wrapper) wrapper.classList.remove('hidden');
+    }
+
+    async function confirmTemplateDelete() {
+        if (templateDeletePendingId == null) return;
+        const id = templateDeletePendingId;
+        templateDeletePendingId = null;
+        const wrapper = document.getElementById('template-delete-confirm-inline');
+        if (wrapper) wrapper.classList.add('hidden');
+        const { error } = await supabase.from('email_templates').delete().eq('id', id);
+        if (error) {
+            alert("Error deleting template: " + error.message);
+            return;
+        }
+        alert("Template deleted successfully.");
+        await loadAllData();
+        renderTemplateManager();
+    }
+
+    function cancelTemplateDelete() {
+        templateDeletePendingId = null;
+        document.getElementById('template-delete-confirm-inline')?.classList.add('hidden');
     }
 
     const handleDeleteSelectedCampaign = () => {
@@ -1345,17 +1565,20 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.warn("loadAllData called without a current user. Skipping data fetch.");
             return;
         }
+        showGlobalLoader();
         try {
             const [
-                { data: campaigns, error: campaignsError },
-                { data: contacts, error: contactsError },
-                { data: accounts, error: accountsError },
-                { data: emailTemplates, error: templatesError },
-                { data: userQuotas, error: userQuotasError }
+                 { data: campaigns, error: campaignsError },
+                 { data: contacts, error: contactsError },
+                 { data: accounts, error: accountsError },
+                 { data: activities, error: activitiesError },
+                 { data: emailTemplates, error: templatesError },
+                 { data: userQuotas, error: userQuotasError }
             ] = await Promise.all([
-                supabase.from("campaigns").select("*").eq("user_id", state.currentUser.id),
-                supabase.from("contacts").select("*").eq("user_id", state.currentUser.id),
-                supabase.from("accounts").select("*").eq("user_id", state.currentUser.id),
+                supabase.from("campaigns").select("*").eq("user_id", getState().effectiveUserId),
+                supabase.from("contacts").select("*").eq("user_id", getState().effectiveUserId),
+                supabase.from("accounts").select("*").eq("user_id", getState().effectiveUserId),
+                supabase.from("activities").select("*").eq("user_id", getState().effectiveUserId),
                 supabase.from("email_templates").select("*"),
                 supabase.from("user_quotas").select("user_id, full_name")
             ]);
@@ -1363,20 +1586,26 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (campaignsError) throw campaignsError;
             if (contactsError) throw contactsError;
             if (accountsError) throw accountsError;
+            if (activitiesError) throw activitiesError;
             if (templatesError) throw templatesError;
             if (userQuotasError) throw userQuotasError;
 
             state.campaigns = campaigns || [];
             state.contacts = contacts || [];
             state.accounts = accounts || [];
+            state.activities = activities || [];
             state.emailTemplates = emailTemplates || [];
             state.user_quotas = userQuotas || [];
 
             renderCampaignList();
             renderCampaignDetails();
+            renderCreateCampaignForm();
+            renderTemplateManager();
         } catch (error) {
             console.error("Error loading data:", error.message);
             alert("Failed to load page data. Please try refreshing. Error: " + error.message);
+        } finally {
+            hideGlobalLoader();
         }
     }
 
@@ -1397,9 +1626,38 @@ document.addEventListener("DOMContentLoaded", async () => {
         setupModalListeners();
         updateActiveNavLink();
 
-        if (newCampaignBtn) newCampaignBtn.addEventListener('click', handleNewCampaignClick);
-        if (manageTemplatesBtn) manageTemplatesBtn.addEventListener('click', handleManageTemplatesClick);
-        if (deleteCampaignBtn) deleteCampaignBtn.addEventListener('click', handleDeleteSelectedCampaign);
+
+        const campaignToolsFlippable = document.getElementById('campaign-tools-flippable');
+        const campaignToolsTitle = document.getElementById('campaign-tools-title');
+        const campaignToolsFlipBtn = document.getElementById('campaign-tools-flip-btn');
+        function updateCampaignToolsHeader() {
+            const isTemplates = campaignToolsFlippable && campaignToolsFlippable.classList.contains('campaign-tools-flipped');
+            if (campaignToolsTitle) campaignToolsTitle.textContent = isTemplates ? 'Manage Email Templates' : 'Create New Campaign';
+            if (campaignToolsFlipBtn) {
+                campaignToolsFlipBtn.title = isTemplates ? 'Create Campaign' : 'Manage Templates';
+                campaignToolsFlipBtn.setAttribute('aria-label', campaignToolsFlipBtn.title);
+            }
+            const flipIcon = document.getElementById('campaign-tools-flip-icon');
+            if (flipIcon) flipIcon.className = isTemplates ? 'fas fa-plus' : 'fas fa-file-lines';
+        }
+        if (campaignToolsFlipBtn && campaignToolsFlippable) {
+            campaignToolsFlipBtn.addEventListener('click', () => {
+                campaignToolsFlippable.classList.toggle('campaign-tools-flipped');
+                updateCampaignToolsHeader();
+                if (campaignToolsFlippable.classList.contains('campaign-tools-flipped')) renderTemplateManager();
+            });
+        }
+
+        const confirmYesBtn = document.getElementById('create-campaign-confirm-yes');
+        const confirmCancelBtn = document.getElementById('create-campaign-confirm-cancel');
+        const confirmEl = document.getElementById('create-campaign-confirm');
+        if (confirmYesBtn) confirmYesBtn.addEventListener('click', () => { if (confirmEl) confirmEl.classList.add('hidden'); if (createCampaignConfirmResolve) createCampaignConfirmResolve(true); createCampaignConfirmResolve = null; });
+        if (confirmCancelBtn) confirmCancelBtn.addEventListener('click', () => { if (confirmEl) confirmEl.classList.add('hidden'); if (createCampaignConfirmResolve) createCampaignConfirmResolve(false); createCampaignConfirmResolve = null; });
+
+        const templateDeleteYes = document.getElementById('template-delete-yes-btn');
+        const templateDeleteCancel = document.getElementById('template-delete-cancel-btn');
+        if (templateDeleteYes) templateDeleteYes.addEventListener('click', confirmTemplateDelete);
+        if (templateDeleteCancel) templateDeleteCancel.addEventListener('click', cancelTemplateDelete);
 
         document.body.addEventListener('click', (e) => {
             if (e.target.closest('.merge-fields-buttons button')) {
@@ -1421,50 +1679,67 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
 
+        const emailSubjectEl = document.getElementById('email-subject');
+        if (emailSubjectEl) {
+            emailSubjectEl.setAttribute('readonly', '');
+            emailSubjectEl.addEventListener('focus', () => emailSubjectEl.removeAttribute('readonly'), { once: true });
+        }
+        const callNotesEl = document.getElementById('call-notes');
+        const emailBodyEl = document.getElementById('email-body-textarea');
         const campaignDetailsPanel = document.getElementById('campaign-details');
         if (campaignDetailsPanel) {
+            campaignDetailsPanel.addEventListener('input', (e) => {
+                if (e.target.id === 'call-notes') updateNotesPlaceholder('call-notes', 'call-notes-placeholder');
+                if (e.target.id === 'email-body-textarea') updateNotesPlaceholder('email-body-textarea', 'email-body-placeholder');
+                if (e.target.id === 'campaign-email-body') updateNotesPlaceholder('campaign-email-body', 'campaign-email-body-placeholder');
+            });
+        }
+        if (campaignDetailsPanel) {
+            campaignDetailsPanel.addEventListener('wheel', (e) => {
+                const wrap = e.target.closest('.campaign-details-contacts-wrap');
+                if (wrap && wrap.scrollHeight > wrap.clientHeight) {
+                    e.preventDefault();
+                    wrap.scrollTop += e.deltaY;
+                }
+            }, { passive: false });
+        }
+        if (campaignDetailsPanel) {
             campaignDetailsPanel.addEventListener('click', (e) => {
-                if (e.target.id === 'start-calling-btn') startCallBlitz();
-                else if (e.target.id === 'log-call-btn') handleLogCall(e); // Pass the event object
-                else if (e.target.id === 'skip-call-btn') handleSkipCall(e); // Pass the event object
+                const logBtn = e.target.closest('#log-call-btn');
+                const skipBtn = e.target.closest('#skip-call-btn');
+                const openEmailBtn = e.target.closest('#open-email-client-btn');
+                const skipEmailBtn = e.target.closest('#skip-email-btn');
+                if (logBtn) handleLogCall({ target: logBtn });
+                else if (skipBtn) handleSkipCall({ target: skipBtn });
                 else if (e.target.id === 'export-csv-btn') handleExportCsv();
                 else if (e.target.id === 'export-txt-btn') handleExportTxt();
-                else if (e.target.id === 'start-guided-email-btn') startGuidedEmail();
-                else if (e.target.id === 'open-email-client-btn') handleOpenEmailClient(e); // Pass the event object
-                else if (e.target.id === 'skip-email-btn') handleSkipEmail(e); // Pass the event object
+                else if (openEmailBtn) handleOpenEmailClient({ target: openEmailBtn });
+                else if (skipEmailBtn) handleSkipEmail({ target: skipEmailBtn });
+                else if (e.target.closest('#show-email-details-btn') && campaignDetailsFlippable && campaignDetailsEmailBack && campaignDetailsEmailBack.innerHTML.trim() !== '') {
+                    campaignDetailsFlippable.classList.add('campaign-details-flipped');
+                } else if (e.target.closest('#campaign-details-back-btn') && campaignDetailsFlippable) {
+                    campaignDetailsFlippable.classList.remove('campaign-details-flipped');
+                } else if (e.target.id === 'delete-campaign-details-btn') {
+                    handleDeleteSelectedCampaign();
+                }
             });
         }
     }
 
     async function initializePage() {
         await loadSVGs();
-        if (deleteCampaignBtn) {
-            deleteCampaignBtn.disabled = true;
-        }
-
-        const {
-            data: {
-                session
-            },
-            error: sessionError
-        } = await supabase.auth.getSession();
-        if (sessionError) {
-            console.error("Error getting session:", sessionError);
-            window.location.href = "index.html";
+        const appState = await initializeAppState(supabase);
+        if (!appState.currentUser) {
+            hideGlobalLoader();
             return;
         }
-
-        if (session) {
-            state.currentUser = session.user;
-            await setupUserMenuAndAuth(supabase, state);
-            setupPageEventListeners();
-            await setupGlobalSearch(supabase, state.currentUser); // <-- ADD THIS LINE
-            await checkAndSetNotifications(supabase);
-            await loadAllData();
-        } else {
-            console.log("No active session, redirecting to index.html");
-            window.location.href = "index.html";
-        }
+        state.currentUser = appState.currentUser;
+        await setupUserMenuAndAuth(supabase, getState());
+        setupPageEventListeners();
+        await setupGlobalSearch(supabase, state.currentUser);
+        await checkAndSetNotifications(supabase);
+        await loadAllData();
+        window.addEventListener('effectiveUserChanged', loadAllData);
     }
 
     runWhenNavReady(function () { initializePage(); });

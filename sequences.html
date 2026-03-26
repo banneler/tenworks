@@ -5,118 +5,169 @@
     <meta name="description" content="TenWorks CRM: A powerful and intuitive tool for managing your fabrication pipeline, contacts, and deals.">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>(function(){var t=localStorage.getItem('crm-theme')||'dark';document.documentElement.className='theme-'+t;if(!localStorage.getItem('crm-theme'))localStorage.setItem('crm-theme','dark');})();</script>
     <title>TenWorks Sequences</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 
 <body data-nav="crm">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
     <div class="crm-container">
-        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
+        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
 
         <main class="content-area">
-            <div id="sequences" class="content-view active-view">
-                <h2>Sequences</h2>
-                <div class="split-view">
-                   <div class="item-list-container glass-panel">
-                        <button id="add-sequence-btn" class="btn-primary full-width">Add New Sequence</button>
-                        <button id="import-marketing-sequence-btn" class="btn-secondary full-width">Import Marketing Sequence</button>
-                        <button id="bulk-import-sequence-steps-btn" class="btn-secondary full-width">Bulk Import Steps from CSV</button>
-                        <input type="file" id="sequence-steps-csv-input" accept=".csv" class="hidden">
-                        <input type="text" id="sequence-search" placeholder="Search Sequences...">
+            <div id="sequences" class="content-view active-view sequences-layout">
+                <!-- Left: floating picker (same style as accounts) -->
+                <div class="sequence-picker-panel">
+                    <div class="sequence-picker-header">
+                        <h2 class="section-title">Sequences</h2>
+                    </div>
+                    <input type="file" id="sequence-steps-csv-input" accept=".csv" class="hidden">
+                    <div class="sequence-picker-body">
+                        <input type="text" id="sequence-search" placeholder="Search Sequences..." class="item-search-input">
                         <div id="sequence-list" class="item-list"></div>
                     </div>
-                    <div id="sequence-details" class="details-panel glass-panel">
-                        <h3>Sequence Details</h3>
-                        <form id="sequence-form">
-                            <input type="hidden" id="sequence-id">
-                            <label for="sequence-name">Sequence Name</label>
-                            <input type="text" id="sequence-name" required>
-                            <label for="sequence-description">Description</label>
-                            <textarea id="sequence-description"></textarea>
-                            <small id="sequence-last-saved" class="last-saved-text"></small>
-                            <div class="form-buttons">
-                                <button type="button" id="save-sequence-details-btn" class="btn-primary">Save Changes</button>
-                                <button type="button" id="bulk-assign-btn" class="btn-primary">Bulk Assign Contacts</button>
-                                <button type="button" id="delete-sequence-btn" class="btn-danger">Delete Sequence</button>
-                            </div>
-                        </form>
-                        <hr>
-                        <div class="related-info">
-                            <h4>Sequence Steps</h4>
-                            <div class="table-container">
-                                <table id="sequence-steps-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Step #</th>
-                                            <th>Type</th>
-                                            <th>Delay (Days)</th>
-                                            <th>Subject / Description</th>
-                                            <th>Actions</th>
-                                            
-                                        </tr>
-                                    </thead>
-                                    <tbody id="sequence-steps-table-body">
-                                        </tbody>
-                                </table>
-                            </div>
-                            <button id="add-step-btn" class="btn-secondary">Add New Step</button>
-                        </div>
+                    <div class="sequence-picker-actions">
+                        <button id="add-sequence-btn" class="btn-icon sequence-picker-icon" title="Add New Sequence"><i class="fas fa-plus"></i></button>
+                        <button id="import-marketing-sequence-btn" class="btn-icon sequence-picker-icon" title="Import Marketing Sequence"><i class="fas fa-file-import"></i></button>
+                        <button id="bulk-import-sequence-steps-btn" class="btn-icon sequence-picker-icon" title="Bulk Import Steps from CSV"><i class="fas fa-file-csv"></i></button>
                     </div>
                 </div>
 
-                <hr>
-
-                <div class="ai-generation-section">
-                    <h3>AI Generate New Sequence</h3>
-                    <div class="form-grid">
-                        <div class="full-span-grid-item">
-                            <label for="ai-sequence-goal">Sequence Goal/Topic (e.g., "Follow-up after lobby design meeting", "Architect outreach for bespoke stairs", "Post-install check-in")</label>
-                            <textarea id="ai-sequence-goal" rows="2" placeholder="What is the main purpose or topic of this sequence?"></textarea>
+                <!-- Right: AI first, then sequence details (flex column) -->
+                <div id="sequence-details" class="sequence-details-content details-panel">
+                    <!-- Card 1: AI Generate (above) -->
+                    <div id="sequence-ai-card" class="section-card sequence-ai-card">
+                        <div class="section-card-header sequence-ai-card-header">
+                            <h3 class="details-panel-title">AI Generate New Sequence</h3>
+                            <button type="button" id="sequence-ai-card-collapse-btn" class="btn-icon sequence-ai-collapse-btn" title="Collapse" aria-label="Collapse AI Generate"><i class="fas fa-chevron-up"></i></button>
                         </div>
-                        <div>
-                            <label for="ai-num-steps">Number of Steps</label>
-                            <input type="number" id="ai-num-steps" min="1" value="5">
-                        </div>
-                        <div>
-                            <label for="ai-total-duration">Total Sequence Duration (Days)</label>
-                            <input type="number" id="ai-total-duration" min="1" value="14">
-                        </div>
-                        <div class="full-span-grid-item">
-                            <label>Step Types (Select All That Apply)</label>
-                            <div class="checkbox-group">
-                                <div><input type="checkbox" id="ai-step-type-email" value="Email" checked> <label for="ai-step-type-email">Email</label></div>
-                                <div><input type="checkbox" id="ai-step-type-linkedin" value="LinkedIn"> <label for="ai-step-type-linkedin">LinkedIn</label></div>
-                                <div><input type="checkbox" id="ai-step-type-call" value="Call"> <label for="ai-step-type-call">Call</label></div>
-                                <div><input type="checkbox" id="ai-step-type-task" value="Task"> <label for="ai-step-type-task">Task</label></div>
-                                <div class="other-step-type-group">
-                                    <input type="checkbox" id="ai-step-type-other" value="Other"> <label for="ai-step-type-other">Other:</label>
-                                    <input type="text" id="ai-step-type-other-input" placeholder="e.g., Shop Tour, Material Samples" disabled>
+                        <div id="sequence-ai-card-body" class="section-card-body sequence-ai-card-body">
+                            <div class="sequence-ai-form-grid">
+                                <div class="sequence-ai-two-col">
+                                    <label for="ai-sequence-goal">Goal</label>
+                                    <textarea id="ai-sequence-goal" rows="2" placeholder="e.g., Cold outreach for cloud solutions"></textarea>
+                                </div>
+                                <div class="sequence-ai-two-col">
+                                    <label for="ai-persona-prompt">Persona</label>
+                                    <textarea id="ai-persona-prompt" rows="2" placeholder="e.g., Friendly, expert, B2B SaaS sales rep."></textarea>
+                                </div>
+                                <div class="sequence-ai-inline-row">
+                                    <label for="ai-num-steps">Steps</label>
+                                    <input type="number" id="ai-num-steps" min="1" value="5">
+                                    <label for="ai-total-duration">Duration (days)</label>
+                                    <input type="number" id="ai-total-duration" min="1" value="14">
+                                </div>
+                                <div class="sequence-ai-full-width sequence-ai-types-row">
+                                    <div id="ai-step-type-pills" class="sequence-step-type-pills" role="group" aria-label="Sequence step type selection">
+                                        <button type="button" class="sequence-step-type-pill is-active" data-step-type="Email" aria-pressed="true">Email</button>
+                                        <button type="button" class="sequence-step-type-pill" data-step-type="LinkedIn" aria-pressed="false">LinkedIn</button>
+                                        <button type="button" class="sequence-step-type-pill" data-step-type="Call" aria-pressed="false">Call</button>
+                                        <button type="button" class="sequence-step-type-pill" data-step-type="Task" aria-pressed="false">Task</button>
+                                        <input type="text" id="ai-step-type-other-pill" class="sequence-step-type-pill sequence-step-type-other-pill" placeholder="Other" data-step-type="Other" aria-label="Other step type (type to add custom)">
+                                    </div>
+                                    <button id="ai-generate-sequence-btn" class="btn-icon btn-icon-ai-generate" title="Generate Sequence with AI" aria-label="Generate Sequence with AI"><i class="fas fa-bolt-lightning"></i></button>
+                                </div>
+                            </div>
+                            <div id="ai-generated-sequence-preview" class="ai-generated-preview hidden">
+                                <h4 class="subsection-title">AI Generated Sequence Preview</h4>
+                                <p class="placeholder-text">Review the generated steps below. You can edit them before saving.</p>
+                                <form id="ai-generated-sequence-form"></form>
+                                <div class="form-buttons">
+                                    <button id="save-ai-sequence-btn" class="btn-primary">Save AI Generated Sequence</button>
+                                    <button id="cancel-ai-sequence-btn" class="btn-secondary">Cancel</button>
                                 </div>
                             </div>
                         </div>
-                        <div class="full-span-grid-item">
-                            <label for="ai-persona-prompt">Persona & Voice Prompt (e.g., "Chad, a relationship-led project developer focusing on tenacious problem solving and 'Wild Ideas'.")</label>
-                            <textarea id="ai-persona-prompt" rows="3" placeholder="Define the persona and tone for the AI-generated content."></textarea>
-                        </div>
-                    </div>
-                    <div class="form-buttons">
-                        <button id="ai-generate-sequence-btn" class="btn-primary"><i class="fas fa-bolt-lightning"></i> &nbsp;Generate Sequence with AI</button>
                     </div>
 
-                    <div id="ai-generated-sequence-preview" class="ai-generated-preview hidden">
-                        <h4>AI Generated Sequence Preview:</h4>
-                        <p class="placeholder-text">Review the generated steps below. You can edit them before saving.</p>
-                        <form id="ai-generated-sequence-form">
+                    <!-- Card 2: Sequence details + steps (below) -->
+                    <div class="section-card sequence-details-card">
+                        <div class="section-card-header">
+                            <h3 class="details-panel-title">Sequence Details</h3>
+                        </div>
+                        <div class="section-card-body">
+                            <form id="sequence-form" class="sequence-form-hero">
+                                <input type="hidden" id="sequence-id">
+                                <div class="sequence-name-row">
+                                    <input type="text" id="sequence-name" class="sequence-name-hero" required placeholder="Sequence name">
+                                    <div class="sequence-form-buttons">
+                                        <button type="submit" class="btn-icon btn-icon-save" title="Save Changes"><i class="fas fa-floppy-disk"></i></button>
+                                        <button type="button" id="bulk-assign-btn" class="btn-icon btn-icon-bulk-assign" title="Bulk Assign Contacts"><i class="fas fa-user-plus"></i></button>
+                                        <button type="button" id="add-step-btn" class="btn-icon btn-icon-add-step" title="Add New Step"><i class="fas fa-plus"></i></button>
+                                        <button type="button" id="delete-sequence-btn" class="btn-icon btn-icon-danger" title="Delete Sequence"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </div>
+                                <textarea id="sequence-description" class="sequence-description-hero" rows="2" placeholder="Description"></textarea>
+                                <small id="sequence-last-saved" class="last-saved-text"></small>
                             </form>
-                        <div class="form-buttons">
-                            <button id="save-ai-sequence-btn" class="btn-primary">Save AI Generated Sequence</button>
-                            <button id="cancel-ai-sequence-btn" class="btn-secondary">Cancel AI Generation</button>
+                            <div class="related-info sequence-steps-section">
+                                <div class="sequence-steps-drop-zones-row">
+                                    <div class="sequence-drop-zones">
+                                        <div class="sequence-drop-zone sequence-drop-zone-edit" data-dropzone="edit" title="Drag step here to edit">
+                                            <i class="fas fa-pencil-alt"></i>
+                                            <span class="sequence-drop-zone-label">Edit</span>
+                                        </div>
+                                        <div class="sequence-drop-zone sequence-drop-zone-delete" data-dropzone="delete" title="Drag step here to delete">
+                                            <i class="fas fa-trash-can"></i>
+                                            <span class="sequence-drop-zone-label">Delete</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="sequence-steps-flow" class="sequence-steps-flow" aria-live="polite">
+                                    <p class="placeholder-text">Select a sequence to view steps.</p>
+                                </div>
+                                <div id="sequence-step-edit-panel" class="sequence-step-edit-panel hidden">
+                                    <h4 class="subsection-title">Edit Step</h4>
+                                    <form id="sequence-step-edit-form" class="sequence-step-edit-form">
+                                        <input type="hidden" id="step-edit-id">
+                                        <label class="sequence-step-field">
+                                            <span class="sequence-step-field-label">Step Type</span>
+                                            <input type="text" id="step-edit-type" class="sequence-step-inline-input" required placeholder="e.g., Email, Call, LinkedIn">
+                                        </label>
+                                        <div class="sequence-step-edit-grid">
+                                            <label class="sequence-step-field">
+                                                <span class="sequence-step-field-label">Delay (Days)</span>
+                                                <input type="number" id="step-edit-delay" class="sequence-step-inline-input" min="0" value="0">
+                                            </label>
+                                            <label class="sequence-step-field">
+                                                <span class="sequence-step-field-label">Assigned To</span>
+                                                <select id="step-edit-assigned">
+                                                    <option value="Sales">Sales</option>
+                                                    <option value="Sales Manager">Sales Manager</option>
+                                                    <option value="Marketing">Marketing</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                        <label class="sequence-step-field">
+                                            <span class="sequence-step-field-label">Subject</span>
+                                            <input type="text" id="step-edit-subject" class="sequence-step-inline-input" placeholder="Subject (optional)">
+                                        </label>
+                                        <label class="sequence-step-field">
+                                            <span class="sequence-step-field-label">Message / Description</span>
+                                            <textarea id="step-edit-message" class="sequence-step-inline-textarea" rows="4" placeholder="Message or instructions"></textarea>
+                                        </label>
+                                        <div class="sequence-step-edit-actions">
+                                            <button type="submit" class="btn-icon btn-icon-save" title="Save"><i class="fas fa-floppy-disk"></i></button>
+                                            <button type="button" id="step-edit-cancel-btn" class="btn-icon btn-icon-secondary" title="Cancel"><i class="fas fa-xmark"></i></button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -148,9 +199,8 @@
             </div>
         </div>
     </div>
-
     <script src="js/nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
     <script type="module" src="js/sequences.js"></script>
 </body>
-
 </html>

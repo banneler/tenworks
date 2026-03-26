@@ -3,7 +3,7 @@
  * Single project: ?token=<project.status_token>
  * Customer portal (multiple projects): ?portal=<contact.status_token>
  */
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, hideGlobalLoader } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -238,6 +238,7 @@ async function initPortal(portalToken) {
 }
 
 async function init() {
+    try {
     const params = new URLSearchParams(window.location.search);
     const portal = params.get('portal');
     const token = params.get('token');
@@ -256,6 +257,9 @@ async function init() {
     loadingEl.style.display = 'none';
     errorEl.style.display = 'block';
     errorEl.textContent = 'Invalid or missing link. Please use the link shared by your project manager.';
+    } finally {
+        hideGlobalLoader();
+    }
 }
 
 function escapeHtml(s) {

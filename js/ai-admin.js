@@ -2,7 +2,8 @@ import {
     SUPABASE_URL, SUPABASE_ANON_KEY, setupUserMenuAndAuth, 
     loadSVGs, updateActiveNavLink, initializeAppState, 
     setupModalListeners, setupGlobalSearch, checkAndSetNotifications,
-    runWhenNavReady 
+    runWhenNavReady,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -180,9 +181,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function initializePage() {
+        try {
         await loadSVGs();
-        const globalState = await initializeAppState(supabase); 
-        
+        const globalState = await initializeAppState(supabase);
+
         if (globalState.currentUser) {
             state.currentUser = globalState.currentUser;
             await setupUserMenuAndAuth(supabase, globalState); 
@@ -239,7 +241,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 });
             }
         } else {
+            hideGlobalLoader();
             window.location.href = "index.html";
+        }
+        } finally {
+            hideGlobalLoader();
         }
     }
 

@@ -7,6 +7,62 @@ export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const themes = ["dark", "light", "green", "blue", "corporate"];
 
+// --- GLOBAL LOADER (Phase 2 — TENWORKS_FACELIFT_GUIDELINES.md § 2.3) ---
+const GLOBAL_LOADER_ID = 'global-loader-overlay';
+
+/**
+ * Injects the global loader overlay into document.body if it does not already exist.
+ * Uses TenWorks logo spinner (same as proposals loading-overlay). Visible by default
+ * so it covers the main content until the page calls hideGlobalLoader().
+ */
+function injectGlobalLoaderMarkup() {
+    if (document.getElementById(GLOBAL_LOADER_ID)) return;
+    const overlay = document.createElement('div');
+    overlay.id = GLOBAL_LOADER_ID;
+    overlay.className = 'global-loader-overlay active';
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.setAttribute('aria-busy', 'true');
+    overlay.innerHTML = `
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+/**
+ * Shows the global loader overlay (adds .active class).
+ */
+export function showGlobalLoader() {
+    injectGlobalLoaderMarkup();
+    const el = document.getElementById(GLOBAL_LOADER_ID);
+    if (el) {
+        el.classList.add('active');
+        el.setAttribute('aria-busy', 'true');
+    }
+}
+
+/**
+ * Hides the global loader overlay (removes .active class).
+ */
+export function hideGlobalLoader() {
+    const el = document.getElementById(GLOBAL_LOADER_ID);
+    if (el) {
+        el.classList.remove('active');
+        el.setAttribute('aria-busy', 'false');
+    }
+}
+
+// Inject loader as soon as body is available so it exists on page load
+if (document.body) {
+    injectGlobalLoaderMarkup();
+} else {
+    document.addEventListener('DOMContentLoaded', injectGlobalLoaderMarkup);
+}
+
 // --- NEW: GLOBAL STATE MANAGEMENT ---
 const appState = {
     currentUser: null,          // The actual logged-in user object
@@ -148,30 +204,63 @@ function renderImpersonationDropdown() {
     // 5. Add it to the top of the popup
     userMenuPopup.prepend(container);
 
-    // 6. Add the event listener
+    // 6. Add the event listener and optionally init TomSelect
     const impersonationSelect = document.getElementById('impersonation-select');
     if (impersonationSelect) {
         impersonationSelect.addEventListener('click', (e) => {
             e.stopPropagation();
         });
-        impersonationSelect.addEventListener('change', (e) => {
-            const selectedOption = e.target.options[e.target.selectedIndex];
-            const userId = selectedOption.value;
-            const fullName = selectedOption.dataset.fullName;
-            
-            // Call your new state function. This will trigger the 'effectiveUserChanged' event.
-            setEffectiveUser(userId, fullName); 
-            
-            // Update the main user name display to show who we are viewing as
-            const userNameDisplay = document.getElementById('user-name-display');
-            if (userNameDisplay) {
-                if (userId === appState.currentUser.id) {
-                    userNameDisplay.textContent = fullName; // Back to self
-                } else {
-                    userNameDisplay.textContent = `${fullName} (Viewing As)`;
-                }
+        if (typeof window.TomSelect !== "undefined") {
+            try {
+                const ts = new window.TomSelect(impersonationSelect, {
+                    create: false,
+                    render: { dropdown: () => { const d = document.createElement("div"); d.className = "ts-dropdown tom-select-no-search"; return d; } }
+                });
+                ts.on("change", (userId) => {
+                    const opt = impersonationSelect.querySelector(`option[value="${userId}"]`);
+                    const fullName = opt ? opt.dataset.fullName : "";
+                    setEffectiveUser(userId, fullName);
+                    const userNameDisplay = document.getElementById("user-name-display");
+                    if (userNameDisplay) {
+                        if (userId === appState.currentUser.id) {
+                            userNameDisplay.textContent = fullName;
+                        } else {
+                            userNameDisplay.textContent = `${fullName} (Viewing As)`;
+                        }
+                    }
+                });
+            } catch (e) {
+                impersonationSelect.addEventListener('change', (e) => {
+                    const selectedOption = e.target.options[e.target.selectedIndex];
+                    const userId = selectedOption.value;
+                    const fullName = selectedOption.dataset.fullName;
+                    setEffectiveUser(userId, fullName);
+                    const userNameDisplay = document.getElementById("user-name-display");
+                    if (userNameDisplay) {
+                        if (userId === appState.currentUser.id) {
+                            userNameDisplay.textContent = fullName;
+                        } else {
+                            userNameDisplay.textContent = `${fullName} (Viewing As)`;
+                        }
+                    }
+                });
             }
-        });
+        } else {
+            impersonationSelect.addEventListener('change', (e) => {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                const userId = selectedOption.value;
+                const fullName = selectedOption.dataset.fullName;
+                setEffectiveUser(userId, fullName);
+                const userNameDisplay = document.getElementById("user-name-display");
+                if (userNameDisplay) {
+                    if (userId === appState.currentUser.id) {
+                        userNameDisplay.textContent = fullName;
+                    } else {
+                        userNameDisplay.textContent = `${fullName} (Viewing As)`;
+                    }
+                }
+            });
+        }
     }
 }
 
@@ -248,6 +337,14 @@ export function formatMonthYear(dateString) {
     return date.toLocaleDateString("en-US", { year: 'numeric', month: 'long', timeZone: 'UTC' });
 }
 
+/** Abbreviated month + year (e.g. "Jan 2025") for compact display. */
+export function formatMonthYearShort(dateString) {
+    if (!dateString) return "";
+    const [year, month] = dateString.split('-');
+    const date = new Date(Date.UTC(year, month - 1, 2));
+    return date.toLocaleDateString("en-US", { year: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
 export function formatSimpleDate(dateString) {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -267,6 +364,177 @@ export function formatCurrencyK(value) {
         return `$${(value / 1000).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}K`;
     }
     return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+// --- SHARED DEAL CARD HELPERS (Constellation-style, for accounts + deals) ---
+
+/** Deal value: supports both value and legacy mrc. */
+export function getDealValue(deal) {
+    return (deal && (deal.value != null ? deal.value : deal.mrc)) || 0;
+}
+
+/** Elements list for deal card pills (kanban-style). */
+export const DEAL_ELEMENTS_LIST = ['Steel', 'Aluminum', 'Glass', 'Powdercoat', 'Paint', 'Structural', 'Wood'];
+
+export function getElementsPillHtml(dealId, elementsString) {
+    const active = (elementsString || '').split(',').map(p => p.trim()).filter(Boolean);
+    const activeLower = new Set(active.map(p => p.toLowerCase()));
+    return `<div class="deal-list-elements-pills">${DEAL_ELEMENTS_LIST.map(el => {
+        const isActive = activeLower.has(el.toLowerCase());
+        return `<span class="element-pill ${isActive ? 'active' : ''}" data-deal-id="${dealId}" data-element="${el}" role="button" tabindex="0">${el}</span>`;
+    }).join('')}</div>`;
+}
+
+/** Display name for stage (e.g. "Closed Won" → "Sold"). */
+export function getStageDisplayName(stageName) {
+    return stageName === 'Closed Won' ? 'Sold' : (stageName || '');
+}
+
+export function getDealStageColorClass(stageName) {
+    if (!stageName) return "deal-stage-default";
+    const s = (stageName || "").toLowerCase();
+    if (s.includes("closed won") || s.includes("won") || s === "sold") return "deal-stage-won";
+    if (s.includes("closed lost") || s.includes("lost")) return "deal-stage-lost";
+    if (s.includes("discovery") || s.includes("qualification")) return "deal-stage-discovery";
+    if (s.includes("proposal") || s.includes("quote")) return "deal-stage-proposal";
+    if (s.includes("negotiation") || s.includes("contract")) return "deal-stage-negotiation";
+    return "deal-stage-default";
+}
+
+export function escapeNotesForHtml(notes) {
+    if (!notes || !notes.trim()) return "";
+    return (notes || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
+}
+
+export const DEAL_PRODUCT_FAMILIES = ["Internet", "Ethernet", "UC", "PRI/SIP", "SD-WAN", "Firewall", "5G", "Cloud Connect", "Waves"];
+
+function getProductClass(productName) {
+    const p = (productName || "").toLowerCase().trim();
+    if (p.includes("internet")) return "product-internet";
+    if (p.includes("ethernet")) return "product-ethernet";
+    if (p.includes("uc")) return "product-uc";
+    if (p.includes("pri") || p.includes("sip")) return "product-pri-sip";
+    if (p.includes("sdwan") || p.includes("sd-wan")) return "product-sdwan";
+    if (p.includes("firewall")) return "product-firewall";
+    if (p.includes("5g")) return "product-5g";
+    if (p.includes("cloud")) return "product-cloud";
+    if (p.includes("wave")) return "product-waves";
+    return "product-default";
+}
+
+export function getProductPillHtml(dealId, productsString) {
+    const activeProducts = (productsString || "").split(",").map((p) => p.trim().toLowerCase()).filter((p) => p);
+    return `<div class="flex flex-wrap gap-1 mt-1 justify-start">
+        ${DEAL_PRODUCT_FAMILIES.map((p) => {
+            const isMatch = (ap) => ap === p.toLowerCase() ||
+                (p === "PRI/SIP" && (ap.includes("pri") || ap.includes("sip"))) ||
+                (p === "SD-WAN" && (ap.includes("sdwan") || ap.includes("sd-wan")));
+            const isActive = activeProducts.some(isMatch);
+            if (isActive) {
+                return `<span class="product-pill product-pill-toggle active cursor-pointer hover:opacity-80 transition-opacity ${getProductClass(p)}" data-deal-id="${dealId}" data-product="${p}" title="Remove ${p}">${p}</span>`;
+            }
+            return `<span class="product-pill product-pill-toggle product-pill-inactive cursor-pointer" data-deal-id="${dealId}" data-product="${p}" title="Add ${p}">${p}</span>`;
+        }).join("")}
+    </div>`;
+}
+
+/**
+ * Returns frontContent, backContent, and stageClass for a deal card (Constellation-style).
+ * Use from accounts or deals page to build the card DOM.
+ * @param {Object} deal - Deal object (id, stage, mrc, name, products, notes, close_month, term, is_committed)
+ * @param {Object} options - { formatMonthYear: fn, includeStageIndicator: boolean (default true) }
+ * @returns {{ frontContent: string, backContent: string, stageClass: string }}
+ */
+export function getDealCardContent(deal, options = {}) {
+    const formatMonthYearFn = options.formatMonthYear || formatMonthYear;
+    const includeStageIndicator = options.includeStageIndicator !== false;
+    const stageClass = getDealStageColorClass(deal.stage);
+    const notes = (deal.notes || "").trim();
+    const notesEscaped = escapeNotesForHtml(notes);
+    const dealId = deal.id;
+    const truncate = (str, max = 30) => {
+        if (!str) return '';
+        return str.length > max ? str.substring(0, max) + '...' : str;
+    };
+    const safeName = (deal.name || "").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeStage = (getStageDisplayName(deal.stage) || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const stageMarkup = includeStageIndicator
+        ? `<span class="deal-card-stage-wrap"><span class="deal-card-stage-indicator ${stageClass}" aria-hidden="true"></span><span class="deal-card-stage">${safeStage}</span></span>`
+        : `<span class="deal-card-stage">${safeStage}</span>`;
+
+    const frontContent = `
+        <div class="deal-card-header">
+            <div class="deal-card-commit-row">
+                <label class="deal-card-commit-toggle" for="deal-commit-${dealId}">
+                    <input type="checkbox" id="deal-commit-${dealId}" class="deal-card-commit-input commit-deal-checkbox sr-only" data-deal-id="${dealId}" ${deal.is_committed ? "checked" : ""}>
+                    <span class="deal-card-commit-slider"></span>
+                    <span class="deal-card-commit-label">Committed</span>
+                </label>
+                ${stageMarkup}
+            </div>
+            <button type="button" class="btn-icon btn-icon-sm edit-deal-btn" data-deal-id="${dealId}" title="Edit Deal"><i class="fas fa-pen"></i></button>
+        </div>
+        <div class="deal-card-value">$${deal.mrc != null ? Number(deal.mrc) : 0}/mo</div>
+        <div class="deal-card-name" title="${safeName}">${truncate(safeName, 30)}</div>
+        <div class="deal-card-products">${getProductPillHtml(dealId, deal.products)}</div>
+        <div class="deal-card-footer">
+            ${deal.close_month ? `<span class="deal-card-close">${formatMonthYearFn(deal.close_month)}</span>` : '<span class="deal-card-close deal-card-empty"></span>'}
+            ${deal.term ? `<span class="deal-card-term">Term: ${(deal.term + "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>` : '<span class="deal-card-term deal-card-empty"></span>'}
+        </div>
+    `;
+    const backContent = `
+        <div class="deal-card-back-content">
+            <div class="deal-card-back-body">${notesEscaped || '<span class="text-muted">No job details</span>'}</div>
+            <button type="button" class="btn-icon btn-icon-sm deal-card-back-edit" data-deal-id="${dealId}" title="Edit notes"><i class="fas fa-pen"></i></button>
+        </div>`;
+    return { frontContent, backContent, stageClass };
+}
+
+/**
+ * Returns full HTML for the kanban-style deal card (used on Deals page and Account page).
+ * @param {Object} deal - Deal object (id, stage, value, mrc, name, elements, notes, close_month, is_committed, account_id)
+ * @param {Object} options - { accountName?: string (default '—'), draggable?: boolean (default false) }
+ * @returns {string} HTML string for one card
+ */
+export function getKanbanDealCardContent(deal, options = {}) {
+    const accountName = (options.accountName ?? '—').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const draggable = options.draggable === true;
+    const stageClass = getDealStageColorClass(deal.stage);
+    const safeName = (deal.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const truncate = (str, max = 28) => (!str ? '' : str.length > max ? str.substring(0, max) + '...' : str);
+    const notesHtml = (deal.notes || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') || '<span class="text-muted">No job details</span>';
+    const dealId = deal.id;
+    const frontHtml = `
+        <div class="deal-card-header">
+            <label class="deal-card-commit-toggle">
+                <input type="checkbox" class="commit-deal-checkbox sr-only" data-deal-id="${dealId}" ${deal.is_committed ? 'checked' : ''}>
+                <span class="deal-card-commit-dot"></span>
+                <span class="deal-card-commit-label">Committed</span>
+            </label>
+            <span class="deal-card-stage" data-deal-id="${dealId}">${getStageDisplayName(deal.stage) || 'Stage'}</span>
+            <a href="proposals.html?deal_id=${dealId}" class="deal-card-proposal-icon" title="Proposal"><i class="fas fa-file-contract"></i></a>
+        </div>
+        <div class="deal-card-value deal-card-editable" data-deal-id="${dealId}" data-field="value" title="Click to edit">${formatCurrency(getDealValue(deal))}/mo</div>
+        <div class="deal-card-name deal-card-editable" data-deal-id="${dealId}" data-field="name" title="${safeName}">${truncate(safeName)}</div>
+        <div class="deal-card-account deal-card-editable" data-deal-id="${dealId}" data-field="account" title="Click to edit">${accountName}</div>
+        <div class="deal-card-elements">${getElementsPillHtml(dealId, deal.elements)}</div>
+        <div class="deal-card-footer">
+            <span class="deal-card-close deal-card-editable" data-deal-id="${dealId}" data-field="close_month" title="Click to edit">${deal.close_month ? formatMonthYearShort(deal.close_month) : '—'}</span>
+        </div>`;
+    const backHtml = `
+        <div class="deal-card-back-content">
+            <div class="deal-card-back-body">${notesHtml}</div>
+            <button type="button" class="btn-icon btn-icon-sm deal-card-back-edit" data-deal-id="${dealId}" title="Edit notes"><i class="fas fa-pen"></i></button>
+        </div>`;
+    const dragAttr = draggable ? ' draggable="true"' : '';
+    return `
+    <div class="kanban-card deal-card deal-card-flippable ${stageClass}"${dragAttr} data-id="${dealId}">
+        <div class="deal-card-flip-inner">
+            <div class="deal-card-front">${frontHtml}</div>
+            <div class="deal-card-back">${backHtml}</div>
+        </div>
+    </div>`;
 }
 
 export function parseCsvRow(row) {
@@ -322,7 +590,12 @@ export function showModal(title, bodyHtml, onConfirm = null, showCancel = true, 
         console.error("Modal elements are missing from the DOM. Ensure #modal-backdrop is in your HTML.");
         return;
     }
-    
+    // Destroy any TomSelect instances in modal body before replacing content
+    if (typeof window.TomSelect !== "undefined") {
+        modalBody.querySelectorAll("select").forEach((sel) => {
+            if (sel.tomselect) try { sel.tomselect.destroy(); } catch (e) {}
+        });
+    }
     modalTitle.textContent = title;
     modalBody.innerHTML = bodyHtml;
     
@@ -382,31 +655,40 @@ export function setupModalListeners() {
 }
 
 
-// --- TOAST NOTIFICATIONS ---
+// --- TOAST NOTIFICATIONS (Phase 5 — Constellation-V transplant) ---
 export function showToast(message, type = 'success') {
-    const toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) return;
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
 
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'status');
     toast.innerHTML = `<span>${message}</span>`;
     toastContainer.appendChild(toast);
 
     setTimeout(() => {
         toast.classList.add('hide');
         toast.addEventListener('transitionend', () => toast.remove());
-    }, 4000); 
+    }, 4000);
+}
+
+if (typeof window !== 'undefined') {
+    window.showToast = showToast;
 }
 
 
 // --- USER MENU & AUTH LOGIC ---
 export async function setupUserMenuAndAuth(supabase, state) {
-    const userMenuHeader = document.querySelector('.user-menu-header');
-    if (!userMenuHeader) return;
-
     const userNameDisplay = document.getElementById('user-name-display');
     const userMenuPopup = document.getElementById('user-menu-popup');
     const logoutBtn = document.getElementById("logout-btn");
+    const userMenuHeader = document.querySelector('.user-menu-header');
+    const navMenuToggle = document.getElementById('nav-menu-toggle');
 
     if (!userMenuPopup || !userNameDisplay || !logoutBtn) {
         console.error("One or more user menu elements are missing.");
@@ -483,25 +765,24 @@ export async function setupUserMenuAndAuth(supabase, state) {
     }
 
     function attachUserMenuListeners() {
-       if (userMenuHeader.dataset.listenerAttached === 'true') return;
+        if (logoutBtn.dataset.listenerAttached === 'true') return;
 
-        userMenuHeader.addEventListener('click', (e) => {
-            e.stopPropagation();
-            userMenuPopup.classList.toggle('show');
-        });
-
-        window.addEventListener('click', () => {
-            if (userMenuPopup.classList.contains('show')) {
-                userMenuPopup.classList.remove('show');
-            }
-        });
-
+        if (userMenuHeader && !navMenuToggle) {
+            userMenuHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userMenuPopup.classList.toggle('show');
+            });
+            window.addEventListener('click', () => {
+                if (userMenuPopup.classList.contains('show')) {
+                    userMenuPopup.classList.remove('show');
+                }
+            });
+        }
         logoutBtn.addEventListener("click", async () => {
             await supabase.auth.signOut();
             window.location.href = "index.html";
         });
-        
-        userMenuHeader.dataset.listenerAttached = 'true';
+        logoutBtn.dataset.listenerAttached = 'true';
     }
 }
 
@@ -525,7 +806,7 @@ export async function loadSVGs() {
                     continue;
                 }
                 
-                if (svgUrl.includes('logo.svg')) {
+                if (svgUrl.includes('logo.svg') || svgUrl.includes('logo-small.svg')) {
                     svgElement.classList.add('nav-logo');
                 } else if (svgUrl.includes('user-icon.svg')) {
                     svgElement.classList.add('user-icon');

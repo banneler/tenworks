@@ -1,0 +1,56 @@
+--- /Users/ba/Constellation-V/js/admin.js	2026-02-26 23:17:06
++++ /Users/ba/tenworks/js/admin.js	2026-02-27 16:17:00
+@@ -3,13 +3,12 @@
+     SUPABASE_ANON_KEY,
+     formatDate,
+     formatCurrencyK,
++    getStageDisplayName,
+     setupModalListeners,
+     showModal,
+     hideModal,
+     loadSVGs,
+     setupUserMenuAndAuth,
+-    initializeAppState,
+-    getState,
+     hideGlobalLoader
+ } from './shared_constants.js';
+ 
+@@ -71,7 +70,7 @@
+ 
+     dealStagesList.innerHTML = state.dealStages.map(stage => `
+         <li data-id="${stage.id}" class="settings-list-item">
+-            <span>${stage.stage_name}</span>
++            <span>${getStageDisplayName(stage.stage_name)}</span>
+             <button class="btn-danger btn-sm delete-setting-btn" data-type="deal_stage">&times;</button>
+         </li>
+     `).join('');
+@@ -695,21 +694,24 @@
+ }
+ 
+ async function initializePage() {
++    try {
+     setupModalListeners();
+     await loadSVGs();
+-    const appState = await initializeAppState(supabase);
+-    if (!appState.currentUser) { hideGlobalLoader(); window.location.href = "index.html"; return; }
+-    state.currentUser = appState.currentUser;
++    const { data: { session } } = await supabase.auth.getSession();
++    if (!session) { hideGlobalLoader(); window.location.href = "index.html"; return; }
++    state.currentUser = session.user;
+     if (state.currentUser.user_metadata?.is_admin !== true) {
+         hideGlobalLoader();
+         alert("Access Denied: You must be an admin to view this page.");
+         window.location.href = "command-center.html";
+         return;
+     }
+-    await setupUserMenuAndAuth(supabase, getState());
++    await setupUserMenuAndAuth(supabase, state);
+     setupPageEventListeners();
+     handleNavigation();
+-    hideGlobalLoader();
++    } finally {
++        hideGlobalLoader();
++    }
+ }
+ 
+ initializePage();

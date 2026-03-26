@@ -1,0 +1,10 @@
+--- /Users/ba/Constellation-V/js/auth.js	2026-02-26 23:17:06
++++ /Users/ba/tenworks/js/auth.js	2026-02-22 00:20:29
+@@ -96,6 +96,7 @@
+                 showTemporaryMessage(error.message, false);
+             } else {
+                 // EXPLICIT REDIRECT: If there's no error, we are logged in. Go to the command center.
++                sessionStorage.setItem('showLoadingScreen', 'true'); // <-- ADD THIS LINE
+                 window.location.href = "command-center.html";
+             }
+         } else {

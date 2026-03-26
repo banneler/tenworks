@@ -1,0 +1,78 @@
+--- /Users/ba/Constellation-V/ai-admin.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/ai-admin.html	2026-02-27 14:14:43
+@@ -3,9 +3,11 @@
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - AI Admin</title>
+-    <link rel="stylesheet" href="output.css">
+-    <link rel="stylesheet" href="css/global-loader.css">
++    <title>TenWorks CRM</title>
++    <link rel="stylesheet" href="css/style.css">
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+@@ -93,14 +95,11 @@
+     </style>
+ </head>
+ 
+-<body>
++<body data-nav="crm">
+     <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+         <div class="global-loader-content">
+             <div class="global-loader-spinner" aria-hidden="true">
+-                <svg class="global-loader-svg global-loader-constellation" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                    <path class="global-loader-constellation-line" pathLength="1" d="M24 8 L10 22 L18 38 L30 38 L38 22 L24 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+-                    <circle class="global-loader-star" cx="24" cy="8" r="2.2"/><circle class="global-loader-star" cx="10" cy="22" r="1.8"/><circle class="global-loader-star" cx="18" cy="38" r="2"/><circle class="global-loader-star" cx="30" cy="38" r="1.8"/><circle class="global-loader-star" cx="38" cy="22" r="2"/>
+-                </svg>
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+             </div>
+             <p class="global-loader-text">Loading…</p>
+         </div>
+@@ -112,16 +111,13 @@
+     </div>
+ 
+     <div class="crm-container">
+-        <nav class="nav-sidebar">
+-            <script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.currentScript.parentElement.classList.add('nav-sidebar-collapsed');}catch(e){}})();</script>
+-            <div id="global-nav-container" class="flex flex-col flex-1 min-h-0"></div>
+-        </nav>
+-        
++        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
++
+         <main class="content-area">
+             <div id="ai-admin-view" class="content-view active-view">
+                 <div class="tasks-header">
+                     <div class="tasks-header-left">
+-                        <h2 class="page-title">AI Voice Administration</h2>
++                        <h2>AI Voice Administration</h2>
+                         <p class="placeholder-text">Manage the persona and instructions for the Constellation AI ecosystem.</p>
+                     </div>
+                     <div class="tasks-header-right">
+@@ -131,7 +127,7 @@
+                     </div>
+                 </div>
+ 
+-                <div class="section-card" style="margin-top: 20px; padding: 0; overflow: hidden;">
++                <div class="card" style="margin-top: 20px; padding: 0; overflow: hidden; border: 1px solid var(--border-color);">
+                     <div id="ai-engine-tabs" class="ai-admin-tabs-wrapper">
+                         </div>
+ 
+@@ -172,11 +168,12 @@
+         </main>
+     </div>
+ 
++    <script src="js/nav-loader.js"></script>
+     <script type="module" src="js/ai-admin.js"></script>
+     <script>
+         (function() {
+-            const savedTheme = localStorage.getItem('crm-theme') || 'light';
+-            document.body.className = 'theme-' + savedTheme;
++            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
++            document.body.className = `theme-${savedTheme}`;
+         })();
+         window.addEventListener('load', () => {
+             const loadingScreen = document.getElementById('loading-screen');

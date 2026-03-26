@@ -1,0 +1,1300 @@
+--- /Users/ba/Constellation-V/js/shared_constants.js	2026-02-26 23:17:06
++++ /Users/ba/tenworks/js/shared_constants.js	2026-02-27 19:19:29
+@@ -1,15 +1,68 @@
+ // js/shared_constants.js
+ 
+ // --- SHARED CONSTANTS AND FUNCTIONS ---
+-import { initHUD, refreshHUDNodes, removeDealInsightsWireframe, addDealInsightsWireframe, reloadHUDWireframes } from './hud.js';
+ 
+-export { refreshHUDNodes, removeDealInsightsWireframe, addDealInsightsWireframe, reloadHUDWireframes };
++export const SUPABASE_URL = "https://ccrnueyxmnzqlaphqdjn.supabase.co";
++export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjcm51ZXl4bW56cWxhcGhxZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODgyOTIsImV4cCI6MjA4NDA2NDI5Mn0.fy6q89n3bzmwxjgOY9cMJoWqyynvA5M_COJqNdAQqME";
+ 
+-export const SUPABASE_URL = "https://pjxcciepfypzrfmlfchj.supabase.co";
+-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeGNjaWVwZnlwenJmbWxmY2hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTU4NDQsImV4cCI6MjA2NzY5MTg0NH0.m_jyE0e4QFevI-mGJHYlGmA12lXf8XoMDoiljUav79c";
+-
+ export const themes = ["dark", "light", "green", "blue", "corporate"];
+ 
++// --- GLOBAL LOADER (Phase 2 — TENWORKS_FACELIFT_GUIDELINES.md § 2.3) ---
++const GLOBAL_LOADER_ID = 'global-loader-overlay';
++
++/**
++ * Injects the global loader overlay into document.body if it does not already exist.
++ * Uses TenWorks logo spinner (same as proposals loading-overlay). Visible by default
++ * so it covers the main content until the page calls hideGlobalLoader().
++ */
++function injectGlobalLoaderMarkup() {
++    if (document.getElementById(GLOBAL_LOADER_ID)) return;
++    const overlay = document.createElement('div');
++    overlay.id = GLOBAL_LOADER_ID;
++    overlay.className = 'global-loader-overlay active';
++    overlay.setAttribute('aria-live', 'polite');
++    overlay.setAttribute('aria-busy', 'true');
++    overlay.innerHTML = `
++        <div class="global-loader-content">
++            <div class="global-loader-spinner" aria-hidden="true">
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
++            </div>
++            <p class="global-loader-text">Loading…</p>
++        </div>
++    `;
++    document.body.appendChild(overlay);
++}
++
++/**
++ * Shows the global loader overlay (adds .active class).
++ */
++export function showGlobalLoader() {
++    injectGlobalLoaderMarkup();
++    const el = document.getElementById(GLOBAL_LOADER_ID);
++    if (el) {
++        el.classList.add('active');
++        el.setAttribute('aria-busy', 'true');
++    }
++}
++
++/**
++ * Hides the global loader overlay (removes .active class).
++ */
++export function hideGlobalLoader() {
++    const el = document.getElementById(GLOBAL_LOADER_ID);
++    if (el) {
++        el.classList.remove('active');
++        el.setAttribute('aria-busy', 'false');
++    }
++}
++
++// Inject loader as soon as body is available so it exists on page load
++if (document.body) {
++    injectGlobalLoaderMarkup();
++} else {
++    document.addEventListener('DOMContentLoaded', injectGlobalLoaderMarkup);
++}
++
+ // --- NEW: GLOBAL STATE MANAGEMENT ---
+ const appState = {
+     currentUser: null,          // The actual logged-in user object
+@@ -42,6 +95,24 @@
+ }
+ 
+ /**
++ * Run a callback when the nav partial has been injected (e.g. by nav-loader.js).
++ * Use this for setup that depends on nav DOM (global search, user menu, SVGs).
++ * If nav is already present, runs immediately; otherwise waits for the 'navReady' event.
++ * @param {Function} callback - Called when nav is ready (no arguments).
++ */
++export function runWhenNavReady(callback) {
++    const container = document.getElementById('nav-container');
++    if (container && container.children.length > 0) {
++        callback();
++        return;
++    }
++    window.addEventListener('navReady', function onReady() {
++        window.removeEventListener('navReady', onReady);
++        callback();
++    });
++}
++
++/**
+  * Initializes the global state on application startup.
+  * @param {SupabaseClient} supabase The Supabase client.
+  * @returns {Promise<object>} The fully initialized state object.
+@@ -50,71 +121,118 @@
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) {
+         window.location.href = "index.html";
+-        return; // Return early if no user
++        return;
+     }
+ 
+     appState.currentUser = user;
+     appState.effectiveUserId = user.id;
+ 
+-    // Fetch the current user's profile to check if they are a manager
+-    const { data: currentUserProfile, error: profileError } = await supabase
++    // Fetch user's full name for the default state
++    const { data: currentUserQuota, error: quotaError } = await supabase
+         .from('user_quotas')
+-        .select('full_name, is_manager')
++        .select('full_name')
+         .eq('user_id', user.id)
+         .single();
+ 
+-    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no row, which is a valid state
+-        console.error("Error fetching current user profile:", profileError);
+-        // Handle error case, maybe by setting default non-manager state
+-        appState.isManager = false;
+-        appState.effectiveUserFullName = 'User';
+-        return appState;
+-    }
+-    
+-    // Set the full name for the logged-in user from their profile
+-    // Also, update the user metadata in auth if it's not set
+-    if (currentUserProfile?.full_name) {
+-        appState.effectiveUserFullName = currentUserProfile.full_name;
+-        if (user.user_metadata?.full_name !== currentUserProfile.full_name) {
+-             supabase.auth.updateUser({ data: { full_name: currentUserProfile.full_name } });
+-        }
+-    } else {
+-        appState.effectiveUserFullName = 'User'; // Fallback name
+-    }
++    if (quotaError && quotaError.code !== 'PGRST116') console.error("Error fetching current user's name:", quotaError);
++    appState.effectiveUserFullName = currentUserQuota?.full_name || 'User';
+ 
++    // Check for manager status using the metadata
++    appState.isManager = user.user_metadata?.is_manager === true;
+ 
+-    // Check if the user is a manager (user_quotas or user_metadata fallback - deals uses user_metadata)
+-    const isManagerFromQuotas = currentUserProfile?.is_manager === true;
+-    const isManagerFromMetadata = user.user_metadata?.is_manager === true;
+-    if (isManagerFromQuotas || isManagerFromMetadata) {
+-        appState.isManager = true;
+-        
+-        // If they are a manager, fetch all other users to populate the impersonation dropdown
+-        const { data: allUsers, error: allUsersError } = await supabase
++    if (appState.isManager) {
++        // If they are a manager, fetch all users from user_quotas for the dropdown
++        const { data: allUsers, error } = await supabase
+             .from('user_quotas')
+             .select('user_id, full_name')
+-            .neq('user_id', user.id); // Exclude the manager themselves from the list of managed users
++            .neq('user_id', user.id) // Don't include the manager in their own list
++            .order('full_name'); 
+ 
+-        if (allUsersError) {
+-            console.error("Error fetching managed users:", allUsersError);
+-            appState.managedUsers = [];
++        if (error) {
++            console.error("Error fetching managed users from user_quotas:", error);
+         } else {
++            // Map directly to the format our dropdown function expects
+             appState.managedUsers = allUsers.map(u => ({
+                 id: u.user_id,
+                 full_name: u.full_name
+             }));
+         }
+-    } else {
+-        appState.isManager = false;
+-        appState.managedUsers = [];
+     }
+     
+     return appState;
+ }
+-// --- END NEW SECTION ---
+ 
++/**
++ * Renders the impersonation dropdown in the user menu if the user is a manager.
++ */
++function renderImpersonationDropdown() {
++    if (!appState.isManager || appState.managedUsers.length === 0) {
++        return;
++    }
+ 
++    const userMenuPopup = document.getElementById('user-menu-popup');
++    if (!userMenuPopup) return;
++
++    // 1. Create the container
++    const container = document.createElement('div');
++    container.className = 'impersonation-container';
++
++    // 2. Create the "My View" option
++    const currentUserOption = {
++        id: appState.currentUser.id,
++        full_name: appState.effectiveUserFullName.includes('(Viewing As)') 
++            ? 'My View' // If we're already viewing as someone, just show "My View"
++            : appState.effectiveUserFullName 
++    };
++    
++    const allUsers = [currentUserOption, ...appState.managedUsers];
++    
++    // 3. Create the options HTML
++    const optionsHtml = allUsers.map(user => {
++        const selected = (user.id === appState.effectiveUserId) ? 'selected' : '';
++        return `<option value="${user.id}" data-full-name="${user.full_name}" ${selected}>${user.full_name}</option>`;
++    }).join('');
++
++    // 4. Set the inner HTML for the dropdown
++    container.innerHTML = `
++        <label for="impersonation-select">View As:</label>
++        <select id="impersonation-select">
++            ${optionsHtml}
++        </select>
++    `;
++    
++    // 5. Add it to the top of the popup
++    userMenuPopup.prepend(container);
++
++    // 6. Add the event listener
++    const impersonationSelect = document.getElementById('impersonation-select');
++    if (impersonationSelect) {
++        impersonationSelect.addEventListener('click', (e) => {
++            e.stopPropagation();
++        });
++        impersonationSelect.addEventListener('change', (e) => {
++            const selectedOption = e.target.options[e.target.selectedIndex];
++            const userId = selectedOption.value;
++            const fullName = selectedOption.dataset.fullName;
++            
++            // Call your new state function. This will trigger the 'effectiveUserChanged' event.
++            setEffectiveUser(userId, fullName); 
++            
++            // Update the main user name display to show who we are viewing as
++            const userNameDisplay = document.getElementById('user-name-display');
++            if (userNameDisplay) {
++                if (userId === appState.currentUser.id) {
++                    userNameDisplay.textContent = fullName; // Back to self
++                } else {
++                    userNameDisplay.textContent = `${fullName} (Viewing As)`;
++                }
++            }
++        });
++    }
++}
++
+ // --- THEME MANAGEMENT ---
++export const themesList = themes; // Backward compatibility
+ let currentThemeIndex = 0;
+ 
+ function applyTheme(themeName) {
+@@ -139,8 +257,7 @@
+ 
+ export async function setupTheme(supabase, user) {
+     const themeToggleBtn = document.getElementById("theme-toggle-btn");
+-    if (!themeToggleBtn) return;
+-
++    
+     const { data, error } = await supabase
+         .from('user_preferences')
+         .select('theme')
+@@ -161,7 +278,7 @@
+     applyTheme(themes[currentThemeIndex]);
+     localStorage.setItem('crm-theme', themes[currentThemeIndex]);
+ 
+-    if (themeToggleBtn.dataset.listenerAttached !== 'true') {
++    if (themeToggleBtn && themeToggleBtn.dataset.listenerAttached !== 'true') {
+         themeToggleBtn.addEventListener("click", () => {
+             currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+             const newTheme = themes[currentThemeIndex];
+@@ -187,6 +304,14 @@
+     return date.toLocaleDateString("en-US", { year: 'numeric', month: 'long', timeZone: 'UTC' });
+ }
+ 
++/** Abbreviated month + year (e.g. "Jan 2025") for compact display. */
++export function formatMonthYearShort(dateString) {
++    if (!dateString) return "";
++    const [year, month] = dateString.split('-');
++    const date = new Date(Date.UTC(year, month - 1, 2));
++    return date.toLocaleDateString("en-US", { year: 'numeric', month: 'short', timeZone: 'UTC' });
++}
++
+ export function formatSimpleDate(dateString) {
+     if (!dateString) return "N/A";
+     const date = new Date(dateString);
+@@ -208,6 +333,177 @@
+     return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+ }
+ 
++// --- SHARED DEAL CARD HELPERS (Constellation-style, for accounts + deals) ---
++
++/** Deal value: supports both value and legacy mrc. */
++export function getDealValue(deal) {
++    return (deal && (deal.value != null ? deal.value : deal.mrc)) || 0;
++}
++
++/** Elements list for deal card pills (kanban-style). */
++export const DEAL_ELEMENTS_LIST = ['Steel', 'Aluminum', 'Glass', 'Powdercoat', 'Paint', 'Structural', 'Wood'];
++
++export function getElementsPillHtml(dealId, elementsString) {
++    const active = (elementsString || '').split(',').map(p => p.trim()).filter(Boolean);
++    const activeLower = new Set(active.map(p => p.toLowerCase()));
++    return `<div class="deal-list-elements-pills">${DEAL_ELEMENTS_LIST.map(el => {
++        const isActive = activeLower.has(el.toLowerCase());
++        return `<span class="element-pill ${isActive ? 'active' : ''}" data-deal-id="${dealId}" data-element="${el}" role="button" tabindex="0">${el}</span>`;
++    }).join('')}</div>`;
++}
++
++/** Display name for stage (e.g. "Closed Won" → "Sold"). */
++export function getStageDisplayName(stageName) {
++    return stageName === 'Closed Won' ? 'Sold' : (stageName || '');
++}
++
++export function getDealStageColorClass(stageName) {
++    if (!stageName) return "deal-stage-default";
++    const s = (stageName || "").toLowerCase();
++    if (s.includes("closed won") || s.includes("won") || s === "sold") return "deal-stage-won";
++    if (s.includes("closed lost") || s.includes("lost")) return "deal-stage-lost";
++    if (s.includes("discovery") || s.includes("qualification")) return "deal-stage-discovery";
++    if (s.includes("proposal") || s.includes("quote")) return "deal-stage-proposal";
++    if (s.includes("negotiation") || s.includes("contract")) return "deal-stage-negotiation";
++    return "deal-stage-default";
++}
++
++export function escapeNotesForHtml(notes) {
++    if (!notes || !notes.trim()) return "";
++    return (notes || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "<br>");
++}
++
++export const DEAL_PRODUCT_FAMILIES = ["Internet", "Ethernet", "UC", "PRI/SIP", "SD-WAN", "Firewall", "5G", "Cloud Connect", "Waves"];
++
++function getProductClass(productName) {
++    const p = (productName || "").toLowerCase().trim();
++    if (p.includes("internet")) return "product-internet";
++    if (p.includes("ethernet")) return "product-ethernet";
++    if (p.includes("uc")) return "product-uc";
++    if (p.includes("pri") || p.includes("sip")) return "product-pri-sip";
++    if (p.includes("sdwan") || p.includes("sd-wan")) return "product-sdwan";
++    if (p.includes("firewall")) return "product-firewall";
++    if (p.includes("5g")) return "product-5g";
++    if (p.includes("cloud")) return "product-cloud";
++    if (p.includes("wave")) return "product-waves";
++    return "product-default";
++}
++
++export function getProductPillHtml(dealId, productsString) {
++    const activeProducts = (productsString || "").split(",").map((p) => p.trim().toLowerCase()).filter((p) => p);
++    return `<div class="flex flex-wrap gap-1 mt-1 justify-start">
++        ${DEAL_PRODUCT_FAMILIES.map((p) => {
++            const isMatch = (ap) => ap === p.toLowerCase() ||
++                (p === "PRI/SIP" && (ap.includes("pri") || ap.includes("sip"))) ||
++                (p === "SD-WAN" && (ap.includes("sdwan") || ap.includes("sd-wan")));
++            const isActive = activeProducts.some(isMatch);
++            if (isActive) {
++                return `<span class="product-pill product-pill-toggle active cursor-pointer hover:opacity-80 transition-opacity ${getProductClass(p)}" data-deal-id="${dealId}" data-product="${p}" title="Remove ${p}">${p}</span>`;
++            }
++            return `<span class="product-pill product-pill-toggle product-pill-inactive cursor-pointer" data-deal-id="${dealId}" data-product="${p}" title="Add ${p}">${p}</span>`;
++        }).join("")}
++    </div>`;
++}
++
++/**
++ * Returns frontContent, backContent, and stageClass for a deal card (Constellation-style).
++ * Use from accounts or deals page to build the card DOM.
++ * @param {Object} deal - Deal object (id, stage, mrc, name, products, notes, close_month, term, is_committed)
++ * @param {Object} options - { formatMonthYear: fn, includeStageIndicator: boolean (default true) }
++ * @returns {{ frontContent: string, backContent: string, stageClass: string }}
++ */
++export function getDealCardContent(deal, options = {}) {
++    const formatMonthYearFn = options.formatMonthYear || formatMonthYear;
++    const includeStageIndicator = options.includeStageIndicator !== false;
++    const stageClass = getDealStageColorClass(deal.stage);
++    const notes = (deal.notes || "").trim();
++    const notesEscaped = escapeNotesForHtml(notes);
++    const dealId = deal.id;
++    const truncate = (str, max = 30) => {
++        if (!str) return '';
++        return str.length > max ? str.substring(0, max) + '...' : str;
++    };
++    const safeName = (deal.name || "").replace(/</g, '&lt;').replace(/>/g, '&gt;');
++    const safeStage = (getStageDisplayName(deal.stage) || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
++
++    const stageMarkup = includeStageIndicator
++        ? `<span class="deal-card-stage-wrap"><span class="deal-card-stage-indicator ${stageClass}" aria-hidden="true"></span><span class="deal-card-stage">${safeStage}</span></span>`
++        : `<span class="deal-card-stage">${safeStage}</span>`;
++
++    const frontContent = `
++        <div class="deal-card-header">
++            <div class="deal-card-commit-row">
++                <label class="deal-card-commit-toggle" for="deal-commit-${dealId}">
++                    <input type="checkbox" id="deal-commit-${dealId}" class="deal-card-commit-input commit-deal-checkbox sr-only" data-deal-id="${dealId}" ${deal.is_committed ? "checked" : ""}>
++                    <span class="deal-card-commit-slider"></span>
++                    <span class="deal-card-commit-label">Committed</span>
++                </label>
++                ${stageMarkup}
++            </div>
++            <button type="button" class="btn-icon btn-icon-sm edit-deal-btn" data-deal-id="${dealId}" title="Edit Deal"><i class="fas fa-pen"></i></button>
++        </div>
++        <div class="deal-card-value">$${deal.mrc != null ? Number(deal.mrc) : 0}/mo</div>
++        <div class="deal-card-name" title="${safeName}">${truncate(safeName, 30)}</div>
++        <div class="deal-card-products">${getProductPillHtml(dealId, deal.products)}</div>
++        <div class="deal-card-footer">
++            ${deal.close_month ? `<span class="deal-card-close">${formatMonthYearFn(deal.close_month)}</span>` : '<span class="deal-card-close deal-card-empty"></span>'}
++            ${deal.term ? `<span class="deal-card-term">Term: ${(deal.term + "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>` : '<span class="deal-card-term deal-card-empty"></span>'}
++        </div>
++    `;
++    const backContent = `
++        <div class="deal-card-back-content">
++            <div class="deal-card-back-body">${notesEscaped || '<span class="text-muted">No notes</span>'}</div>
++            <button type="button" class="btn-icon btn-icon-sm deal-card-back-edit" data-deal-id="${dealId}" title="Edit notes"><i class="fas fa-pen"></i></button>
++        </div>`;
++    return { frontContent, backContent, stageClass };
++}
++
++/**
++ * Returns full HTML for the kanban-style deal card (used on Deals page and Account page).
++ * @param {Object} deal - Deal object (id, stage, value, mrc, name, elements, notes, close_month, is_committed, account_id)
++ * @param {Object} options - { accountName?: string (default '—'), draggable?: boolean (default false) }
++ * @returns {string} HTML string for one card
++ */
++export function getKanbanDealCardContent(deal, options = {}) {
++    const accountName = (options.accountName ?? '—').replace(/</g, '&lt;').replace(/>/g, '&gt;');
++    const draggable = options.draggable === true;
++    const stageClass = getDealStageColorClass(deal.stage);
++    const safeName = (deal.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
++    const truncate = (str, max = 28) => (!str ? '' : str.length > max ? str.substring(0, max) + '...' : str);
++    const notesHtml = (deal.notes || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') || '<span class="text-muted">No notes</span>';
++    const dealId = deal.id;
++    const frontHtml = `
++        <div class="deal-card-header">
++            <label class="deal-card-commit-toggle">
++                <input type="checkbox" class="commit-deal-checkbox sr-only" data-deal-id="${dealId}" ${deal.is_committed ? 'checked' : ''}>
++                <span class="deal-card-commit-dot"></span>
++                <span class="deal-card-commit-label">Committed</span>
++            </label>
++            <span class="deal-card-stage-pill ${stageClass}" data-deal-id="${dealId}">${getStageDisplayName(deal.stage) || 'Stage'}</span>
++            <a href="proposals.html?deal_id=${dealId}" class="deal-card-proposal-icon" title="Proposal"><i class="fas fa-file-contract"></i></a>
++        </div>
++        <div class="deal-card-value deal-card-editable" data-deal-id="${dealId}" data-field="value" title="Click to edit">${formatCurrency(getDealValue(deal))}/mo</div>
++        <div class="deal-card-name deal-card-editable" data-deal-id="${dealId}" data-field="name" title="${safeName}">${truncate(safeName)}</div>
++        <div class="deal-card-account deal-card-editable" data-deal-id="${dealId}" data-field="account" title="Click to edit">${accountName}</div>
++        <div class="deal-card-elements">${getElementsPillHtml(dealId, deal.elements)}</div>
++        <div class="deal-card-footer">
++            <span class="deal-card-close deal-card-editable" data-deal-id="${dealId}" data-field="close_month" title="Click to edit">${deal.close_month ? formatMonthYearShort(deal.close_month) : '—'}</span>
++        </div>`;
++    const backHtml = `
++        <div class="deal-card-back-content">
++            <div class="deal-card-back-body">${notesHtml}</div>
++            <button type="button" class="btn-icon btn-icon-sm deal-card-back-edit" data-deal-id="${dealId}" title="Edit notes"><i class="fas fa-pen"></i></button>
++        </div>`;
++    const dragAttr = draggable ? ' draggable="true"' : '';
++    return `
++    <div class="kanban-card deal-card deal-card-flippable ${stageClass}"${dragAttr} data-id="${dealId}">
++        <div class="deal-card-flip-inner">
++            <div class="deal-card-front">${frontHtml}</div>
++            <div class="deal-card-back">${backHtml}</div>
++        </div>
++    </div>`;
++}
++
+ export function parseCsvRow(row) {
+     const result = [];
+     let current = '';
+@@ -233,33 +529,6 @@
+     return result;
+ }
+ 
+-/**
+- * Opens a pre-filled Salesforce Task create page in a new tab (Single Exhaust / manual log).
+- * @param {object} activity - Activity object with subject, notes (or body), type, created_at (or date), and optional sf_account_locator (Salesforce Account Id for WhatId).
+- */
+-export function logToSalesforce(activity) {
+-    if (!activity) return;
+-    // TODO: should eventually come from user settings
+-    const sfBaseUrl = "https://gpcom.lightning.force.com";
+-    const subjectRaw = activity.subject || activity.description || activity.type || "Activity";
+-    const typeLower = (activity.type || "").toLowerCase();
+-    const subjectPrefix = typeLower.includes("email") ? "Email: " : "Call: ";
+-    const subject = subjectPrefix + subjectRaw;
+-    const description = activity.notes || activity.body || activity.description || "";
+-    const status = "Completed";
+-    const dateVal = activity.created_at || activity.date;
+-    const d = dateVal ? new Date(dateVal) : new Date();
+-    const year = d.getFullYear();
+-    const month = String(d.getMonth() + 1).padStart(2, "0");
+-    const day = String(d.getDate()).padStart(2, "0");
+-    const activityDate = `${year}-${month}-${day}`;
+-    let inner = "Subject=" + encodeURIComponent(subject) + ",Description=" + encodeURIComponent(description) + ",Status=" + encodeURIComponent(status) + ",ActivityDate=" + encodeURIComponent(activityDate);
+-    const locator = (activity.sf_account_locator || "").trim();
+-    if (locator) inner += ",WhatId=" + encodeURIComponent(locator);
+-    const finalUrl = sfBaseUrl + "/lightning/o/Task/new?defaultFieldValues=" + encodeURIComponent(inner);
+-    window.open(finalUrl, "_blank");
+-}
+-
+ export function updateActiveNavLink() {
+     const currentPage = window.location.pathname.split("/").pop();
+     document.querySelectorAll(".nav-sidebar .nav-button").forEach(link => {
+@@ -270,19 +539,22 @@
+     });
+ }
+ 
+-// --- MODAL FUNCTIONS ---
+-const modalBackdrop = document.getElementById("modal-backdrop");
+-const modalTitle = document.getElementById("modal-title");
+-const modalBody = document.getElementById("modal-body");
+-const modalActions = document.getElementById("modal-actions");
++// --- MODAL FUNCTIONS (FIXED) ---
++
++// We do NOT store modal elements in top-level constants to avoid null errors.
+ let currentModalCallbacks = { onConfirm: null, onCancel: null };
+ 
+ export function getCurrentModalCallbacks() { return { ...currentModalCallbacks }; }
+ export function setCurrentModalCallbacks(callbacks) { currentModalCallbacks = { ...callbacks }; }
+ 
+ export function showModal(title, bodyHtml, onConfirm = null, showCancel = true, customActionsHtml = null, onCancel = null) {
++    const modalBackdrop = document.getElementById("modal-backdrop");
++    const modalTitle = document.getElementById("modal-title");
++    const modalBody = document.getElementById("modal-body");
++    const modalActions = document.getElementById("modal-actions");
++
+     if (!modalBackdrop || !modalTitle || !modalBody || !modalActions) {
+-        console.error("Modal elements are missing from the DOM.");
++        console.error("Modal elements are missing from the DOM. Ensure #modal-backdrop is in your HTML.");
+         return;
+     }
+     
+@@ -327,205 +599,73 @@
+     }
+ 
+     modalBackdrop.classList.remove("hidden");
+-    return modalBody; // Return the modal body for use in contacts.js
++    // Re-attach backdrop click listener dynamically
++    modalBackdrop.onclick = (e) => { if (e.target === modalBackdrop) hideModal(); };
++
++    return modalBody; 
+ }
+ 
+ export function hideModal() {
++    const modalBackdrop = document.getElementById("modal-backdrop");
+     if (modalBackdrop) modalBackdrop.classList.add("hidden");
+ }
+ 
+-function handleBackdropClick(e) { if (e.target === modalBackdrop) hideModal(); }
+ function handleEscapeKey(e) { if (e.key === "Escape") hideModal(); }
+ 
+ export function setupModalListeners() {
+     window.addEventListener("keydown", handleEscapeKey);
+-    if (modalBackdrop) modalBackdrop.addEventListener("click", handleBackdropClick);
+ }
+ 
+-// --- GLOBAL LOADING OVERLAY ---
+-const GLOBAL_LOADER_ID = 'global-loader-overlay';
+ 
+-export function showGlobalLoader() {
+-    const el = document.getElementById(GLOBAL_LOADER_ID);
+-    if (el) {
+-        el.classList.add('active');
+-        el.setAttribute('aria-busy', 'true');
++// --- TOAST NOTIFICATIONS (Phase 5 — Constellation-V transplant) ---
++export function showToast(message, type = 'success') {
++    let toastContainer = document.getElementById('toast-container');
++    if (!toastContainer) {
++        toastContainer = document.createElement('div');
++        toastContainer.id = 'toast-container';
++        toastContainer.className = 'toast-container';
++        document.body.appendChild(toastContainer);
+     }
+-}
+ 
+-export function hideGlobalLoader() {
+-    const el = document.getElementById(GLOBAL_LOADER_ID);
+-    if (el) {
+-        el.classList.remove('active');
+-        el.setAttribute('aria-busy', 'false');
+-    }
+-}
+-
+-// --- TOAST NOTIFICATIONS ---
+-export function showToast(message, type = 'success') {
+-    const toastContainer = document.getElementById('toast-container');
+-    if (!toastContainer) return;
+-
+     const toast = document.createElement('div');
+     toast.className = `toast toast-${type}`;
++    toast.setAttribute('role', 'status');
+     toast.innerHTML = `<span>${message}</span>`;
+     toastContainer.appendChild(toast);
+ 
+     setTimeout(() => {
+         toast.classList.add('hide');
+         toast.addEventListener('transitionend', () => toast.remove());
+-    }, 4000); 
++    }, 4000);
+ }
+ 
+-
+-// js/shared_constants.js
+-
+-// ... (keep all other functions like SUPABASE_URL, formatDate, initializeAppState, etc., the same)
+-
+-/**
+- * Returns first name only from a full name (e.g. "John Doe" -> "John").
+- * @param {string} fullName - Full name
+- * @returns {string}
+- */
+-function getFirstName(fullName) {
+-    if (!fullName || typeof fullName !== 'string') return 'User';
+-    const trimmed = fullName.trim();
+-    if (!trimmed) return 'User';
+-    const first = trimmed.split(/\s+/)[0];
+-    return first || 'User';
++if (typeof window !== 'undefined') {
++    window.showToast = showToast;
+ }
+ 
+-/**
+- * Scales the user name font size down until it fits within its container.
+- * @param {HTMLElement} el - The #user-name-display element
+- */
+-function fitUserNameToContainer(el) {
+-    if (!el || !el.parentElement) return;
+-    const MIN_FONT_PX = 12;
+-    const MAX_FONT_PX = 18;
+-    el.style.fontSize = '';
+-    el.style.fontSize = `${MAX_FONT_PX}px`;
+-    const parent = el.parentElement;
+-    const icon = parent.querySelector('.user-icon, [data-svg-loader]');
+-    const iconWidth = icon ? icon.offsetWidth : 80;
+-    const gap = 10;
+-    const maxWidth = parent.clientWidth - iconWidth - gap;
+-    if (maxWidth <= 0) return;
+-    while (el.scrollWidth > maxWidth && parseInt(getComputedStyle(el).fontSize) > MIN_FONT_PX) {
+-        const current = parseInt(getComputedStyle(el).fontSize);
+-        el.style.fontSize = `${Math.max(MIN_FONT_PX, current - 1)}px`;
+-    }
+-}
+ 
+-// --- USER MENU & AUTH LOGIC (UPDATED FOR IMPERSONATION) ---
+-/**
+- * @param {object} supabase - Supabase client
+- * @param {object} appState - App state (use getState() for full manager/impersonation support)
+- * @param {{ skipImpersonation?: boolean }} options - skipImpersonation: true to hide the View As dropdown (e.g. on Deals which has its own team toggle)
+- */
+-export async function setupUserMenuAndAuth(supabase, appState, options = {}) {
++// --- USER MENU & AUTH LOGIC ---
++export async function setupUserMenuAndAuth(supabase, state) {
++    const userNameDisplay = document.getElementById('user-name-display');
+     const userMenuPopup = document.getElementById('user-menu-popup');
+     const logoutBtn = document.getElementById("logout-btn");
++    const userMenuHeader = document.querySelector('.user-menu-header');
++    const navMenuToggle = document.getElementById('nav-menu-toggle');
+ 
+-    if (!userMenuPopup || !logoutBtn) {
++    if (!userMenuPopup || !userNameDisplay || !logoutBtn) {
+         console.error("One or more user menu elements are missing.");
+         return;
+-    }
+-
+-    // --- Manager Impersonation Dropdown Logic ---
+-    // Use getState() when passed state lacks manager fields (ensures dropdown shows if any page initialized it)
+-    const stateForMenu = appState?.isManager !== undefined ? appState : getState();
+-    const debugOverride = typeof URLSearchParams !== 'undefined' && new URLSearchParams(window.location.search).get('impersonation') === '1';
+-    const showImpersonation = !options.skipImpersonation && (stateForMenu.isManager || debugOverride);
+-    if (stateForMenu.currentUser && !options.skipImpersonation) {
+-        console.log('[Impersonation] isManager:', stateForMenu.isManager, 'managedUsers:', stateForMenu.managedUsers?.length ?? 0, 'showDropdown:', showImpersonation);
+-    }
+-
+-    const existingWrap = document.getElementById('manager-view-select-wrap');
+-    const existingDropdown = document.getElementById('manager-view-select');
+-    if (existingWrap) existingWrap.remove();
+-    else if (existingDropdown) existingDropdown.parentElement?.removeChild(existingDropdown);
+-
+-    if (showImpersonation) {
+-        const wrap = document.createElement('div');
+-        wrap.id = 'manager-view-select-wrap';
+-        wrap.className = 'impersonation-dropdown-wrap';
+-        wrap.style.marginBottom = '8px';
+-        const label = document.createElement('label');
+-        label.textContent = 'View as:';
+-        label.style.display = 'block';
+-        label.style.fontSize = '0.75rem';
+-        label.style.color = 'var(--text-medium)';
+-        label.style.marginBottom = '4px';
+-        const viewSelect = document.createElement('select');
+-        viewSelect.id = 'manager-view-select';
+-        viewSelect.className = 'nav-button';
+-        viewSelect.setAttribute('aria-label', 'View as user');
+-
+-        const managerName = stateForMenu.currentUser.user_metadata?.full_name || 'Me';
+-        let options = `<option value="${stateForMenu.currentUser.id}">${managerName}</option>`;
+-        options += (stateForMenu.managedUsers || []).map(user =>
+-            `<option value="${user.id}">${user.full_name}</option>`
+-        ).join('');
+-
+-        viewSelect.innerHTML = options;
+-        viewSelect.value = stateForMenu.effectiveUserId || stateForMenu.currentUser.id;
+-
+-        wrap.appendChild(label);
+-        wrap.appendChild(viewSelect);
+-        userMenuPopup.insertBefore(wrap, userMenuPopup.firstChild);
+-
+-        const handleChange = (selectedUserId) => {
+-            const selectedUser = (stateForMenu.managedUsers || []).find(u => u.id === selectedUserId) || {
+-                id: stateForMenu.currentUser.id,
+-                full_name: managerName
+-            };
+-            setEffectiveUser(selectedUserId, selectedUser.full_name);
+-        };
+-
+-        if (typeof window.TomSelect !== 'undefined') {
+-            try {
+-                const ts = viewSelect.tomselect;
+-                if (ts) ts.destroy();
+-                const tom = new window.TomSelect(viewSelect, {
+-                    create: false,
+-                    placeholder: 'View as...',
+-                    dropdownParent: 'body',
+-                    controlInput: null,
+-                    searchField: [],
+-                    plugins: ['input_autogrow'],
+-                    onDropdownOpen() {
+-                        const d = this.dropdown;
+-                        if (d) d.className = 'ts-dropdown tom-select-no-search';
+-                    },
+-                    render: {
+-                        dropdown: () => {
+-                            const d = document.createElement('div');
+-                            d.className = 'ts-dropdown tom-select-no-search';
+-                            return d;
+-                        }
+-                    },
+-                    onChange: (val) => handleChange(val)
+-                });
+-                tom.setValue(stateForMenu.effectiveUserId || stateForMenu.currentUser.id, true);
+-            } catch (err) {
+-                console.warn('[Impersonation] Tom Select init failed, using native select:', err);
+-                viewSelect.addEventListener('change', (e) => handleChange(e.target.value));
+-            }
+-        } else {
+-            viewSelect.addEventListener('change', (e) => handleChange(e.target.value));
+-        }
+     }
+-    // --- END NEW LOGIC ---
+ 
+     const { data: userData, error: userError } = await supabase
+         .from('user_quotas')
+         .select('full_name, monthly_quota')
+-        .eq('user_id', appState.currentUser.id) // Use the actual logged-in user
++        .eq('user_id', state.currentUser.id)
+         .single();
+ 
+     if (userError && userError.code !== 'PGRST116') {
+         console.error('Error fetching user data:', userError);
++        userNameDisplay.textContent = "Error";
+         return;
+     }
+     
+@@ -553,7 +693,7 @@
+             const { error: upsertError } = await supabase
+                 .from('user_quotas')
+                 .upsert({
+-                    user_id: appState.currentUser.id,
++                    user_id: state.currentUser.id,
+                     full_name: fullName,
+                     monthly_quota: Number(monthlyQuota)
+                 }, { onConflict: 'user_id' });
+@@ -571,33 +711,43 @@
+             if (updateUserError) {
+                 console.warn("Could not save full_name to user metadata:", updateUserError);
+             }
+-            
+-            await initializeAppState(supabase);
+-            await setupUserMenuAndAuth(supabase, getState());
+ 
++            userNameDisplay.textContent = fullName;
++            await setupTheme(supabase, state.currentUser);
++            attachUserMenuListeners();
+             return true;
+ 
+         }, false, `<button id="modal-confirm-btn" class="btn-primary">Get Started</button>`);
+     
+     } else {
+-        await setupTheme(supabase, appState.currentUser);
++        userNameDisplay.textContent = userData.full_name || 'User';
++        await setupTheme(supabase, state.currentUser);
++        renderImpersonationDropdown();
+         attachUserMenuListeners();
+     }
+ 
+     function attachUserMenuListeners() {
+-        const userMenu = document.querySelector('.user-menu');
+-        if (userMenu?.dataset.listenerAttached === 'true') return;
++        if (logoutBtn.dataset.listenerAttached === 'true') return;
+ 
++        if (userMenuHeader && !navMenuToggle) {
++            userMenuHeader.addEventListener('click', (e) => {
++                e.stopPropagation();
++                userMenuPopup.classList.toggle('show');
++            });
++            window.addEventListener('click', () => {
++                if (userMenuPopup.classList.contains('show')) {
++                    userMenuPopup.classList.remove('show');
++                }
++            });
++        }
+         logoutBtn.addEventListener("click", async () => {
+-            sessionStorage.removeItem('crm-briefing-generated');
+-            sessionStorage.removeItem('crm-briefing-html');
+             await supabase.auth.signOut();
+             window.location.href = "index.html";
+         });
+-
+-        if (userMenu) userMenu.dataset.listenerAttached = 'true';
++        logoutBtn.dataset.listenerAttached = 'true';
+     }
+ }
++
+ export async function loadSVGs() {
+     const svgPlaceholders = document.querySelectorAll('[data-svg-loader]');
+     
+@@ -618,11 +768,8 @@
+                     continue;
+                 }
+                 
+-                if (svgUrl.includes('logo.svg') || svgUrl.includes('c-logo.svg') || svgUrl.includes('constellation-logo')) {
+-                    svgElement.classList.add(placeholder.closest('#auth-container') ? 'auth-logo' : 'nav-logo');
+-                    if (placeholder.classList.contains('nav-logo-expanded')) svgElement.classList.add('nav-logo-expanded');
+-                    if (placeholder.classList.contains('nav-logo-collapsed')) svgElement.classList.add('nav-logo-collapsed');
+-                    if (placeholder.classList.contains('constellation-main-logo') || svgUrl.includes('constellation-logo-full')) svgElement.classList.add('constellation-main-logo');
++                if (svgUrl.includes('logo.svg') || svgUrl.includes('logo-small.svg')) {
++                    svgElement.classList.add('nav-logo');
+                 } else if (svgUrl.includes('user-icon.svg')) {
+                     svgElement.classList.add('user-icon');
+                 }
+@@ -637,386 +784,78 @@
+     }
+ }
+ 
+-let matrixProtocolActive = false;
++// --- GLOBAL SEARCH FUNCTION ---
++export async function setupGlobalSearch(supabase) {
++    const searchInput = document.getElementById('global-search-input');
++    const searchResultsContainer = document.getElementById('global-search-results');
++    let searchTimeout;
+ 
+-// --- GLOBAL NAVIGATION (central template, no theme picker) ---
+-const GLOBAL_NAV_TEMPLATE = `
+-<div class="nav-mobile-bar">
+-    <a href="command-center.html" class="nav-mobile-logo" aria-label="Home"><div data-svg-loader="assets/constellation-logo-full.svg" class="constellation-main-logo"></div></a>
+-    <button type="button" id="nav-mobile-menu-btn" class="nav-mobile-menu-btn" aria-label="Open menu" title="Menu">
+-        <i class="fa-solid fa-bars"></i>
+-    </button>
+-</div>
+-<div class="nav-mobile-overlay hidden" id="nav-mobile-overlay" aria-hidden="true"></div>
+-<div id="nav-search-fanout" class="nav-search-fanout hidden" aria-hidden="true">
+-    <div class="nav-search-fanout-inner">
+-        <i class="fa-solid fa-search nav-search-fanout-icon"></i>
+-        <input type="text" id="global-search-fanout-input" placeholder="Search..." class="nav-search-fanout-input" aria-label="Search">
+-        <button type="button" id="nav-search-fanout-close" class="nav-search-fanout-close" aria-label="Close"><i class="fa-solid fa-times"></i></button>
+-    </div>
+-    <div id="global-search-fanout-results" class="global-search-results hidden"></div>
+-</div>
+-<div class="nav-drawer-content" id="nav-drawer-content">
+-<div class="nav-top-section">
+-    <button type="button" id="nav-collapse-toggle" class="nav-collapse-toggle" title="Collapse sidebar" aria-label="Collapse sidebar">
+-        <i class="fa-solid fa-chevron-left nav-collapse-icon"></i>
+-    </button>
+-    <div class="nav-logo-wrap">
+-        <div class="nav-logo-expanded constellation-main-logo" data-svg-loader="assets/constellation-logo-full.svg"></div>
+-        <div class="nav-logo-collapsed constellation-main-logo" data-svg-loader="assets/constellation-logo-c.svg"></div>
+-    </div>
+-    <div class="global-search-container">
+-        <button type="button" id="nav-search-trigger" class="nav-search-trigger" title="Search" aria-label="Search"><i class="fa-solid fa-search global-search-trigger-icon"></i></button>
+-        <div class="global-search-input-wrapper">
+-            <i class="fa-solid fa-search global-search-icon"></i>
+-            <input type="text" id="global-search-input" placeholder="Search..." class="nav-search-input">
+-        </div>
+-        <div id="global-search-results" class="global-search-results hidden"></div>
+-    </div>
+-</div>
+-<div class="nav-links-section">
+-    <a href="command-center.html" class="nav-button"><i class="fa-solid fa-gauge-high nav-icon"></i><span class="nav-label-text">Command Center</span></a>
+-    <a href="deals.html" class="nav-button"><i class="fa-solid fa-handshake nav-icon"></i><span class="nav-label-text">Deals</span></a>
+-    <a href="contacts.html" class="nav-button"><i class="fa-solid fa-address-book nav-icon"></i><span class="nav-label-text">Contacts</span></a>
+-    <a href="accounts.html" class="nav-button"><i class="fa-solid fa-building nav-icon"></i><span class="nav-label-text">Accounts</span></a>
+-    <a href="proposals.html" class="nav-button"><i class="fa-solid fa-file-lines nav-icon"></i><span class="nav-label-text">Proposals</span></a>
+-    <a href="irr.html" class="nav-button"><i class="fa-solid fa-calculator nav-icon"></i><span class="nav-label-text">IRR</span></a>
+-    <a href="campaigns.html" class="nav-button"><i class="fa-solid fa-bullhorn nav-icon"></i><span class="nav-label-text">Campaigns</span></a>
+-    <a href="sequences.html" class="nav-button"><i class="fa-solid fa-arrows-rotate nav-icon"></i><span class="nav-label-text">Sequences</span></a>
+-    <a href="social_hub.html" class="nav-button"><i class="fa-solid fa-share-nodes nav-icon"></i><span class="nav-label-text">Social Hub</span> <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+-</div>
+-<div class="nav-cognito-wrap">
+-    <a href="cognito.html" class="nav-button cognito-nav-btn" title="Cognito">
+-        <span class="cognito-icon-collapsed"><i class="fa-solid fa-magnifying-glass nav-icon"></i></span>
+-        <span class="nav-label-text cognito-text"><h1>C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#60a5fa;"></stop><stop offset="100%" style="stop-color:#3b82f6;"></stop></linearGradient></defs><g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round"><path d="M32.2,32.2 L45,45"></path><circle cx="20" cy="20" r="15"></circle></g></svg>gnito</h1></span>
+-    </a>
+-    <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+-</div>
+-<div class="nav-bottom-section">
+-    <div class="user-menu">
+-        <button type="button" id="nav-menu-toggle" class="nav-button nav-menu-toggle" title="Menu" aria-label="Menu" aria-expanded="false">
+-            <i class="fa-solid fa-bars nav-icon"></i>
+-            <span class="nav-label-text">Menu</span>
+-            <i class="fa-solid fa-chevron-down nav-menu-chevron"></i>
+-        </button>
+-        <div id="user-menu-popup" class="user-menu-content user-menu-collapsed">
+-            <div class="user-menu-downloads">
+-                <span class="user-menu-downloads-label">CSV Templates</span>
+-                <a href="contacts_template.csv" class="user-menu-download-link" download>Contacts</a>
+-                <a href="accounts_template.csv" class="user-menu-download-link" download>Accounts</a>
+-                <a href="sequence_steps_template.csv" class="user-menu-download-link" download>Sequence Steps</a>
+-            </div>
+-            <a href="ai-admin.html" class="nav-button" title="AI Admin"><span class="nav-label-text">AI Admin</span></a>
+-            <button id="logout-btn" class="nav-button nav-button-logout"><i class="fa-solid fa-right-from-bracket nav-icon"></i><span class="nav-label-text">Logout</span></button>
+-        </div>
+-    </div>
+-</div>
+-</div>
+-`;
++    if (!searchInput || !searchResultsContainer) {
++        // console.warn("Global search elements not found on this page."); // Suppress warn
++        return;
++    }
+ 
+-const NAV_COLLAPSED_KEY = 'crm-nav-collapsed';
++    searchInput.addEventListener('keyup', (e) => {
++        clearTimeout(searchTimeout);
++        const searchTerm = e.target.value.trim();
+ 
+-export function injectGlobalNavigation() {
+-    const container = document.getElementById('global-nav-container');
+-    if (!container) return;
+-
+-    container.innerHTML = GLOBAL_NAV_TEMPLATE;
+-
+-    initHUD();
+-
+-    const navSidebar = container.closest('.nav-sidebar');
+-    const toggleBtn = document.getElementById('nav-collapse-toggle');
+-
+-    const setCollapsed = (collapsed) => {
+-        if (!navSidebar) return;
+-        if (collapsed) {
+-            navSidebar.classList.add('nav-sidebar-collapsed');
+-            try { localStorage.setItem(NAV_COLLAPSED_KEY, '1'); } catch (_) {}
+-        } else {
+-            navSidebar.classList.remove('nav-sidebar-collapsed');
+-            try { localStorage.removeItem(NAV_COLLAPSED_KEY); } catch (_) {}
++        if (searchTerm.length < 2) {
++            searchResultsContainer.classList.add('hidden');
++            return;
+         }
+-        if (toggleBtn) {
+-            const icon = toggleBtn.querySelector('.nav-collapse-icon');
+-            if (icon) icon.className = `fa-solid ${collapsed ? 'fa-chevron-right' : 'fa-chevron-left'} nav-collapse-icon`;
+-            toggleBtn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+-            toggleBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+-        }
+-    };
+ 
+-    const isCollapsed = () => {
+-        try { return localStorage.getItem(NAV_COLLAPSED_KEY) === '1'; } catch (_) { return false; }
+-    };
++        searchTimeout = setTimeout(() => {
++            performSearch(searchTerm);
++        }, 300);
++    });
+ 
+-    if (toggleBtn) {
+-        toggleBtn.addEventListener('click', () => setCollapsed(!navSidebar?.classList.contains('nav-sidebar-collapsed')));
+-    }
++    async function performSearch(term) {
++        searchResultsContainer.innerHTML = '<div class="search-result-item">Searching...</div>';
++        searchResultsContainer.classList.remove('hidden');
+ 
+-    if (navSidebar && isCollapsed()) {
+-        setCollapsed(true);
+-    }
++        try {
++            const { data: results, error } = await supabase.functions.invoke('global-search', {
++                body: { searchTerm: term }
++            });
+ 
+-    const searchTrigger = document.getElementById('nav-search-trigger');
+-    const searchFanout = document.getElementById('nav-search-fanout');
+-    const searchFanoutInput = document.getElementById('global-search-fanout-input');
+-    const searchFanoutClose = document.getElementById('nav-search-fanout-close');
+-    const openSearchFanout = () => {
+-        if (searchFanout) { searchFanout.classList.remove('hidden'); searchFanout.setAttribute('aria-hidden', 'false'); }
+-        if (searchFanoutInput) { searchFanoutInput.value = ''; searchFanoutInput.focus(); }
+-        if (navSidebar?.classList.contains('nav-sidebar-collapsed')) {
+-            navSidebar.classList.add('search-fanout-open');
+-            if (searchTrigger && searchFanout) {
+-                const rect = searchTrigger.getBoundingClientRect();
+-                searchFanout.style.top = `${rect.top}px`;
+-                searchFanout.style.bottom = 'auto';
++            if (error) {
++                throw error;
+             }
+-        }
+-    };
+-    const closeSearchFanout = () => {
+-        if (searchFanout) {
+-            searchFanout.classList.add('hidden');
+-            searchFanout.setAttribute('aria-hidden', 'true');
+-            searchFanout.style.top = '';
+-            searchFanout.style.bottom = '';
+-        }
+-        if (searchFanoutInput) searchFanoutInput.value = '';
+-        const fanoutResults = document.getElementById('global-search-fanout-results');
+-        if (fanoutResults) fanoutResults.classList.add('hidden');
+-        navSidebar?.classList.remove('search-fanout-open');
+-    };
+-    const menuToggle = document.getElementById('nav-menu-toggle');
+-    const userMenuContent = document.getElementById('user-menu-popup');
+-    const userMenu = document.querySelector('.user-menu');
+-    const closeUserMenu = () => {
+-        if (userMenuContent && !userMenuContent.classList.contains('user-menu-collapsed')) {
+-            userMenuContent.classList.add('user-menu-collapsed');
+-            menuToggle?.setAttribute('aria-expanded', 'false');
+-            const chevron = menuToggle?.querySelector('.nav-menu-chevron');
+-            if (chevron) chevron.className = 'fa-solid fa-chevron-down nav-menu-chevron';
+-            navSidebar?.classList.remove('user-menu-open');
+-        }
+-    };
+-    if (menuToggle && userMenuContent) {
+-        menuToggle.addEventListener('click', (e) => {
+-            e.stopPropagation();
+-            userMenuContent.classList.toggle('user-menu-collapsed');
+-            const isOpen = !userMenuContent.classList.contains('user-menu-collapsed');
+-            menuToggle.setAttribute('aria-expanded', isOpen);
+-            const chevron = menuToggle.querySelector('.nav-menu-chevron');
+-            if (chevron) chevron.className = `fa-solid fa-chevron-${isOpen ? 'up' : 'down'} nav-menu-chevron`;
+-            navSidebar?.classList.toggle('user-menu-open', isOpen);
+-        });
+-        document.addEventListener('click', (e) => {
+-            if (userMenu && !userMenu.contains(e.target)) closeUserMenu();
+-        });
+-    }
+ 
+-    if (searchTrigger) searchTrigger.addEventListener('click', (e) => { e.stopPropagation(); openSearchFanout(); });
+-    if (searchFanoutClose) searchFanoutClose.addEventListener('click', closeSearchFanout);
+-    if (searchFanout) {
+-        searchFanout.addEventListener('click', (e) => { if (e.target === searchFanout) closeSearchFanout(); });
+-        document.addEventListener('click', (e) => {
+-            if (navSidebar?.classList.contains('search-fanout-open') && !searchFanout?.contains(e.target) && !searchTrigger?.contains(e.target)) closeSearchFanout();
+-        });
+-        const fanoutResultsEl = document.getElementById('global-search-fanout-results');
+-        if (fanoutResultsEl) fanoutResultsEl.addEventListener('click', (e) => { if (e.target.closest('a')) closeSearchFanout(); });
+-        searchFanoutInput?.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSearchFanout(); });
+-    }
++            renderResults(results || []);
+ 
+-    const mobileMenuBtn = document.getElementById('nav-mobile-menu-btn');
+-    const mobileOverlay = document.getElementById('nav-mobile-overlay');
+-    const navDrawer = document.getElementById('nav-drawer-content');
+-    const openMobileMenu = () => {
+-        navSidebar?.classList.add('nav-mobile-open');
+-        if (mobileOverlay) { mobileOverlay.classList.remove('hidden'); mobileOverlay.setAttribute('aria-hidden', 'false'); }
+-        if (mobileMenuBtn) {
+-            const icon = mobileMenuBtn.querySelector('i');
+-            if (icon) icon.className = 'fa-solid fa-times';
+-            mobileMenuBtn.setAttribute('aria-label', 'Close menu');
++        } catch (error) {
++            console.error("Error invoking global-search function:", error);
++            searchResultsContainer.innerHTML = `<div class="search-result-item">Error: ${error.message}</div>`;
+         }
+-    };
+-    const closeMobileMenu = () => {
+-        navSidebar?.classList.remove('nav-mobile-open');
+-        if (mobileOverlay) { mobileOverlay.classList.add('hidden'); mobileOverlay.setAttribute('aria-hidden', 'true'); }
+-        if (mobileMenuBtn) {
+-            const icon = mobileMenuBtn.querySelector('i');
+-            if (icon) icon.className = 'fa-solid fa-bars';
+-            mobileMenuBtn.setAttribute('aria-label', 'Open menu');
+-        }
+-    };
+-    if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', () => navSidebar?.classList.contains('nav-mobile-open') ? closeMobileMenu() : openMobileMenu());
+-    if (mobileOverlay) mobileOverlay.addEventListener('click', closeMobileMenu);
+-    if (navDrawer) {
+-        navDrawer.querySelectorAll('a.nav-button[href]').forEach((a) => a.addEventListener('click', closeMobileMenu));
+-        const logoutBtn = navDrawer.querySelector('#logout-btn');
+-        if (logoutBtn) logoutBtn.addEventListener('click', closeMobileMenu);
+     }
+ 
+-    const currentPage = (window.location.pathname || '').split('/').pop() || window.location.href;
+-    container.querySelectorAll('a.nav-button[href]').forEach((a) => {
+-        const href = a.getAttribute('href') || '';
+-        const linkPage = href.split('/').pop();
+-        if (linkPage && (currentPage === linkPage || currentPage.endsWith(linkPage))) {
+-            a.classList.add('active');
++    function renderResults(results) {
++        if (results.length === 0) {
++            searchResultsContainer.innerHTML = '<div class="search-result-item">No results found.</div>';
++            return;
+         }
+-    });
+-}
+ 
+-// --- GLOBAL SEARCH FUNCTION ---
+-export async function setupGlobalSearch(supabase) {
+-    const searchInput = document.getElementById('global-search-input');
+-    const searchResultsContainer = document.getElementById('global-search-results');
+-    const fanoutInput = document.getElementById('global-search-fanout-input');
+-    const fanoutResults = document.getElementById('global-search-fanout-results');
+-    let searchTimeout;
+-
+-    const inputs = [searchInput, fanoutInput].filter(Boolean);
+-    const resultContainers = [searchResultsContainer, fanoutResults].filter(Boolean);
+-
+-    if (inputs.length === 0 || !searchResultsContainer) {
+-        console.warn("Global search elements not found on this page.");
+-        return;
++        searchResultsContainer.innerHTML = results.map(result => `
++            <a href="${result.url}" class="search-result-item">
++                <span class="result-type">${result.type}</span>
++                <span class="result-name">${result.name}</span>
++            </a>
++        `).join('');
+     }
+ 
+-    function attachSearchListeners(inputEl, resultsEl) {
+-        if (!inputEl || !resultsEl) return;
+-        inputEl.addEventListener('input', (event) => {
+-            const value = event.target.value.trim().toLowerCase();
+-            if (value === 'matrix' && !matrixProtocolActive) {
+-                event.target.value = '';
+-                event.target.blur();
+-                triggerMatrixProtocol();
+-            }
+-        });
+-        inputEl.addEventListener('keyup', (e) => {
+-            clearTimeout(searchTimeout);
+-            const searchTerm = e.target.value.trim();
+-            if (searchTerm.length < 2) {
+-                resultsEl.classList.add('hidden');
+-                return;
+-            }
+-            searchTimeout = setTimeout(() => performSearch(searchTerm, resultsEl), 300);
+-        });
+-    }
+-
+-    async function performSearch(term, resultsContainer) {
+-        const target = resultsContainer || searchResultsContainer;
+-        target.innerHTML = '<div class="search-result-item">Searching...</div>';
+-        target.classList.remove('hidden');
+-        try {
+-            const { data: results, error } = await supabase.functions.invoke('global-search', { body: { searchTerm: term } });
+-            if (error) throw error;
+-            if (results.length === 0) {
+-                target.innerHTML = '<div class="search-result-item">No results found.</div>';
+-            } else {
+-                target.innerHTML = results.map(r => `<a href="${r.url}" class="search-result-item"><span class="result-type">${r.type}</span><span class="result-name">${r.name}</span></a>`).join('');
+-            }
+-        } catch (error) {
+-            console.error("Error invoking global-search function:", error);
+-            target.innerHTML = `<div class="search-result-item">Error: ${error.message}</div>`;
+-        }
+-    }
+-
+-    attachSearchListeners(searchInput, searchResultsContainer);
+-    if (fanoutInput && fanoutResults) attachSearchListeners(fanoutInput, fanoutResults);
+-
++    // This is the corrected event listener.
+     document.addEventListener('click', (e) => {
+         const searchContainer = document.querySelector('.global-search-container');
+-        const fanout = document.getElementById('nav-search-fanout');
+-        if (searchContainer && !searchContainer.contains(e.target) && !fanout?.contains(e.target)) {
+-            resultContainers.forEach(rc => rc?.classList.add('hidden'));
++        if (searchContainer && !searchContainer.contains(e.target)) {
++            searchResultsContainer.classList.add('hidden');
+         }
+     });
+ }
+ 
+-// --- MATRIX PROTOCOL (Easter Egg) ---
+-function triggerMatrixProtocol() {
+-    matrixProtocolActive = true;
+ 
+-    const canvas = document.createElement('canvas');
+-    const ctx = canvas.getContext('2d');
+-    canvas.style.position = 'fixed';
+-    canvas.style.inset = '0';
+-    canvas.style.zIndex = '9999';
+-    canvas.style.backgroundColor = 'black';
+-    canvas.style.pointerEvents = 'none';
+-
+-    document.body.appendChild(canvas);
+-
+-    function resizeCanvas() {
+-        canvas.width = window.innerWidth;
+-        canvas.height = window.innerHeight;
+-    }
+-
+-    resizeCanvas();
+-
+-    // Simple Matrix rain setup
+-    const fontSize = 16;
+-    const letters = 'アァカサタナハマヤャラワ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+-    let columns = Math.floor(canvas.width / fontSize);
+-    let drops = Array.from({ length: columns }, () => 0);
+-
+-    window.addEventListener('resize', () => {
+-        resizeCanvas();
+-        columns = Math.floor(canvas.width / fontSize);
+-        drops = Array.from({ length: columns }, () => 0);
+-    }, { once: true });
+-
+-    function drawFrame() {
+-        // Fading trail
+-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+-
+-        ctx.fillStyle = '#0F0';
+-        ctx.font = `${fontSize}px monospace`;
+-
+-        for (let i = 0; i < drops.length; i++) {
+-            const text = letters.charAt(Math.floor(Math.random() * letters.length));
+-            const x = i * fontSize;
+-            const y = drops[i] * fontSize;
+-            ctx.fillText(text, x, y);
+-
+-            if (y > canvas.height && Math.random() > 0.975) {
+-                drops[i] = 0;
+-            } else {
+-                drops[i]++;
+-            }
+-        }
+-    }
+-
+-    let animationFrameId;
+-    function loop() {
+-        drawFrame();
+-        animationFrameId = requestAnimationFrame(loop);
+-    }
+-
+-    loop();
+-
+-    // After 3 seconds, switch to theme-green and fade out
+-    setTimeout(() => {
+-        cancelAnimationFrame(animationFrameId);
+-        document.body.classList.add('theme-green');
+-
+-        canvas.style.transition = 'opacity 0.5s ease';
+-        canvas.style.opacity = '0';
+-
+-        setTimeout(() => {
+-            if (canvas.parentNode) {
+-                canvas.parentNode.removeChild(canvas);
+-            }
+-            matrixProtocolActive = false;
+-        }, 550);
+-    }, 3000);
+-}
+-
+ // --- NOTIFICATION FUNCTIONS (FINAL) ---
+ 
+-/**
+- * Updates the visit timestamp for a page in the background.
+- * This is a "fire and forget" operation.
+- * @param {SupabaseClient} supabase The Supabase client instance.
+- * @param {string} pageName The name of the page being visited.
+- */
+ export function updateLastVisited(supabase, pageName) {
+     supabase.auth.getUser().then(({ data: { user } }) => {
+         if (!user) return;
+@@ -1032,18 +871,12 @@
+     });
+ }
+ 
+-
+-/**
+- * Checks for new content on all pages and updates the bells.
+- * This is now an async function that can be awaited for predictable execution.
+- * @param {SupabaseClient} supabase The Supabase client instance.
+- */
+ export async function checkAndSetNotifications(supabase) {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) return;
+ 
+     const pagesToCheck = [
+-        { name: 'social_hub', table: 'social_hub_posts' },
++        { name: 'social_hub', table: 'social_hub_posts_tw' },
+         { name: 'cognito', table: 'cognito_alerts' }
+     ];
+ 
+@@ -1075,6 +908,3 @@
+         }
+     }
+ }
+-
+-
+-

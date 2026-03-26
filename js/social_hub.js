@@ -11,7 +11,8 @@ import {
     setupGlobalSearch,
     runWhenNavReady,
     updateLastVisited,
-    checkAndSetNotifications
+    checkAndSetNotifications,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -100,43 +101,70 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <span class="alert-date">${formatDate(item.created_at)}</span>
             </div>
             <div class="alert-actions">
-                <button class="btn-secondary dismiss-post-btn" data-post-id="${item.id}">Dismiss</button>
                 <button class="btn-primary prepare-post-btn" data-post-id="${item.id}">Prepare Post</button>
+                <button class="btn-secondary dismiss-post-btn" data-post-id="${item.id}">Dismiss</button>
             </div>
         `;
 
         const summaryP = card.querySelector('.alert-summary');
         summaryP.innerHTML = summary.replace(/\n/g, '<br>');
 
-        card.querySelector('.prepare-post-btn').addEventListener('click', () => openPostModal(item));
+        card.querySelector('.prepare-post-btn').addEventListener('click', () => openPostModal(item, card));
         card.querySelector('.dismiss-post-btn').addEventListener('click', () => handleDismissPost(item.id));
         return card;
     }
 
+    function setCardLoadingState(card, isLoading, message = 'Generating AI post suggestion...') {
+        if (!card) return;
+        if (isLoading) {
+            card.dataset.originalHtml = card.innerHTML;
+            card.classList.add('social-card-loading');
+            card.innerHTML = `
+                <div class="social-card-loading-state">
+                    <div class="social-card-loading-spinner" aria-hidden="true"></div>
+                    <p class="social-card-loading-title">Preparing Post</p>
+                    <p class="social-card-loading-subtitle">${message}</p>
+                </div>
+            `;
+            return;
+        }
+        if (card.dataset.originalHtml) {
+            card.innerHTML = card.dataset.originalHtml;
+            delete card.dataset.originalHtml;
+        }
+        card.classList.remove('social-card-loading');
+    }
+
     // --- MODAL & ACTION LOGIC ---
-    async function openPostModal(item) {
+    // On-card loading: card shows spinner, then reimagined modal opens with content (no loader in modal).
+    async function openPostModal(item, sourceCard = null) {
         modalTitle.textContent = item.title;
         modalArticleLink.href = item.link;
         modalArticleLink.textContent = item.link;
         postToLinkedInBtn.dataset.url = item.link;
-        modalBackdrop.classList.remove('hidden');
 
-        // IF we already have copy generated (saved in DB), use it.
         if (item.approved_copy && item.approved_copy.trim() !== "") {
             postTextArea.value = item.approved_copy;
+            modalBackdrop.classList.remove('hidden');
             return;
         }
 
-        // Otherwise, generate it now.
-        postTextArea.value = "Generating AI suggestion...";
-
-        const { data, error } = await supabase.functions.invoke('generate-social-post', { body: { article: item } });
-        if (error) {
-            postTextArea.value = "Error generating suggestion. Please write your own or try again.";
-            console.error("Edge function error:", error);
-        } else {
-            postTextArea.value = data.suggestion;
+        setCardLoadingState(sourceCard, true, 'Generating AI post suggestion...');
+        let suggestion = '';
+        try {
+            const { data, error } = await supabase.functions.invoke('generate-social-post', { body: { article: item } });
+            if (error) {
+                console.error("Edge function error:", error);
+                suggestion = "Error generating suggestion. Please write your own or try again.";
+            } else {
+                suggestion = data?.suggestion || "No suggestion returned. Please write your own.";
+            }
+        } finally {
+            setCardLoadingState(sourceCard, false);
         }
+
+        postTextArea.value = suggestion;
+        modalBackdrop.classList.remove('hidden');
     }
 
     function hideModal() { 
@@ -204,6 +232,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- INITIALIZATION ---
     async function initializePage() {
+        try {
         await loadSVGs();
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
@@ -212,11 +241,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             updateActiveNavLink();
             setupPageEventListeners();
             await setupGlobalSearch(supabase, state.currentUser);
-            await loadSocialContent(); 
-            await checkAndSetNotifications(supabase); 
-            updateLastVisited(supabase, 'social_hub'); 
+            await loadSocialContent();
+            await checkAndSetNotifications(supabase);
+            updateLastVisited(supabase, 'social_hub');
         } else {
+            hideGlobalLoader();
             window.location.href = "index.html";
+        }
+        } finally {
+            hideGlobalLoader();
         }
     }
 

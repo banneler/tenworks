@@ -1,0 +1,730 @@
+--- /Users/ba/Constellation-V/js/command-center.js	2026-02-27 00:15:43
++++ /Users/ba/tenworks/js/command-center.js	2026-02-27 18:57:12
+@@ -14,22 +14,29 @@
+     loadSVGs,
+     setupGlobalSearch,
+     checkAndSetNotifications,
+-    initializeAppState,
+-    getState,
+-    injectGlobalNavigation,
+-    logToSalesforce,
+-    showGlobalLoader,
+-    hideGlobalLoader,
+-    refreshHUDNodes
++    runWhenNavReady,
++    hideGlobalLoader
+ } from './shared_constants.js';
+ 
+ document.addEventListener("DOMContentLoaded", async () => {
+-    injectGlobalNavigation();
++    // --- UPDATED LOADING SCREEN LOGIC ---
++    const loadingScreen = document.getElementById('loading-screen');
++    if (sessionStorage.getItem('showLoadingScreen') === 'true') {
++        if (loadingScreen) {
++            loadingScreen.classList.remove('hidden');
++            setTimeout(() => {
++                loadingScreen.classList.add('hidden');
++            }, 7000); // 7 seconds
++        }
++        sessionStorage.removeItem('showLoadingScreen');
++    }
++    // --- END OF UPDATED LOGIC ---
++
+     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ 
+-    // --- STATE MANAGEMENT ---
+-    // The local state now primarily holds the data, while user/view state is managed globally.
+     let state = {
++        currentUser: null,
++        isManager: false, // Initialize the isManager flag
+         contacts: [],
+         accounts: [],
+         sequences: [],
+@@ -44,15 +51,17 @@
+ 
+     // --- DOM Element Selectors ---
+     const logoutBtn = document.getElementById("logout-btn");
++    const myTasksList = document.getElementById("my-tasks-list");
+     const sequenceStepsList = document.getElementById("sequence-steps-list");
+     const recentActivitiesList = document.getElementById("recent-activities-list");
+-    const myTasksList = document.getElementById("my-tasks-list");
+     const sequenceToggleDue = document.getElementById("sequence-toggle-due");
+     const sequenceToggleUpcoming = document.getElementById("sequence-toggle-upcoming");
+     const myTasksHamburger = document.getElementById("my-tasks-hamburger");
+     const aiBriefingContainer = document.getElementById("ai-briefing-container");
+-    const aiBriefingRefreshBtn = document.getElementById("ai-briefing-refresh-btn");
+ 
++    // Sequence Steps: single list, mode toggled by Due/Upcoming tabs
++    let sequenceViewMode = 'due';
++
+     // --- Utility ---
+     function getStartOfLocalDayISO() {
+         const today = new Date();
+@@ -77,24 +86,34 @@
+         return result;
+     }
+ 
+-    // --- DATA FETCHING ---
++    // --- Data Fetching ---
+     async function loadAllData() {
+-        const appState = getState();
+-        if (!appState.currentUser?.id) return;
+-
+-        if (myTasksList) myTasksList.innerHTML = '<p class="my-tasks-empty text-sm text-[var(--text-medium)] px-4 py-6">Loading tasks...</p>';
++        if (!state.currentUser) {
++            hideGlobalLoader();
++            return;
++        }
++        if (myTasksList) myTasksList.innerHTML = '<p class="my-tasks-empty text-sm" style="color: var(--text-medium); padding: 1rem;">Loading tasks...</p>';
+         
+         const tableMap = {
+             "contacts": "contacts", "accounts": "accounts", "sequences": "sequences",
+             "activities": "activities", "contact_sequences": "contact_sequences",
+-            "deals": "deals", "tasks": "tasks", "cognito_alerts": "cognitoAlerts"
++            "deals_tw": "deals", "tasks": "tasks", "cognito_alerts": "cognitoAlerts"
+         };
+         const userSpecificTables = Object.keys(tableMap);
+         const publicTables = ["sequence_steps"];
+ 
+-        // Command center always shows only the current (or effective) user's data, never all users
+-        const userId = appState.effectiveUserId || appState.currentUser.id;
+-        const userPromises = userSpecificTables.map(table => supabase.from(table).select("*").eq("user_id", userId));
++        // --- THIS IS THE KEY CHANGE ---
++        let userPromises;
++        if (state.isManager) {
++            // If user is a manager, fetch data for all users. RLS should handle permissions.
++            console.log("Manager detected, fetching all user data.");
++            userPromises = userSpecificTables.map(table => supabase.from(table).select("*"));
++        } else {
++            // If not a manager, only fetch data for the current user.
++            console.log("Standard user detected, fetching only own data.");
++            userPromises = userSpecificTables.map(table => supabase.from(table).select("*").eq("user_id", state.currentUser.id));
++        }
++        // --- END CHANGE ---
+ 
+         const publicPromises = publicTables.map(table => supabase.from(table).select("*"));
+         const allPromises = [...userPromises, ...publicPromises];
+@@ -145,15 +164,12 @@
+             return nameA.localeCompare(nameB);
+         });
+         const sortedAccounts = [...state.accounts].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+-        const contactsOptions = sortedContacts.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
+-        const accountsOptions = sortedAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+-        contactSelect.innerHTML = `<option value="">Link to Contact</option>${contactsOptions}`;
+-        accountSelect.innerHTML = `<option value="">Link to Account</option>${accountsOptions}`;
++        contactSelect.innerHTML = '<option value="">Link to Contact</option>' + sortedContacts.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
++        accountSelect.innerHTML = '<option value="">Link to Account</option>' + sortedAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+     }
+-        
++
+     // --- Core Logic ---
+     async function completeStep(csId, processedDescription = null) {
+-        const appState = getState();
+         const cs = state.contact_sequences.find((c) => c.id === csId);
+         if (!cs) return;
+ 
+@@ -174,17 +190,17 @@
+             }
+             
+             const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
+-            const rawDescription = currentStepInfo.subject || currentStepInfo.message || "Completed step";
+-            const finalDescription = replacePlaceholders(rawDescription, contact, account);
+-            const descriptionForLog = processedDescription || finalDescription;
+-
++            // --- UPDATED: Use processedDescription first, then step type, then fallback ---
++            const descriptionForLog = processedDescription || `Sequence: ${currentStepInfo.type}` || "Completed step";
++            const activityType = `Sequence: ${currentStepInfo.type}`;
++            
+             await supabase.from("activities").insert([{
+                 contact_id: contact.id,
+                 account_id: contact.account_id,
+                 date: new Date().toISOString(),
+-                type: `Sequence: ${currentStepInfo.type}`,
++                type: activityType,
+                 description: descriptionForLog,
+-                user_id: appState.currentUser.id
++                user_id: state.currentUser.id
+             }]);
+         }
+         
+@@ -210,6 +226,7 @@
+     // --- AI Briefing Logic ---
+     async function handleGenerateBriefing() {
+         aiBriefingContainer.classList.remove('hidden');
++        document.querySelector('.ai-briefing-card-body')?.classList.add('briefing-visible');
+         aiBriefingContainer.innerHTML = `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">Generating your daily briefing...</p>`;
+ 
+         try {
+@@ -230,6 +247,7 @@
+                 sequences: state.sequences,
+                 sequence_steps: state.sequence_steps
+             };
++            console.log("Payload being sent to Edge Function:", briefingPayload);
+             const { data: briefing, error } = await supabase.functions.invoke('get-daily-briefing', {
+                 body: { briefingPayload }
+             });
+@@ -242,21 +260,20 @@
+     }
+         
+     function renderAIBriefing(briefing) {
+-        const cardsHtml = briefing.priorities.map(item => `
+-            <div class="ai-briefing-priority-card">
+-                <div class="priority-title">${item.title}</div>
+-                <div class="priority-reason">${item.reason}</div>
+-            </div>
+-        `).join('');
+-        aiBriefingContainer.innerHTML = cardsHtml || '<p class="text-xs text-[var(--text-medium)]">No priorities for today.</p>';
+-        aiBriefingContainer.classList.remove('hidden');
++        const cardsHtml = (briefing.priorities && briefing.priorities.length > 0)
++            ? briefing.priorities.map(item => `
++                <div class="ai-briefing-priority-card">
++                    <div class="priority-title">${item.title}</div>
++                    <div class="priority-reason">${item.reason}</div>
++                </div>
++            `).join('')
++            : '<p class="ai-briefing-empty text-sm" style="color: var(--text-medium);">No priorities for today.</p>';
++        aiBriefingContainer.innerHTML = cardsHtml;
+         sessionStorage.setItem('crm-briefing-generated', 'true');
+         sessionStorage.setItem('crm-briefing-html', aiBriefingContainer.innerHTML);
++        sessionStorage.setItem('crm-briefing-requested', 'true');
+     }
+ 
+-    // --- Sequence Steps View Mode ---
+-    let sequenceViewMode = 'due';
+-
+     // --- Render Function ---
+     function renderDashboard() {
+         if (!myTasksList || !sequenceStepsList || !recentActivitiesList) return;
+@@ -269,27 +286,16 @@
+ 
+         const salesSequenceTasks = [];
+         const upcomingSalesTasks = [];
+-        
+-        const appState = getState();
++        const isManager = state.isManager === true;
+ 
+         for (const cs of state.contact_sequences) {
+             if (cs.status !== 'Active' || !cs.current_step_number) continue;
+-            const effectiveId = appState.effectiveUserId || appState.currentUser?.id;
+-            if (cs.user_id !== effectiveId) continue;
+ 
+             const currentStep = state.sequence_steps.find(
+                 s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number
+             );
+-            
+-            let shouldShowTask = false;
+-            if (currentStep) {
+-                const assignedTo = currentStep.assigned_to || 'Sales';
+-                if (assignedTo === 'Marketing') continue;
+-                // Show both Sales and Sales Manager steps (most default to Sales)
+-                shouldShowTask = assignedTo === 'Sales' || assignedTo === 'Sales Manager';
+-            }
+ 
+-            if (shouldShowTask) {
++            if (currentStep && ((isManager && (currentStep.assigned_to === 'Sales Manager' || cs.user_id === state.currentUser.id)) || (!isManager && (currentStep.assigned_to === 'Sales' || !currentStep.assigned_to)))) {
+                 const contact = state.contacts.find(c => c.id === cs.contact_id);
+                 const sequence = state.sequences.find(s => s.id === cs.sequence_id);
+                 if (contact && sequence) {
+@@ -300,7 +306,6 @@
+                         sequence: sequence,
+                         step: currentStep
+                     };
+-                    
+                     if (cs.next_step_due_date && new Date(cs.next_step_due_date).setHours(0,0,0,0) <= startOfToday.getTime()) {
+                         salesSequenceTasks.push(taskObject);
+                     } else {
+@@ -309,8 +314,12 @@
+                 }
+             }
+         }
+-        
+-        const pendingTasks = state.tasks.filter(task => task.status === 'Pending').sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
++
++        salesSequenceTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
++        upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
++
++        // --- 1. My Tasks (list) ---
++        const pendingTasks = state.tasks.filter(task => task.user_id === state.currentUser.id && task.status === 'Pending').sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+         if (pendingTasks.length > 0) {
+             pendingTasks.forEach(task => {
+                 const taskDueDate = task.due_date ? new Date(task.due_date) : null;
+@@ -318,10 +327,10 @@
+                 let linkedEntity = 'N/A';
+                 if (task.contact_id) {
+                     const contact = state.contacts.find(c => c.id === task.contact_id);
+-                    if (contact) linkedEntity = `<a href="contacts.html?contactId=${contact.id}" class="contact-name-link">${contact.first_name} ${contact.last_name}</a> (Contact)`;
++                    if (contact) linkedEntity = `<a href="contacts.html?contactId=${contact.id}" class="contact-name-link">${contact.first_name} ${contact.last_name}</a>`;
+                 } else if (task.account_id) {
+                     const account = state.accounts.find(a => a.id === task.account_id);
+-                    if (account) linkedEntity = `<a href="accounts.html?accountId=${account.id}" class="contact-name-link">${account.name}</a> (Account)`;
++                    if (account) linkedEntity = `<a href="accounts.html?accountId=${account.id}" class="contact-name-link">${account.name}</a>`;
+                 }
+                 const actionsHtml = `
+                     <button class="btn-primary btn-icon-only mark-task-complete-btn" data-task-id="${task.id}" title="Complete"><i class="fa-solid fa-square-check"></i></button>
+@@ -331,9 +340,7 @@
+                 const item = document.createElement("div");
+                 item.className = `task-item ${isPastDue ? 'past-due' : ''}`;
+                 item.innerHTML = `
+-                    <div class="task-left">
+-                        <div class="task-due">${formatSimpleDate(task.due_date)}</div>
+-                    </div>
++                    <div class="task-due">${formatSimpleDate(task.due_date)}</div>
+                     <div class="task-content">
+                         <div class="task-linked">${linkedEntity}</div>
+                         <div class="task-description">${task.description}</div>
+@@ -343,39 +350,29 @@
+                 myTasksList.appendChild(item);
+             });
+         } else {
+-            myTasksList.innerHTML = '<p class="my-tasks-empty text-sm text-[var(--text-medium)] px-4 py-6">No pending tasks. Great job!</p>';
++            myTasksList.innerHTML = '<p class="my-tasks-empty text-sm" style="color: var(--text-medium); padding: 1rem;">No pending tasks. Great job!</p>';
+         }
+ 
+         const myTasksCard = document.getElementById('my-tasks-card');
+-        const hamburgerBtn = document.getElementById('my-tasks-hamburger');
+-        if (myTasksCard && hamburgerBtn) {
+-            const taskCount = pendingTasks.length;
+-            const TASK_THRESHOLD = 3;
+-            if (taskCount > TASK_THRESHOLD) {
+-                myTasksCard.classList.add('quick-add-hidden');
+-            } else {
+-                myTasksCard.classList.remove('quick-add-hidden', 'hamburger-expanded');
+-                const icon = hamburgerBtn.querySelector('i');
+-                if (icon) icon.className = 'fa-solid fa-plus';
+-                hamburgerBtn.setAttribute('title', 'Add task');
+-                hamburgerBtn.setAttribute('aria-label', 'Add task');
+-            }
++        if (myTasksCard && myTasksHamburger) {
++            myTasksCard.classList.add('quick-add-hidden');
++            myTasksCard.classList.remove('hamburger-expanded');
++            const icon = myTasksHamburger.querySelector('i');
++            if (icon) icon.className = 'fa-solid fa-plus';
++            myTasksHamburger.setAttribute('title', 'Add task');
++            myTasksHamburger.setAttribute('aria-label', 'Add task');
+         }
+ 
+-        salesSequenceTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
+-        upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
+-
++        // --- 2. Sequence Steps (single list, re-rendered on tab switch) ---
+         function renderSequenceStepsList() {
+             sequenceStepsList.innerHTML = "";
+             const tasks = sequenceViewMode === 'due' ? salesSequenceTasks : upcomingSalesTasks;
+-
+             if (tasks.length > 0) {
+                 tasks.forEach(task => {
+                     const dueDate = new Date(task.next_step_due_date);
+                     const isPastDue = sequenceViewMode === 'due' && dueDate < startOfToday;
+                     const contactName = `${task.contact.first_name || ''} ${task.contact.last_name || ''}`.trim();
+                     const description = task.step.subject || task.step.message || '';
+-
+                     const stepType = (task.step.type || '').toLowerCase();
+                     const getStepIcon = () => {
+                         if (stepType.includes('linkedin')) return { icon: 'fa-paper-plane', title: 'Go to LinkedIn' };
+@@ -392,14 +389,13 @@
+                         } else if (stepType.includes('email') && task.contact.email) {
+                             btnHtml = `<button class="btn-primary btn-icon-only send-email-btn" data-cs-id="${task.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+                         } else if (stepType.includes('call')) {
+-                            btnHtml = `<button class="btn-primary btn-icon-only log-call-btn" data-cs-id="${task.id}" title="Log a call"><i class="fa-solid ${icon}"></i></button>`;
++                            btnHtml = `<button class="btn-primary btn-icon-only dial-call-btn" data-cs-id="${task.id}" title="Log a call"><i class="fa-solid ${icon}"></i></button>`;
+                         } else {
+                             btnHtml = `<button class="btn-primary btn-icon-only complete-step-btn" data-cs-id="${task.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+                         }
+                     } else {
+                         btnHtml = `<button class="btn-secondary btn-icon-only revisit-step-btn" data-cs-id="${task.id}" title="Revisit Last Step"><i class="fa-solid fa-rotate-left"></i></button>`;
+                     }
+-
+                     const item = document.createElement("div");
+                     item.className = `sequence-step-item ${isPastDue ? 'past-due' : ''}`;
+                     item.innerHTML = `
+@@ -417,17 +413,18 @@
+                 });
+             } else {
+                 const emptyMsg = sequenceViewMode === 'due' ? 'No sequence steps due today.' : 'No upcoming sequence steps.';
+-                sequenceStepsList.innerHTML = `<p class="sequence-steps-empty text-sm text-[var(--text-medium)] px-4 py-6">${emptyMsg}</p>`;
++                sequenceStepsList.innerHTML = `<p class="sequence-steps-empty text-sm" style="color: var(--text-medium); padding: 1rem;">${emptyMsg}</p>`;
+             }
+         }
+-
+         renderSequenceStepsList();
+ 
++        // --- 3. Recent Activities (stacked list, no Salesforce) ---
+         const sortedActivities = state.activities
++            .filter(act => isManager || act.user_id === state.currentUser.id)
+             .sort((a, b) => new Date(b.date) - new Date(a.date))
+             .slice(0, 20);
+         if (sortedActivities.length === 0) {
+-            recentActivitiesList.innerHTML = '<p class="recent-activities-empty text-sm text-[var(--text-medium)] px-4 py-6">No recent activities yet.</p>';
++            recentActivitiesList.innerHTML = '<p class="recent-activities-empty text-sm" style="color: var(--text-medium); padding: 1rem;">No recent activities yet.</p>';
+         } else {
+             sortedActivities.forEach(act => {
+                 const contact = state.contacts.find(c => c.id === act.contact_id);
+@@ -435,138 +432,59 @@
+                 const accountName = account ? account.name : "N/A";
+                 const contactName = contact ? `${contact.first_name} ${contact.last_name}` : "N/A";
+                 const meta = `${accountName} · ${contactName}`;
+-                const typeLower = act.type.toLowerCase();
+-                let iconClass = "icon-default", icon = "fa-circle-info", iconPrefix;
++                const typeLower = (act.type || '').toLowerCase();
++                let iconClass = "activity-icon-wrap icon-default", icon = "fa-circle-info", iconPrefix = "fas";
+                 if (typeLower.includes("cognito") || typeLower.includes("intelligence")) { icon = "fa-magnifying-glass"; }
+-                else if (typeLower.includes("email")) { iconClass = "icon-email"; icon = "fa-envelope"; }
+-                else if (typeLower.includes("call")) { iconClass = "icon-call"; icon = "fa-phone"; }
+-                else if (typeLower.includes("meeting")) { iconClass = "icon-meeting"; icon = "fa-video"; }
+-                else if (typeLower.includes("linkedin")) { iconClass = "icon-linkedin"; icon = "fa-linkedin-in"; iconPrefix = "fa-brands"; }
++                else if (typeLower.includes("email")) { iconClass = "activity-icon-wrap icon-email"; icon = "fa-envelope"; }
++                else if (typeLower.includes("call")) { iconClass = "activity-icon-wrap icon-call"; icon = "fa-phone"; }
++                else if (typeLower.includes("meeting")) { iconClass = "activity-icon-wrap icon-meeting"; icon = "fa-video"; }
++                else if (typeLower.includes("linkedin")) { iconClass = "activity-icon-wrap icon-linkedin"; icon = "fa-linkedin-in"; iconPrefix = "fa-brands"; }
+                 const item = document.createElement("div");
+                 item.className = "recent-activity-item";
+-                const logSfBtnHtml = act.logged_to_sf ? '' : `<button type="button" class="btn-log-sf" data-activity-id="${act.id}" title="Log to Salesforce"><i class="fa-brands fa-salesforce"></i> Log to SF</button>`;
+                 item.innerHTML = `
+-                    <div class="activity-icon-wrap ${iconClass}"><i class="${iconPrefix || "fas"} ${icon}"></i></div>
++                    <div class="${iconClass}"><i class="${iconPrefix} ${icon}"></i></div>
+                     <div class="activity-body">
+                         <div class="activity-meta">${meta}</div>
+                         <div class="activity-description">${act.type}: ${act.description}</div>
+                         <div class="activity-date">${formatDate(act.date)}</div>
+                     </div>
+-                    <div class="activity-actions">${logSfBtnHtml}</div>
+                 `;
+                 recentActivitiesList.appendChild(item);
+             });
+         }
+-        if (typeof refreshHUDNodes === 'function') refreshHUDNodes();
+-    }
+-
+-    function getActivityIconInfo(act) {
+-        const typeLower = (act.type || '').toLowerCase();
+-        if (typeLower.includes("cognito") || typeLower.includes("intelligence")) return { iconClass: "icon-default", icon: "fa-magnifying-glass", iconPrefix: "fas" };
+-        if (typeLower.includes("email")) return { iconClass: "icon-email", icon: "fa-envelope", iconPrefix: "fas" };
+-        if (typeLower.includes("call")) return { iconClass: "icon-call", icon: "fa-phone", iconPrefix: "fas" };
+-        if (typeLower.includes("meeting")) return { iconClass: "icon-meeting", icon: "fa-video", iconPrefix: "fas" };
+-        if (typeLower.includes("linkedin")) return { iconClass: "icon-linkedin", icon: "fa-linkedin-in", iconPrefix: "fa-brands" };
+-        return { iconClass: "icon-default", icon: "fa-circle-info", iconPrefix: "fas" };
+-    }
+-
+-    function openLogCallModal(task) {
+-        const contact = task.contact;
+-        const contactName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unknown';
+-        const phone = (contact.phone || '').trim();
+-        const telHref = phone ? `tel:${phone.replace(/\D/g, '')}` : '';
+-        const phoneDisplay = phone || 'No phone number';
+-        const phoneHtml = telHref
+-            ? `<a href="${telHref}" class="log-call-phone-link">${phoneDisplay}</a>`
+-            : `<span class="text-[var(--text-medium)]">${phoneDisplay}</span>`;
+-
+-        const contactActivities = state.activities
+-            .filter(a => a.contact_id === contact.id)
+-            .sort((a, b) => new Date(b.date) - new Date(a.date))
+-            .slice(0, 15);
+-        let activitiesHtml = '';
+-        contactActivities.forEach(act => {
+-            const account = act.account_id ? state.accounts.find(a => a.id === act.account_id) : null;
+-            const meta = account ? account.name : 'N/A';
+-            const { iconClass, icon, iconPrefix } = getActivityIconInfo(act);
+-            activitiesHtml += `
+-                <div class="recent-activity-item">
+-                    <div class="activity-icon-wrap ${iconClass}"><i class="${iconPrefix} ${icon}"></i></div>
+-                    <div class="activity-body">
+-                        <div class="activity-meta">${meta}</div>
+-                        <div class="activity-description">${act.type}: ${(act.description || '').replace(/</g, '&lt;')}</div>
+-                        <div class="activity-date">${formatDate(act.date)}</div>
+-                    </div>
+-                </div>`;
+-        });
+-        if (!activitiesHtml) activitiesHtml = '<p class="text-sm text-[var(--text-medium)] py-2">No recent activities for this contact.</p>';
+-
+-        const bodyHtml = `
+-            <div class="log-call-modal-body">
+-                <p class="mb-3"><strong>${contactName.replace(/</g, '&lt;')}</strong></p>
+-                <p class="mb-3">${phoneHtml}</p>
+-                <label class="block text-sm font-medium mb-1">Call notes (optional)</label>
+-                <textarea id="modal-call-notes" class="w-full rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm bg-[var(--bg-light)] min-h-[80px] mb-3" placeholder="Notes from the call..."></textarea>
+-                <div class="log-call-recent-activities">
+-                    <div class="text-xs font-semibold text-[var(--text-medium)] mb-2">Recent activities</div>
+-                    <div class="log-call-activities-list max-h-[200px] overflow-y-auto space-y-2">${activitiesHtml}</div>
+-                </div>
+-            </div>`;
+-
+-        showModal('Log a call', bodyHtml, async () => {
+-            const notes = (document.getElementById('modal-call-notes')?.value || '').trim();
+-            const description = notes || 'Call completed';
+-            await completeStep(task.id, description);
+-        }, true, `<button id="modal-confirm-btn" class="btn-primary">Log</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+     }
+ 
+     // --- EVENT LISTENER SETUP ---
+     function setupPageEventListeners() {
+         setupModalListeners();
+ 
+-        if (recentActivitiesList) {
+-            recentActivitiesList.addEventListener('click', async (e) => {
+-                const btn = e.target.closest('.btn-log-sf');
+-                if (!btn) return;
+-                const id = btn.getAttribute('data-activity-id');
+-                if (!id) return;
+-                const act = state.activities.find(a => String(a.id) === String(id));
+-                if (act) {
+-                    const account = act.account_id ? state.accounts.find(a => a.id === act.account_id) : null;
+-                    logToSalesforce({ subject: act.description, notes: act.description, type: act.type, created_at: act.date, sf_account_locator: account?.sf_account_locator });
+-                    const { error } = await supabase.from('activities').update({ logged_to_sf: true }).eq('id', act.id);
+-                    if (!error) {
+-                        act.logged_to_sf = true;
+-                        btn.style.display = 'none';
+-                    }
+-                }
+-            });
+-        }
+-
+-        if (aiBriefingRefreshBtn) {
+-            aiBriefingRefreshBtn.addEventListener('click', handleGenerateBriefing);
+-        }
+-
++        // Sequence Steps Due / Upcoming tab toggle (single list, re-render via renderDashboard)
+         if (sequenceToggleDue && sequenceToggleUpcoming) {
+             sequenceToggleDue.addEventListener('click', () => {
+                 if (sequenceViewMode === 'due') return;
+                 sequenceViewMode = 'due';
+                 sequenceToggleDue.classList.add('active');
++                sequenceToggleDue.setAttribute('aria-selected', 'true');
+                 sequenceToggleUpcoming.classList.remove('active');
++                sequenceToggleUpcoming.setAttribute('aria-selected', 'false');
+                 renderDashboard();
+             });
+             sequenceToggleUpcoming.addEventListener('click', () => {
+                 if (sequenceViewMode === 'upcoming') return;
+                 sequenceViewMode = 'upcoming';
+                 sequenceToggleUpcoming.classList.add('active');
++                sequenceToggleUpcoming.setAttribute('aria-selected', 'true');
+                 sequenceToggleDue.classList.remove('active');
++                sequenceToggleDue.setAttribute('aria-selected', 'false');
+                 renderDashboard();
+             });
+         }
++
+         if (logoutBtn) {
+             logoutBtn.addEventListener("click", async () => {
+                 sessionStorage.removeItem('crm-briefing-generated');
+                 sessionStorage.removeItem('crm-briefing-html');
++                sessionStorage.removeItem('crm-briefing-requested');
+                 await supabase.auth.signOut();
+                 window.location.href = "index.html";
+             });
+@@ -577,9 +495,7 @@
+                 if (!card) return;
+                 const isExpanded = card.classList.toggle('hamburger-expanded');
+                 const icon = myTasksHamburger.querySelector('i');
+-                if (icon) {
+-                    icon.className = isExpanded ? 'fa-solid fa-times' : 'fa-solid fa-plus';
+-                }
++                if (icon) icon.className = isExpanded ? 'fa-solid fa-times' : 'fa-solid fa-plus';
+                 myTasksHamburger.setAttribute('title', isExpanded ? 'Close' : 'Add task');
+                 myTasksHamburger.setAttribute('aria-label', isExpanded ? 'Close' : 'Add task');
+             });
+@@ -588,13 +504,12 @@
+         if (quickAddForm) {
+             quickAddForm.addEventListener('submit', async (e) => {
+                 e.preventDefault();
+-                const appState = getState();
+                 const description = document.getElementById('quick-add-description').value.trim();
+                 const dueDate = document.getElementById('quick-add-due-date').value;
+                 const contactId = document.getElementById('quick-add-contact').value;
+                 const accountId = document.getElementById('quick-add-account').value;
+                 if (!description) { alert('Description is required.'); return; }
+-                const taskData = { description, due_date: dueDate || null, user_id: appState.currentUser.id, status: 'Pending' };
++                const taskData = { description, due_date: dueDate || null, user_id: state.currentUser.id, status: 'Pending' };
+                 if (contactId) taskData.contact_id = Number(contactId);
+                 if (accountId) taskData.account_id = Number(accountId);
+                 const { error } = await supabase.from('tasks').insert(taskData);
+@@ -647,17 +562,6 @@
+                     await supabase.from('tasks').update(updateData).eq('id', taskId);
+                     await loadAllData();
+                 });
+-            } else if (button.matches('.log-call-btn')) {
+-                const csId = Number(button.dataset.csId);
+-                const cs = state.contact_sequences.find(c => c.id === csId);
+-                if (!cs) return alert("Contact sequence not found.");
+-                const contact = state.contacts.find(c => c.id === cs.contact_id);
+-                if (!contact) return alert("Contact not found.");
+-                const sequence = state.sequences.find(s => s.id === cs.sequence_id);
+-                const currentStep = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
+-                if (!sequence || !currentStep) return alert("Sequence step not found.");
+-                const task = { id: cs.id, contact, sequence, step: currentStep };
+-                openLogCallModal(task);
+             } else if (button.matches('.send-email-btn')) {
+                 const csId = Number(button.dataset.csId);
+                 const cs = state.contact_sequences.find(c => c.id === csId);
+@@ -728,9 +632,70 @@
+                 `<button id="modal-confirm-btn" class="btn-primary">Copy Text & Open LinkedIn</button>
+                  <button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`
+                 );
++            } else if (button.matches('.open-linkedin-btn')) {
++                const csId = Number(button.dataset.csId);
++                const cs = state.contact_sequences.find(c => c.id === csId);
++                if (!cs) return alert("Contact sequence not found.");
++
++                const contact = state.contacts.find(c => c.id === cs.contact_id);
++                if (!contact) return alert("Contact not found.");
++                
++                const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
++                if (!step) return alert("Sequence step not found.");
++
++                const linkedinUrl = contact.linkedin_profile_url || 'https://www.linkedin.com/feed/';
++                
++                window.open(linkedinUrl, "_blank");
++                
++                const logMessage = `LinkedIn: ${step.type} Completed`;
++                await completeStep(csId, logMessage);
++            } else if (button.matches('.dial-call-btn')) {
++                const csId = Number(button.dataset.csId);
++                const cs = state.contact_sequences.find(c => c.id === csId);
++                if (!cs) return alert("Contact sequence not found.");
++                
++                const contact = state.contacts.find(c => c.id === cs.contact_id);
++                if (!contact) return alert("Contact not found.");
++
++                const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
++                const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
++                if (!step) return alert("Sequence step not found.");
++
++                const contactName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim();
++                const contactPhone = contact.phone || '';
++                
++                const rawScript = step.message || step.subject || 'No script provided for this step.';
++                const callScript = replacePlaceholders(rawScript, contact, account);
++
++                showModal('Log Call', `
++                    <div class="form-group">
++                        <label>Contact:</label>
++                        <p><strong>${contactName}</strong></p>
++                    </div>
++                    <div class="form-group">
++                        <label>Phone:</label>
++                        <p><a href="tel:${contactPhone}" class="contact-name-link">${contactPhone || 'No phone on file'}</a></p>
++                    </div>
++                    <div class="form-group">
++                        <label for="modal-call-script">Call Script:</label>
++                        <textarea id="modal-call-script" class="form-control" rows="7" readonly style="background-color: #f8f8f8;">${callScript}</textarea>
++                    </div>
++                    <div class="form-group">
++                        <label for="modal-call-notes">Call Notes:</label>
++                        <textarea id="modal-call-notes" class="form-control" rows="5" placeholder="Enter notes from your call..."></textarea>
++                    </div>
++                `, async () => {
++                    const notes = document.getElementById('modal-call-notes').value.trim();
++                    const descriptionForLog = notes ? `Call Notes: ${notes}` : 'Call Completed';
++                    await completeStep(csId, descriptionForLog);
++                });
+             } else if (button.matches('.complete-step-btn')) {
+                 const csId = Number(button.dataset.csId);
+-                completeStep(csId);
++                const cs = state.contact_sequences.find(c => c.id === csId);
++                if (!cs) return alert("Contact sequence not found.");
++                const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
++                const logMessage = `${step.type}: ${step.subject || 'Task'} Completed`;
++                completeStep(csId, logMessage);
+             } else if (button.matches('.revisit-step-btn')) {
+                 const csId = Number(button.dataset.csId);
+                 const contactSequence = state.contact_sequences.find(cs => cs.id === csId);
+@@ -755,48 +720,71 @@
+         });
+     }
+ 
+-// --- App Initialization (UPDATED) ---
++    // --- App Initialization ---
+     async function initializePage() {
++        try {
+         await loadSVGs();
+         updateActiveNavLink();
+-        
+-        // Use the new global state initializer from shared_constants.js
+-        const appState = await initializeAppState(supabase);
+-        
+-        if (appState.currentUser) {
+-            // Pass the whole appState object to setup the user menu
+-            await setupUserMenuAndAuth(supabase, appState, { skipImpersonation: true }); 
+-            
+-            // Setup other shared features
+-            await setupGlobalSearch(supabase);
++        const { data: { session } } = await supabase.auth.getSession();
++        if (session) {
++            state.currentUser = session.user;
++
++            // This is the sequential fix: check permissions first.
++            const { data: userProfile, error } = await supabase
++                .from('user_quotas')
++                .select('is_manager')
++                .eq('user_id', state.currentUser.id)
++                .single();
++
++            if (error && error.code !== 'PGRST116') { //PGRST116 means no row found, which is fine.
++                console.error("Critical error fetching user manager status:", error);
++                alert("Could not verify user permissions. Please refresh the page.");
++                return;
++            }
++            state.isManager = userProfile?.is_manager === true;
++
++            // Now that state.isManager is set, proceed with the rest of the setup.
++            await setupUserMenuAndAuth(supabase, state);
++            await setupGlobalSearch(supabase, state.currentUser);
+             await checkAndSetNotifications(supabase);
+             
+-            // Initial data load for the effective user (which is the current user by default)
++            // The `loadAllData` function will now use the correct `state.isManager` flag.
+             await loadAllData();
+-            
+-            // Setup event listeners (including Refresh button)
++
+             setupPageEventListeners();
+ 
+-            // Auto-run briefing once per login (session)
+-            if (!sessionStorage.getItem('crm-briefing-generated')) {
+-                handleGenerateBriefing();
+-            } else {
+-                const savedHtml = sessionStorage.getItem('crm-briefing-html');
+-                if (savedHtml) {
+-                    aiBriefingContainer.innerHTML = savedHtml;
+-                    aiBriefingContainer.classList.remove('hidden');
+-                } else {
+-                    const placeholder = document.getElementById('ai-briefing-placeholder');
+-                    if (placeholder) placeholder.textContent = 'Refresh to generate a new briefing.';
+-                }
++            const aiBriefingRefreshBtn = document.getElementById('ai-briefing-refresh-btn');
++            if (aiBriefingRefreshBtn) {
++                aiBriefingRefreshBtn.addEventListener('click', handleGenerateBriefing);
+             }
+ 
+-            
++            // Auto-run briefing once per session: restore from sessionStorage if we have it; otherwise run only if we haven't already requested this session (avoids duplicate API calls if user navigates away before response).
++            const savedHtml = sessionStorage.getItem('crm-briefing-html');
++            const alreadyGenerated = sessionStorage.getItem('crm-briefing-generated');
++            const alreadyRequestedThisSession = sessionStorage.getItem('crm-briefing-requested');
++
++            if (savedHtml) {
++                aiBriefingContainer.innerHTML = savedHtml;
++                aiBriefingContainer.classList.remove('hidden');
++                document.querySelector('.ai-briefing-card-body')?.classList.add('briefing-visible');
++            } else if (alreadyGenerated) {
++                const placeholder = document.getElementById('ai-briefing-placeholder');
++                if (placeholder) placeholder.textContent = 'Refresh to generate a new briefing.';
++            } else if (alreadyRequestedThisSession) {
++                const placeholder = document.getElementById('ai-briefing-placeholder');
++                if (placeholder) placeholder.textContent = 'Refresh to generate a new briefing.';
++            } else {
++                sessionStorage.setItem('crm-briefing-requested', 'true');
++                handleGenerateBriefing();
++            }
+         } else {
+             hideGlobalLoader();
+             window.location.href = "index.html";
+         }
++        } finally {
++            hideGlobalLoader();
++        }
+     }
+ 
+-    initializePage();
++    runWhenNavReady(function () { initializePage(); });
+ });

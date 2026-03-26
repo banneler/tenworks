@@ -12,7 +12,8 @@ import {
     setupGlobalSearch,
     runWhenNavReady,
     updateLastVisited,
-    checkAndSetNotifications
+    checkAndSetNotifications,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -82,6 +83,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const filterSearchInput = document.getElementById('filter-search');
     const clearDiscFiltersBtn = document.getElementById('clear-disc-filters-btn');
 
+    function initTomSelect(el, opts = {}) {
+        if (!el || typeof window.TomSelect === "undefined") return null;
+        try {
+            return new window.TomSelect(el, { create: false, ...opts });
+        } catch (e) {
+            return null;
+        }
+    }
+    const tomSelectNoSearch = () => ({ render: { dropdown: () => { const d = document.createElement("div"); d.className = "ts-dropdown tom-select-no-search"; return d; } } });
+
     // --- MODAL ELEMENTS (Dynamic) ---
     // These are re-assigned every time the modal opens
     let initialAiSuggestionSection, refineSuggestionBtn, outreachSubjectInput, outreachBodyTextarea;
@@ -93,8 +104,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- DATA FETCHING ---
     async function loadAllData() {
-        if (!state.currentUser) return;
-
+        if (!state.currentUser) {
+            hideGlobalLoader();
+            return;
+        }
+        try {
         // Parallel Fetch: Get Alerts (Farmer) AND Leads (Hunter)
         const [
             { data: alerts, error: alertsError },
@@ -118,9 +132,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         populateAccountFilter();
         renderContent();
+        } finally {
+            hideGlobalLoader();
+        }
     }
 
     function populateAccountFilter() {
+        if (filterAccountSelect.tomselect) {
+            filterAccountSelect.tomselect.destroy();
+            filterAccountSelect.tomselect = null;
+        }
         filterAccountSelect.innerHTML = '<option value="">All Accounts</option>';
         state.accounts.forEach(account => {
             const option = document.createElement('option');
@@ -130,6 +151,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         if (state.filterAccountId) {
             filterAccountSelect.value = state.filterAccountId;
+        }
+        if (typeof window.TomSelect !== "undefined") {
+            try {
+                const ts = initTomSelect(filterAccountSelect, tomSelectNoSearch());
+                if (ts) ts.on("change", (val) => { state.filterAccountId = val || ""; renderContent(); });
+            } catch (e) {}
+        } else {
+            filterAccountSelect.addEventListener("change", (e) => { state.filterAccountId = e.target.value; renderContent(); });
         }
     }
 
@@ -252,34 +281,48 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    function setCardLoadingState(card, isLoading) {
+        if (!card) return;
+        if (isLoading) {
+            card.dataset.originalHtml = card.innerHTML;
+            const accountName = card.querySelector('.alert-account-name')?.textContent?.trim() || 'this account';
+            card.classList.add('cognito-card-loading');
+            card.innerHTML = `
+                <div class="cognito-card-loading-state">
+                    <div class="cognito-card-loading-spinner" aria-hidden="true"></div>
+                    <p class="cognito-card-loading-title">Preparing Action Center</p>
+                    <p class="cognito-card-loading-subtitle">Generating AI suggestion for ${accountName}...</p>
+                </div>
+            `;
+            return;
+        }
+        if (card.dataset.originalHtml) {
+            card.innerHTML = card.dataset.originalHtml;
+            delete card.dataset.originalHtml;
+        }
+        card.classList.remove('cognito-card-loading');
+    }
+
     // --- FULL ACTION CENTER LOGIC (Intelligence Only) ---
-    // This is the complete, complex logic you originally had.
-    async function showActionCenter(alertId) {
+    // On-card loading: card shows spinner, then reimagined modal opens with content (no loader in modal).
+    async function showActionCenter(alertId, sourceCard = null) {
         state.selectedAlert = state.alerts.find(a => a.id === alertId);
         if (!state.selectedAlert) return;
-    
+
         const account = state.accounts.find(acc => acc.id === state.selectedAlert.account_id);
         if (!account) {
             alert(`Error: Could not find account ID ${state.selectedAlert.account_id}.`);
             return;
         }
-        
-        showModal('Action Center', `
-            <div class="loader"></div>
-            <p class="placeholder-text" style="text-align: center;">Generating AI suggestion...</p>
-        `, null, false, `
-            <button id="modal-mark-completed-btn" class="btn-primary">Mark Completed</button>
-            <button id="modal-close-btn" class="btn-secondary">Close</button>
-        `);
-        
-        document.getElementById('modal-mark-completed-btn').style.display = 'none';
-        document.getElementById('modal-close-btn').addEventListener('click', hideModal);
-        document.getElementById('modal-mark-completed-btn').addEventListener('click', handleMarkCompleted);
-    
-        const initialOutreachCopy = await generateOutreachCopy(state.selectedAlert, account);
-        
-        document.getElementById('modal-mark-completed-btn').style.display = 'inline-block';
-    
+
+        setCardLoadingState(sourceCard, true);
+        let initialOutreachCopy;
+        try {
+            initialOutreachCopy = await generateOutreachCopy(state.selectedAlert, account);
+        } finally {
+            setCardLoadingState(sourceCard, false);
+        }
+
         state.initialSuggestionSubject = initialOutreachCopy.subject;
         state.initialSuggestionBody = initialOutreachCopy.body;
     
@@ -342,28 +385,33 @@ document.addEventListener("DOMContentLoaded", async () => {
                     </div>
                 </div>
                 <div class="action-center-section">
-                    <h5>Log Actions in Constellation</h5>
+                    <h5>Log Activity</h5>
                     <label for="log-interaction-notes">Log an Interaction:</label>
                     <textarea id="log-interaction-notes" rows="4" placeholder="e.g., Emailed the new CIO..." ${relevantContacts.length === 0 ? 'disabled' : ''}></textarea>
-                    <button class="btn-secondary" id="log-interaction-btn" style="width: 100%; margin-bottom: 15px;" ${relevantContacts.length === 0 ? 'disabled' : ''}>Log to Constellation</button>
+                    <button class="btn-secondary" id="log-interaction-btn" style="width: 100%; margin-bottom: 15px;" ${relevantContacts.length === 0 ? 'disabled' : ''}>Log Activity</button>
                     <label for="create-task-desc">Create a Task:</label>
                     <input type="text" id="create-task-desc" placeholder="e.g., Follow up..." ${relevantContacts.length === 0 ? 'disabled' : ''}>
                     <label for="create-task-due-date">Due Date:</label>
                     <input type="date" id="create-task-due-date" ${relevantContacts.length === 0 ? 'disabled' : ''}>
-                    <button class="btn-primary" id="create-task-btn" style="width: 100%;" ${relevantContacts.length === 0 ? 'disabled' : ''}>Create in Constellation</button>
+                    <button class="btn-primary" id="create-task-btn" style="width: 100%;" ${relevantContacts.length === 0 ? 'disabled' : ''}>Create Task</button>
                     <p class="placeholder-text" style="color: var(--warning-yellow); margin-top: 10px; ${relevantContacts.length === 0 ? '' : 'display: none;'}" id="no-contact-message">
-                        Add a contact to this account in Constellation to enable logging.
+                        Add a contact to this account in TenWorks to enable logging.
                     </p>
                 </div>
             </div>`;
-    
-        const modalBodyElement = document.getElementById('modal-body');
-        if (modalBodyElement) {
-            modalBodyElement.innerHTML = modalBodyContent; 
-        }
-    
-        // Re-select all elements
+
+        showModal('Action Center', modalBodyContent, null, false, `
+            <button id="modal-mark-completed-btn" class="btn-primary">Mark Completed</button>
+            <button id="modal-close-btn" class="btn-secondary">Close</button>
+        `);
+
+        document.getElementById('modal-close-btn').addEventListener('click', hideModal);
+        document.getElementById('modal-mark-completed-btn').addEventListener('click', handleMarkCompleted);
+
         contactSelector = document.getElementById('contact-selector');
+        if (contactSelector && typeof window.TomSelect !== "undefined" && !contactSelector.tomselect) {
+            try { initTomSelect(contactSelector, tomSelectNoSearch()); } catch (e) {}
+        }
         initialAiSuggestionSection = document.getElementById('initial-ai-suggestion-section');
         refineSuggestionBtn = document.getElementById('refine-suggestion-btn');
         outreachSubjectInput = document.getElementById('outreach-subject');
@@ -389,7 +437,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         initialAiSuggestionSection.style.display = 'block';
         customPromptSection.style.display = 'none';
     
-        contactSelector.addEventListener('change', handleContactChange);
+        if (contactSelector) {
+            if (contactSelector.tomselect) contactSelector.tomselect.on('change', (val) => handleContactChange({ target: { value: val } }));
+            else contactSelector.addEventListener('change', handleContactChange);
+        }
         document.getElementById('send-email-btn').addEventListener('click', () => handleEmailAction(false));
         document.getElementById('copy-btn').addEventListener('click', () => handleCopyAction(false));
         document.getElementById('log-interaction-btn').addEventListener('click', handleLogInteraction);
@@ -428,7 +479,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 customOutreachSubjectInput.value = customOutreachCopy.subject;
                 customOutreachBodyTextarea.value = customOutreachCopy.body;
                 customSuggestionOutput.style.display = 'block';
-                handlePersonalizeOutreach({ subject: customOutreachCopy.subject, body: customOutreachCopy.body }, contactSelector.value, true);
+                handlePersonalizeOutreach({ subject: customOutreachCopy.subject, body: customOutreachCopy.body }, (contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value), true);
             }
         });
     
@@ -436,8 +487,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         sendEmailCustomBtn.addEventListener('click', () => handleEmailAction(true));
     
         if (suggestedContactId) {
-            contactSelector.value = suggestedContactId;
-            contactSelector.dispatchEvent(new Event('change'));
+            if (contactSelector.tomselect) { contactSelector.tomselect.setValue(suggestedContactId); contactSelector.tomselect.trigger('change'); }
+            else { contactSelector.value = suggestedContactId; contactSelector.dispatchEvent(new Event('change')); }
         }
     
         if (relevantContacts.length === 0) {
@@ -500,7 +551,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function handleContactChange(e) {
-        const selectedContactId = e.target.value;
+        const selectedContactId = e && e.target ? e.target.value : (contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value);
         const initialAiCopyForPersonalization = {
             subject: state.initialSuggestionSubject,
             body: state.initialSuggestionBody
@@ -518,7 +569,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function handleEmailAction(isCustom = false) { 
-        const contactId = contactSelector.value;
+        const contactId = contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value;
         if (!contactId) return alert('Please select a contact.');
         const contact = state.contacts.find(c => c.id === Number(contactId));
         if (!contact || !contact.email) return alert('Selected contact does not have an email address.');
@@ -540,7 +591,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function handleLogInteraction() {
-        const selectedContactId = contactSelector.value;
+        const selectedContactId = contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value;
         if (!selectedContactId) return alert('Please select a contact.');
         const notes = logInteractionNotes.value.trim();
         if (!notes) return alert('Please enter notes.');
@@ -559,7 +610,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function handleCreateTask() {
-        const selectedContactId = contactSelector.value;
+        const selectedContactId = contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value;
         if (!selectedContactId) return alert('Please select a contact.');
         const description = createTaskDesc.value.trim();
         const dueDate = createTaskDueDate.value;
@@ -626,7 +677,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const id = parseInt(card.dataset.id);
             const action = button.dataset.action;
 
-            if (action === 'action') showActionCenter(id);
+            if (action === 'action') showActionCenter(id, card);
             if (action === 'dismiss') {
                 if(confirm("Dismiss this alert?")) updateAlertStatus(id, 'Dismissed', 'cognito_alerts');
             }
@@ -634,29 +685,44 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (action === 'reactivate-lead') updateAlertStatus(id, 'new', 'cognito_discovery_tw');
         });
 
-        // 4. Filters
-        
-        filterRelevanceSelect.addEventListener('change', (e) => { state.filterRelevance = e.target.value; renderContent(); });
-        filterAccountSelect.addEventListener('change', (e) => { state.filterAccountId = e.target.value; renderContent(); });
-        
-        filterStageSelect.addEventListener('change', (e) => { state.filterStage = e.target.value; renderContent(); });
+        // 4. Filters (TomSelect for dropdowns)
+        if (filterRelevanceSelect && typeof window.TomSelect !== "undefined") {
+            try {
+                const ts = initTomSelect(filterRelevanceSelect, tomSelectNoSearch());
+                if (ts) ts.on("change", (val) => { state.filterRelevance = val || ""; renderContent(); });
+            } catch (e) {}
+        } else if (filterRelevanceSelect) {
+            filterRelevanceSelect.addEventListener('change', (e) => { state.filterRelevance = e.target.value; renderContent(); });
+        }
+        if (filterStageSelect && typeof window.TomSelect !== "undefined") {
+            try {
+                const ts = initTomSelect(filterStageSelect, tomSelectNoSearch());
+                if (ts) ts.on("change", (val) => { state.filterStage = val || ""; renderContent(); });
+            } catch (e) {}
+        } else if (filterStageSelect) {
+            filterStageSelect.addEventListener('change', (e) => { state.filterStage = e.target.value; renderContent(); });
+        }
         filterSearchInput.addEventListener('input', (e) => { state.searchTerm = e.target.value; renderContent(); });
 
         clearIntFiltersBtn.addEventListener('click', () => {
             state.filterTriggerType = ''; state.filterRelevance = ''; state.filterAccountId = '';
-            filterTriggerTypeSelect.value = ''; filterRelevanceSelect.value = ''; filterAccountSelect.value = '';
+            if (filterTriggerTypeSelect) { if (filterTriggerTypeSelect.tomselect) filterTriggerTypeSelect.tomselect.setValue(''); else filterTriggerTypeSelect.value = ''; }
+            if (filterRelevanceSelect) { if (filterRelevanceSelect.tomselect) filterRelevanceSelect.tomselect.setValue(''); else filterRelevanceSelect.value = ''; }
+            if (filterAccountSelect) { if (filterAccountSelect.tomselect) filterAccountSelect.tomselect.setValue(''); else filterAccountSelect.value = ''; }
             renderContent();
         });
 
         clearDiscFiltersBtn.addEventListener('click', () => {
             state.filterStage = ''; state.searchTerm = '';
-            filterStageSelect.value = ''; filterSearchInput.value = '';
+            if (filterStageSelect) { if (filterStageSelect.tomselect) filterStageSelect.tomselect.setValue(''); else filterStageSelect.value = ''; }
+            filterSearchInput.value = '';
             renderContent();
         });
     }
 
     // --- INITIALIZATION ---
     async function initializePage() {
+        try {
         await loadSVGs();
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
@@ -665,11 +731,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             updateActiveNavLink();
             setupPageEventListeners();
             await setupGlobalSearch(supabase, state.currentUser);
-            await loadAllData(); 
+            await loadAllData();
             await checkAndSetNotifications(supabase);
             updateLastVisited(supabase, 'cognito');
         } else {
+            hideGlobalLoader();
             window.location.href = "index.html";
+        }
+        } finally {
+            hideGlobalLoader();
         }
     }
     runWhenNavReady(function () { initializePage(); });

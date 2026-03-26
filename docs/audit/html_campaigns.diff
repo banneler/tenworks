@@ -1,0 +1,62 @@
+--- /Users/ba/Constellation-V/campaigns.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/campaigns.html	2026-02-27 18:57:12
+@@ -2,35 +2,31 @@
+ <html lang="en">
+ 
+ <head>
+-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
++    <meta name="description" content="TenWorks CRM: A powerful and intuitive tool for managing your fabrication pipeline, contacts, and deals.">
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - Campaigns</title>
++    <title>TenWorks Campaigns</title>
++    <link rel="stylesheet" href="css/style.css">
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
+-    <link rel="stylesheet" href="output.css">
+-    <link rel="stylesheet" href="css/global-loader.css">
+     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+ </head>
+ 
+-<body>
++<body data-nav="crm">
+     <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+         <div class="global-loader-content">
+             <div class="global-loader-spinner" aria-hidden="true">
+-                <svg class="global-loader-svg global-loader-constellation" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                    <path class="global-loader-constellation-line" pathLength="1" d="M24 8 L10 22 L18 38 L30 38 L38 22 L24 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+-                    <circle class="global-loader-star" cx="24" cy="8" r="2.2"/><circle class="global-loader-star" cx="10" cy="22" r="1.8"/><circle class="global-loader-star" cx="18" cy="38" r="2"/><circle class="global-loader-star" cx="30" cy="38" r="1.8"/><circle class="global-loader-star" cx="38" cy="22" r="2"/>
+-                </svg>
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+             </div>
+             <p class="global-loader-text">Loading…</p>
+         </div>
+     </div>
+     <div class="crm-container">
+-        <nav class="nav-sidebar">
+-            <script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.currentScript.parentElement.classList.add('nav-sidebar-collapsed');}catch(e){}})();</script>
+-            <div id="global-nav-container" class="flex flex-col flex-1 min-h-0"></div>
+-        </nav>
++        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
+ 
+         <main class="content-area">
+             <div id="campaigns-view" class="content-view active-view campaigns-layout">
+@@ -162,12 +158,8 @@
+             <div id="modal-actions" class="modal-actions"></div>
+         </div>
+     </div>
+-    <script>
+-    (function() {
+-        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+-        document.body.className = `theme-${savedTheme}`;
+-    })();
+-    </script>
++
++    <script src="js/nav-loader.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
+     <script type="module" src="js/campaigns.js"></script>
+ </body>

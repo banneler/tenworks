@@ -1,0 +1,187 @@
+--- /Users/ba/Constellation-V/admin.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/admin.html	2026-02-27 16:16:41
+@@ -1,32 +1,26 @@
+ <!DOCTYPE html>
+ <html lang="en">
+ <head>
+-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - Admin</title>
+-    <link rel="stylesheet" href="output.css">
+-    <link rel="stylesheet" href="css/global-loader.css">
++    <title>Constellation - Admin Portal</title>
++    <link rel="stylesheet" href="css/style.css">
+     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+ </head>
+ <body>
+     <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+         <div class="global-loader-content">
+             <div class="global-loader-spinner" aria-hidden="true">
+-                <svg class="global-loader-svg global-loader-constellation" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                    <path class="global-loader-constellation-line" pathLength="1" d="M24 8 L10 22 L18 38 L30 38 L38 22 L24 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+-                    <circle class="global-loader-star" cx="24" cy="8" r="2.2"/><circle class="global-loader-star" cx="10" cy="22" r="1.8"/><circle class="global-loader-star" cx="18" cy="38" r="2"/><circle class="global-loader-star" cx="30" cy="38" r="1.8"/><circle class="global-loader-star" cx="38" cy="22" r="2"/>
+-                </svg>
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+             </div>
+             <p class="global-loader-text">Loading…</p>
+         </div>
+     </div>
+     <div class="crm-container">
+         <nav class="nav-sidebar">
+-            <div data-svg-loader="assets/constellation-logo-full.svg" class="constellation-main-logo"></div>
++            <div data-svg-loader="assets/logo.svg"></div>
+             <h2 class="text-xl font-bold text-center mb-4" style="color: var(--text-light);">ADMIN</h2>
+             <a href="#user-management" class="nav-button admin-nav active">User Management</a>
+             <a href="#content-management" class="nav-button admin-nav">Content Management</a>
+@@ -40,16 +34,12 @@
+         
+         <main class="content-area">
+             <div id="user-management-view" class="content-view active-view">
+-                <div class="section-card">
+-                    <div class="section-card-header">
+-                        <h2 class="page-title">User Management</h2>
+-                    </div>
+-                    <div class="px-5 pb-5">
+-                        <div class="table-container"><table id="user-management-table"><thead><tr><th>Full Name</th><th>Email</th><th>Last Login</th><th>Monthly Quota ($)</th><th>Is Manager?</th><th>Exclude from Reporting?</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
++                <h2>User Management</h2>
++                <div class="table-container"><table id="user-management-table"><thead><tr><th>Full Name</th><th>Email</th><th>Last Login</th><th>Monthly Quota ($)</th><th>Is Manager?</th><th>Exclude from Reporting?</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+                 
+                 <div id="reassignment-section" class="hidden" style="margin-top: 2rem;">
+-                    <h3 class="section-title">Bulk Data Reassignment</h3>
+-                    <p class="placeholder-text placeholder-text-block">
++                    <h3>Bulk Data Reassignment</h3>
++                    <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">
+                       Quickly reassign all open deals, contacts, and accounts from one user to another. This is useful when a team member's role changes or they leave the company.
+                     </p>
+                     <div class="filter-bar">
+@@ -60,34 +50,22 @@
+                         <button id="reassign-btn" class="btn-primary">Reassign</button>
+                     </div>
+                 </div>
+-                    </div>
+-                </div>
+             </div>
+ 
+             <div id="content-management-view" class="content-view hidden">
+-                <div class="section-card">
+-                    <div class="section-card-header">
+-                        <h2 class="page-title">Content Management</h2>
+-                    </div>
+-                    <div class="px-5 pb-5">
+-                        <p class="placeholder-text mb-6">
+-                          Manage which templates and sequences are shared across the organization.
+-                        </p>
+-                        <div class="deals-view-toggle mb-6">
+-                            <button id="view-templates-btn" class="btn-secondary content-view-btn active">Email Templates</button>
+-                            <button id="view-sequences-btn" class="btn-secondary content-view-btn">Marketing Sequences</button>
+-                        </div>
+-                        <div class="table-container"><table id="content-management-table"><thead></thead><tbody></tbody></table></div>
+-                    </div>
++                <h2>Content Management</h2>
++                <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">
++                  Manage which templates and sequences are shared across the organization.
++                </p>
++                <div class="deals-view-toggle" style="margin-bottom: 1.5rem;">
++                    <button id="view-templates-btn" class="btn-secondary content-view-btn active">Email Templates</button>
++                    <button id="view-sequences-btn" class="btn-secondary content-view-btn">Marketing Sequences</button>
+                 </div>
++                <div class="table-container"><table id="content-management-table"><thead></thead><tbody></tbody></table></div>
+             </div>
+ 
+             <div id="analytics-view" class="content-view hidden">
+-                <div class="section-card">
+-                    <div class="section-card-header">
+-                        <h2 class="page-title">System Analytics</h2>
+-                    </div>
+-                    <div class="px-5 pb-5">
++                <h2>System Analytics</h2>
+                 <div class="filter-bar">
+                     <select id="analytics-rep-filter"></select>
+                     <select id="analytics-date-filter">
+@@ -134,32 +112,26 @@
+                         <div class="chart-wrapper hidden"><canvas id="new-deals-value-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                     </div>
+                     <div class="chart-container" id="closed-won-chart-container">
+-                        <div class="chart-header"><h4>Closed Won Deals</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
++                        <div class="chart-header"><h4>Sold Deals</h4><button class="btn-secondary chart-toggle-btn" data-view="chart"><i class="fas fa-table"></i></button></div>
+                         <div class="analytics-metric-card"><div class="metric-value-large" id="closed-won-metric">$0K</div></div>
+                         <div class="chart-wrapper hidden"><canvas id="closed-won-chart"></canvas><div class="chart-table-view hidden"></div></div>
+                     </div>
+                 </div>
+-                 <h2 class="section-title">System Activity Log</h2>
++                 <h2 style="margin-top: 2rem;">System Activity Log</h2>
+                 <div class="table-container">
+                     <table id="activity-log-table">
+                         <thead><tr><th>Date</th><th>User</th><th>Type</th><th>Description</th><th>Related Contact</th><th>Related Account</th></tr></thead>
+                         <tbody></tbody>
+                     </table>
+                 </div>
+-                    </div>
+-                </div>
+             </div>
+             
+             <div id="script-logs-view" class="content-view hidden">
+-                <div class="section-card">
+-                    <div class="section-card-header">
+-                        <h2 class="page-title">Script Logs</h2>
+-                    </div>
+-                    <div class="px-5 pb-5">
+-                        <p class="placeholder-text mb-6">
+-                          View the run history for automated scripts that feed data into Constellation.
+-                        </p>
+-                        <div class="table-container">
++                <h2>Script Logs</h2>
++                <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">
++                  View the run history for automated scripts that feed data into Constellation.
++                </p>
++                <div class="table-container">
+                     <table id="script-logs-table">
+                         <thead>
+                             <tr>
+@@ -172,19 +144,14 @@
+                         <tbody></tbody>
+                     </table>
+                 </div>
+-                    </div>
+-                </div>
+             </div>
+ 
+             <div id="settings-view" class="content-view hidden">
+-                <div class="section-card">
+-                    <div class="section-card-header">
+-                        <h2 class="page-title">System Settings</h2>
+-                    </div>
+-                    <div class="split-view px-5 pb-5">
++                <h2>System Settings</h2>
++                <div class="split-view">
+                     <div class="details-panel">
+-                        <h3 class="details-panel-title">Deal Stages</h3>
+-                        <p class="placeholder-text placeholder-text-block">Define the stages of your sales pipeline. The order can be rearranged by dragging and dropping.</p>
++                        <h3>Deal Stages</h3>
++                        <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">Define the stages of your sales pipeline. The order can be rearranged by dragging and dropping.</p>
+                         <ul id="deal-stages-list" class="settings-list"></ul>
+                         <div class="settings-add-form">
+                             <input type="text" id="new-deal-stage-name" placeholder="New stage name...">
+@@ -192,8 +159,8 @@
+                         </div>
+                     </div>
+                     <div class="details-panel">
+-                        <h3 class="details-panel-title">Activity Types</h3>
+-                        <p class="placeholder-text placeholder-text-block">Define the types of activities your team can log (e.g., Call, Email, Demo).</p>
++                        <h3>Activity Types</h3>
++                        <p class="placeholder-text" style="text-align: left; margin-top: 0; margin-bottom: 1.5rem;">Define the types of activities your team can log (e.g., Call, Email, Demo).</p>
+                         <ul id="activity-types-list" class="settings-list"></ul>
+                         <div class="settings-add-form">
+                             <input type="text" id="new-activity-type-name" placeholder="New activity type...">
+@@ -201,7 +168,6 @@
+                         </div>
+                     </div>
+                 </div>
+-                </div>
+             </div>
+         </main>
+     </div>

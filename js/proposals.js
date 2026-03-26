@@ -11,7 +11,8 @@ import {
     setupUserMenuAndAuth,
     loadSVGs,
     setupGlobalSearch,
-    runWhenNavReady
+    runWhenNavReady,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1310,21 +1311,22 @@ async function loadProposal() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     runWhenNavReady(async () => {
-    await loadSVGs();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = 'index.html'; return; }
-    state.currentUser = user;
-    await setupUserMenuAndAuth(supabase, { currentUser: user });
-    await setupGlobalSearch(supabase, user);
+        try {
+        await loadSVGs();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { hideGlobalLoader(); window.location.href = 'index.html'; return; }
+        state.currentUser = user;
+        await setupUserMenuAndAuth(supabase, { currentUser: user });
+        await setupGlobalSearch(supabase, user);
 
-    const params = new URLSearchParams(window.location.search);
-    state.dealId = params.get('deal_id') || null;
-    state.projectId = params.get('project_id') || null;
+        const params = new URLSearchParams(window.location.search);
+        state.dealId = params.get('deal_id') || null;
+        state.projectId = params.get('project_id') || null;
 
-    // Prefer project when both present (e.g. from Projects "Generate Proposal")
-    if (state.projectId) await prefillFromProject(state.projectId);
-    else if (state.dealId) await prefillFromDeal(state.dealId);
-    else if (state.locations.length === 0) addLocationBlock('');
+        // Prefer project when both present (e.g. from Projects "Generate Proposal")
+        if (state.projectId) await prefillFromProject(state.projectId);
+        else if (state.dealId) await prefillFromDeal(state.dealId);
+        else if (state.locations.length === 0) addLocationBlock('');
 
     updateShareStatusLinkVisibility();
 
@@ -1419,5 +1421,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     }
+        } finally {
+            hideGlobalLoader();
+        }
     }); // runWhenNavReady
 });

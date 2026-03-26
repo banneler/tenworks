@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Intelligence</title>
     <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -13,8 +14,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body data-nav="crm">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
     <div class="crm-container">
-        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
+        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
         
         <main class="content-area">
             <div id="cognito-view" class="content-view active-view">
@@ -77,6 +86,7 @@
     })();
     </script>
     <script src="js/nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
     <script type="module" src="js/cognito.js"></script>
 </body>
 </html>

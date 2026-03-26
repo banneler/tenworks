@@ -1,0 +1,631 @@
+--- /Users/ba/Constellation-V/proposals.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/proposals.html	2026-02-27 14:14:43
+@@ -1,433 +1,241 @@
+ <!DOCTYPE html>
+ <html lang="en">
++
+ <head>
+-    <meta name="description" content="Constellation CRM: Proposals.">
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - Proposals</title>
+-    <link rel="stylesheet" href="output.css">
+-    <link rel="stylesheet" href="css/global-loader.css">
+-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
+-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
++    <title>Ten Works · Proposal Generator</title>
++    <script>
++        (function() {
++            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
++            document.documentElement.className = 'theme-' + savedTheme;
++            if (!localStorage.getItem('crm-theme')) localStorage.setItem('crm-theme', 'dark');
++        })();
++    </script>
++    <link rel="stylesheet" href="css/style.css">
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+-    <script src="https://unpkg.com/@zumer/snapdom/dist/snapdom.js"></script>
++    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
++    <!-- Tailwind CDN: fine for dev; for production use PostCSS or CLI: https://tailwindcss.com/docs/installation -->
++    <script src="https://cdn.tailwindcss.com"></script>
+     <style>
+-        ::-webkit-scrollbar { width: 6px; }
+-        ::-webkit-scrollbar-track { background: transparent; }
+-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+-        .gpc-pdf-font { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important; -webkit-font-smoothing: antialiased; }
+-        #freeflow-render-zone, #pricing-render-zone, #references-render-zone { background-color: #FFFFFF !important; }
++        /* No up/down arrows on number inputs (price, qty) */
++        .proposal-no-spinner input[type=number]::-webkit-inner-spin-button,
++        .proposal-no-spinner input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
++        .proposal-no-spinner input[type=number] { -moz-appearance: textfield; appearance: textfield; }
++        /* Cover letter: match PDF width; 14px in UI (PDF uses 17px in template) */
++        #cover-letter {
++            width: 100%;
++            max-width: 720px;
++            height: 572px;
++            min-height: 572px;
++            resize: vertical;
++            box-sizing: border-box;
++            font-size: 14px;
++            line-height: 1.65;
++            font-family: Georgia, 'Times New Roman', serif;
++        }
++        /* PDF cover + scope body: same body font and content width so cover letter and scope narrative match */
++        #hidden-cover-template,
++        #print-cover-body {
++            font-family: Georgia, 'Times New Roman', serif;
++            font-size: 17px;
++            line-height: 1.65;
++            color: #1F2329;
++        }
++        #print-cover-body {
++            max-width: 640px;
++            box-sizing: border-box;
++        }
++        /* Dark panels beside cover letter (no bright white) */
++        .cover-letter-side-panels .proposal-cover-panel {
++            border-radius: 0.75rem !important;
++            background: rgba(0, 0, 0, 0.25) !important;
++            border: 1px solid rgba(255, 255, 255, 0.15) !important;
++        }
++        .cover-letter-side-panels .proposal-readiness-panel {
++            background: rgba(0, 0, 0, 0.3) !important;
++            border-color: rgba(255, 255, 255, 0.2) !important;
++        }
+     </style>
+ </head>
+-<body>
++
++<body class="proposals-page" data-nav="crm">
+     <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+         <div class="global-loader-content">
+             <div class="global-loader-spinner" aria-hidden="true">
+-                <svg class="global-loader-svg global-loader-constellation" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                    <path class="global-loader-constellation-line" pathLength="1" d="M24 8 L10 22 L18 38 L30 38 L38 22 L24 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+-                    <circle class="global-loader-star" cx="24" cy="8" r="2.2"/><circle class="global-loader-star" cx="10" cy="22" r="1.8"/><circle class="global-loader-star" cx="18" cy="38" r="2"/><circle class="global-loader-star" cx="30" cy="38" r="1.8"/><circle class="global-loader-star" cx="38" cy="22" r="2"/>
+-                </svg>
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+             </div>
+             <p class="global-loader-text">Loading…</p>
+         </div>
+     </div>
+-    <script>
+-    (function() { const savedTheme = localStorage.getItem('crm-theme') || 'dark'; document.body.className = 'theme-' + savedTheme; })();
+-    </script>
+     <div class="crm-container">
+-        <nav class="nav-sidebar">
+-            <script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.currentScript.parentElement.classList.add('nav-sidebar-collapsed');}catch(e){}})();</script>
+-            <div id="global-nav-container" class="flex flex-col flex-1 min-h-0"></div>
+-        </nav>
+-        <main class="content-area">
+-            <div id="proposals-view" class="content-view active-view proposals-layout">
+-                <div class="proposals-picker-panel">
+-                    <div class="proposals-picker-header">
+-                        <h2 class="section-title">Proposals</h2>
+-                    </div>
+-                    <div class="proposals-picker-body">
+-                        <div class="proposals-picker-actions flex-shrink-0">
+-                <button id="generate-btn" data-state="initial" class="btn-primary full-width proposals-generate-btn disabled:opacity-70 disabled:cursor-not-allowed"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16l4-4 4 4m0-8H8"></path></svg><span>Compile Proposal</span></button>
+-<div class="proposals-file-actions flex gap-2 mb-6 pb-6">
+-                    <button type="button" id="save-project-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-lg border border-slate-300 shadow-sm transition text-sm flex justify-center items-center gap-2" title="Save (.spec)">
+-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+-                    </button>
+-                    <label id="load-project-label" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-lg border border-slate-300 shadow-sm transition cursor-pointer flex justify-center items-center gap-2 text-sm" title="Load Project">
+-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+-                        <input type="file" id="load-project-input" accept=".spec" class="hidden">
+-                    </label>
+-                </div>
+-                        </div>
+-                        <div class="proposals-picker-scroll flex-1 min-h-0 overflow-y-auto">
+-                <div id="proposals-properties-section">
+-                <h2 class="text-lg font-bold mb-4 border-b border-slate-100 pb-2 text-slate-800">1. Proposal Properties</h2>
+-                <div class="space-y-4 mb-8">
+-                    <div><label class="block text-sm font-semibold text-slate-700">RFP Name / Proposal Name</label><input type="text" id="global-rfp" maxlength="33" class="w-full border border-slate-300 p-2 rounded mt-1 bg-slate-50 focus:bg-white outline-none focus:border-orange-500"></div>
+-                    <div><label class="block text-sm font-semibold text-slate-700">Business Name</label><input type="text" id="global-biz" maxlength="33" class="w-full border border-slate-300 p-2 rounded mt-1 bg-slate-50 focus:bg-white outline-none focus:border-orange-500"></div>
+-                    <div><label class="block text-sm font-semibold text-slate-700">Sales Rep</label><input type="text" id="global-rep" class="w-full border border-slate-300 p-2 rounded mt-1 bg-slate-50 focus:bg-white outline-none focus:border-orange-500"></div>
+-                    <div class="flex gap-4 mt-4 border-t border-slate-100 pt-4"><div class="flex-1"><label class="block text-sm font-semibold text-slate-700">Project Start</label><input type="text" id="global-start" placeholder="e.g. Q3 2026" class="w-full border border-slate-300 p-2 rounded mt-1 bg-slate-50 focus:bg-white outline-none focus:border-orange-500"></div>
+-                    <div class="flex-1"><label class="block text-sm font-semibold text-slate-700">Completion</label><input type="text" id="global-end" placeholder="e.g. Q4 2026" class="w-full border border-slate-300 p-2 rounded mt-1 bg-slate-50 focus:bg-white outline-none focus:border-orange-500"></div>
+-</div>
+-               </div>
+-                </div>
++        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
+ 
+-                <div id="proposals-elements-section">
+-                <h2 class="text-lg font-bold mb-1 border-b border-slate-100 pb-2 text-slate-800">2. Proposal Elements</h2>
+-                <p class="proposal-elements-help mb-4">Drag to reorder</p>
+-<ul id="module-list" class="space-y-2 pb-4">
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="01_Title_Page.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" checked class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Title Page</span>
+-        <button onclick="previewStockPdf('01_Title_Page.pdf', 'Title Page')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group border-l-4 border-l-blue-400" data-filename="CUSTOM_COVER">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" checked id="toggle-cover-letter" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Cover Letter</span>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group border-l-4 border-l-blue-400" data-filename="CUSTOM_TEXT">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" id="toggle-custom-text" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Custom Page</span>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group border-l-4 border-l-blue-400" data-filename="CUSTOM_IMPACT">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" id="toggle-impact-roi" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Impact & ROI</span>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="02_Why_GPC.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" checked class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Why GPC?</span>
+-        <button onclick="previewStockPdf('02_Why_GPC.pdf', 'Why GPC?')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="03_About_GPC.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" checked class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">About GPC</span>
+-        <button onclick="previewStockPdf('03_About_GPC.pdf', 'About GPC')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group border-l-4 border-l-blue-400" data-filename="CUSTOM_REFERENCES">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" checked id="toggle-references" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">References</span>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group border-l-4 border-l-blue-400" data-filename="CUSTOM_PRICING">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" checked id="toggle-pricing" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Proposed Pricing</span>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="04_NOC_Monitoring.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">24-Hour NOC Monitoring</span>
+-        <button onclick="previewStockPdf('04_NOC_Monitoring.pdf', '24-Hour NOC Monitoring')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="05_DIA.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Dedicated Internet Access (DIA)</span>
+-        <button onclick="previewStockPdf('05_DIA.pdf', 'Dedicated Internet Access (DIA)')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="06_SIA.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Standard Internet Access (SIA)</span>
+-        <button onclick="previewStockPdf('06_SIA.pdf', 'Standard Internet Access (SIA)')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="07_CaseStudy.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Boys Town Case Study</span>
+-        <button onclick="previewStockPdf('07_CaseStudy.pdf', 'Boys Town Case Study')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="08_SPIN.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">SPIN ID Number</span>
+-        <button onclick="previewStockPdf('08_SPIN.pdf', 'SPIN ID Number')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="09_Project.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Project Implementation Plan</span>
+-        <button onclick="previewStockPdf('09_Project.pdf', 'Project Implementation Plan')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="10_Leadership.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Senior Leadership</span>
+-        <button onclick="previewStockPdf('10_Leadership.pdf', 'Senior Leadership')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group" data-filename="11_Escalation.pdf">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Escalation Process</span>
+-        <button onclick="previewStockPdf('11_Escalation.pdf', 'Escalation Process')" class="text-slate-400 hover:text-blue-500 transition px-2" title="Preview PDF">
+-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+-        </button>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group border-l-4 border-l-blue-400" data-filename="CUSTOM_PDF">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" id="toggle-custom-pdf" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">Upload Custom PDF</span>
+-    </li>
+-    
+-    <li class="flex items-center bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm cursor-grab group border-l-4 border-l-blue-400" data-filename="USAC_RFP">
+-        <svg class="w-5 h-5 handle text-slate-400 group-hover:text-blue-500 transition cursor-grab mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"></path></svg>
+-        <input type="checkbox" id="toggle-usac" class="mr-3 w-4 h-4 text-blue-500 slide-toggle">
+-        <span class="flex-1 font-medium text-sm text-slate-700">USAC Original RFP</span>
+-    </li>
+-    
+-</ul>
++        <main class="content-area flex flex-col min-h-0 p-4 overflow-hidden">
++            <header class="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
++                <h1 class="text-xl font-bold text-white font-[family-name:var(--font-headers)]">Ten Works Proposal Generator</h1>
++                <div class="flex items-center gap-2">
++                    <button type="button" id="btn-share-status-link" style="display:none;" class="px-4 py-2.5 font-medium text-white border border-white/20 hover:bg-white/10 transition" title="Copy client status page link"><i class="fas fa-share-alt mr-2"></i>Share status link</button>
++                    <button type="button" id="btn-export-pdf" data-state="initial" class="px-5 py-2.5 font-semibold text-white bg-[var(--primary-blue)] hover:opacity-90 transition disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"><i class="fas fa-cogs btn-export-icon" aria-hidden="true"></i><span class="btn-export-text">Compile Proposal</span></button>
+                 </div>
+-                        </div>
+-            </div>
++            </header>
++
++            <div class="grid grid-cols-[260px_1fr] gap-4 flex-1 min-h-0">
++                <aside class="flex flex-col gap-4 overflow-y-auto">
++                    <div class="bg-white/5 backdrop-blur border border-white/10 p-4">
++                        <button type="button" id="btn-save" class="w-full flex items-center justify-center gap-2 py-2.5 bg-[var(--primary-blue)] text-white font-medium mb-2"><i class="fas fa-save"></i> Save proposal</button>
++                        <button type="button" id="btn-load" class="w-full flex items-center justify-center gap-2 py-2.5 bg-white/10 text-white border border-white/20 font-medium mb-2"><i class="fas fa-folder-open"></i> Load proposal</button>
++                        <select id="load-select" class="w-full bg-black/20 border border-white/20 text-white py-2 px-3 text-sm">
++                            <option value="">— Load proposal —</option>
++                        </select>
+                     </div>
+-                <div id="main-content" class="flex-1 overflow-hidden flex flex-col proposals-details-content details-panel min-w-0 min-h-0">
+-            <div class="flex-1 bg-slate-100 p-5 overflow-y-auto" id="scroll-container">
+-                <div class="w-full max-w-[1680px] mx-auto space-y-8">
+-                    <div id="cover-letter-section" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all duration-300">
+-                        <div class="flex items-center mb-4 border-b border-slate-100 pb-2 gap-2">
+-                            <svg class="w-6 h-6 text-slate-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+-                            <h3 class="text-2xl font-bold text-slate-800">Cover Letter</h3>
+-                        </div>
+-                        <input type="text" id="cover-title-input" class="w-full border border-slate-300 p-2 rounded-lg mb-3 bg-slate-50 outline-none focus:border-orange-500 font-semibold text-slate-700" placeholder="Document Title (Leave blank for cover pages)">
+-                        <div class="flex gap-6 flex-nowrap items-start">
+-                            <div class="w-[680px] flex-shrink-0">
+-                                <textarea id="cover-body" class="w-full h-[624px] p-3 border border-slate-300 rounded-lg bg-white resize-y font-sans text-base focus:outline-none focus:border-orange-500" placeholder="Dear [Client Name]..." style="white-space: pre-wrap;"></textarea>
++                    <div class="bg-white/5 backdrop-blur border border-white/10 p-4">
++                        <h3 class="text-xs font-semibold uppercase tracking-wide text-white/80 mb-3">1. Proposal Properties</h3>
++                        <label class="block text-xs text-white/60 mb-1">Client / Property Name</label>
++                        <input type="text" id="global-biz" placeholder="e.g. Key Construction" class="w-full bg-black/20 border border-white/20 text-white py-2 px-3 text-sm placeholder-white/40 mb-3">
++                        <label class="block text-xs text-white/60 mb-1">Sales Representative</label>
++                        <input type="text" id="sales-rep" placeholder="e.g. Your Name" class="w-full bg-black/20 border border-white/20 text-white py-2 px-3 text-sm placeholder-white/40 mb-3">
++                        <label class="block text-xs text-white/60 mb-1">Projected start date</label>
++                        <input type="date" id="project-start" class="w-full bg-black/20 border border-white/20 text-white py-2 px-3 text-sm mb-3 [&::-webkit-calendar-picker-indicator]:opacity-60">
++                        <label class="block text-xs text-white/60 mb-1">Projected complete date</label>
++                        <input type="date" id="project-complete" class="w-full bg-black/20 border border-white/20 text-white py-2 px-3 text-sm mb-0 [&::-webkit-calendar-picker-indicator]:opacity-60">
++                    </div>
++                    <div class="bg-white/5 backdrop-blur border border-white/10 p-4">
++                        <h3 class="text-xs font-semibold uppercase tracking-wide text-white/80 mb-2">2. Proposal Elements <span class="font-normal text-white/50">(Drag)</span></h3>
++                        <ul id="elements-list" class="space-y-1 text-sm text-white/90"></ul>
++                    </div>
++                </aside>
++
++                <div class="flex flex-col gap-4 overflow-y-auto bg-white/5 backdrop-blur border border-white/10 p-6 pb-20 proposal-no-spinner">
++                    <section>
++                        <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-envelope text-[var(--primary-blue)]"></i> Cover Letter</h3>
++                        <p class="text-xs text-white/50 mb-2">Box size matches the PDF page so you can see how your text will fit.</p>
++                        <div class="flex flex-col lg:flex-row gap-2 items-stretch lg:items-start">
++                            <div class="flex-1 min-w-0">
++                                <textarea id="cover-letter" placeholder="Write your cover letter here. Use line breaks for paragraphs." class="w-full bg-black/20 border border-white/20 text-white py-3 px-4 placeholder-white/40"></textarea>
+                             </div>
+-                            <div class="flex-1 min-w-0 flex gap-4 h-[624px] overflow-hidden">
+-                                <div class="w-[260px] h-[624px] flex-shrink-0 flex flex-col gap-4 overflow-hidden">
+-                                    <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 text-slate-600 flex-shrink-0">
+-                                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Click to add</h3>
+-                                        <p class="text-xs text-slate-400 mb-2">Inserts at cursor in the cover letter.</p>
+-                                        <div id="cover-snippets" class="space-y-2 overflow-auto min-h-0"></div>
+-                                    </div>
+-                                    <div class="bg-white shadow-sm border border-slate-200 rounded-xl flex-1 min-h-0 flex flex-col overflow-hidden min-w-0">
+-                                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 px-4 py-3 flex-shrink-0">Proposal Readiness</h3>
+-                                        <div id="proposal-readiness-checklist" class="p-4 space-y-3 border-0 border-t border-slate-200 flex-1 min-h-0 overflow-auto min-w-0">
+-                                            <button type="button" id="check-rfp-biz" class="proposal-readiness-pill" aria-pressed="false"><span class="proposal-readiness-text">RFP &amp; Business name filled</span></button>
+-                                            <button type="button" id="check-cover" class="proposal-readiness-pill" aria-pressed="false"><span class="proposal-readiness-text">Cover letter personalized</span></button>
+-                                            <button type="button" id="check-pricing" class="proposal-readiness-pill" aria-pressed="false"><span class="proposal-readiness-text">Pricing reviewed</span></button>
+-                                            <button type="button" id="check-ready" class="proposal-readiness-pill" aria-pressed="false"><span class="proposal-readiness-text">Ready to generate</span></button>
++                            <div class="cover-letter-side-panels flex flex-col gap-3 w-48 shrink-0">
++                                <div class="proposal-cover-panel rounded-xl p-4">
++                                    <h3 class="text-xs font-semibold uppercase tracking-wide text-white/70 mb-1">Click to add</h3>
++                                    <p class="text-xs text-white/50 mb-2">Inserts at cursor in the cover letter.</p>
++                                    <div id="snippet-buttons" class="grid grid-cols-1 gap-2"></div>
++                                </div>
++                                <div class="proposal-cover-panel proposal-readiness-panel rounded-xl p-4">
++                                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--primary-blue)] mb-2">Proposal Readiness</h3>
++                                    <ul id="readiness-checklist" class="space-y-1.5 text-sm text-white/90"></ul>
++                                </div>
++                            </div>
++                            <div class="cover-letter-side-panels flex-1 min-w-[280px] lg:min-w-[320px] shrink-0 flex flex-row gap-3 items-stretch">
++                                <!-- Proposal notes: between Click to add and Hero -->
++                                <div class="proposal-cover-panel rounded-xl p-4 flex-1 min-w-0 flex flex-col min-h-[240px]">
++                                    <h3 class="text-xs font-semibold uppercase tracking-wide text-white/70 mb-1">Proposal notes</h3>
++                                    <p class="text-xs text-white/50 mb-2">Quick notes, names, math—not in the PDF.</p>
++                                    <textarea id="proposal-notes" rows="10" placeholder="Drop notes here…" class="w-full flex-1 min-h-[180px] bg-black/20 border border-white/20 text-white py-2 px-3 text-sm placeholder-white/40 resize-y"></textarea>
++                                </div>
++                                <div class="flex flex-col gap-2 shrink-0">
++                                    <!-- Height drives width so aspect 258.75:585 stays correct (tall vertical strip) -->
++                                    <div class="h-[572px] flex justify-center">
++                                        <div id="hero-dropzone" class="h-full w-[253px] max-w-full shrink-0 aspect-[258.75/585] overflow-hidden border-dashed border-2 border-white/20 bg-black/20 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors hover:border-white/40 hover:bg-black/30" style="background-size: cover; background-position: center;">
++                                            <input type="file" id="hero-upload" accept="image/*" class="hidden">
++                                            <i class="fas fa-image text-white/50 text-2xl"></i>
++                                            <span class="text-xs text-white/70 text-center px-2">Drop Hero Image Here (or click)</span>
+                                         </div>
+                                     </div>
+-                                </div>
+-                                <div class="flex-1 min-w-[200px] h-[624px] min-h-0 flex flex-col overflow-hidden">
+-                                    <div class="bg-white shadow-sm border border-slate-200 rounded-xl h-full flex flex-col overflow-hidden">
+-                                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 px-4 py-3 flex-shrink-0">Proposal Notes</h3>
+-                                        <textarea id="discovery-scratchpad" class="w-full border-0 border-t border-slate-200 p-4 text-sm text-slate-800 bg-slate-50 focus:bg-white outline-none flex-1 min-h-0 resize-none" placeholder="Sites, circuit counts, bandwidth needs, contact names, quick math, raw notes…"></textarea>
++                                    <div class="flex items-center gap-2">
++                                        <label for="hero-pan" class="text-xs text-white/60 shrink-0">Pan</label>
++                                        <input type="range" id="hero-pan" min="0" max="1" step="0.01" value="0.5" class="flex-1 h-2 bg-black/30 border border-white/20 accent-[var(--primary-blue)]">
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+-                    </div>
+-
+-                    <div id="custom-text-section" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all duration-300">
+-                        <div class="flex items-center mb-4 border-b border-slate-100 pb-2 gap-2">
+-                            <svg class="w-6 h-6 text-slate-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+-                            <h3 class="text-2xl font-bold text-slate-800">Custom Page</h3>
+-                        </div>
+-                        <input type="text" id="custom-text-title-input" class="w-full border border-slate-300 p-2 rounded-lg mb-3 bg-slate-50 outline-none focus:border-orange-500 font-semibold text-slate-700" placeholder="Document Title (Leave blank for no header)">
+-                        <div class="flex gap-6 flex-nowrap items-start">
+-                            <div class="flex-1 min-w-[500px]">
+-                                <textarea id="custom-text-body" class="w-full h-64 p-3 border border-slate-300 rounded-lg bg-white resize-y font-sans text-base focus:outline-none focus:border-orange-500" placeholder="Start typing custom content..." style="white-space: pre-wrap;"></textarea>
+-                                <p id="warning-customText" class="hidden text-red-600 text-sm font-bold mt-2">⚠️ Warning: Text exceeds PDF page height and may be cut off. Please shorten.</p>
+-                            </div>
+-                            <div class="w-[280px] flex-shrink-0 rounded-xl bg-slate-50 border border-slate-200 p-4 text-slate-600 flex flex-col gap-4">
+-                                <div>
+-                                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Click to add</h3>
+-                                    <p class="text-xs text-slate-400 mb-2">Inserts at cursor in the custom page.</p>
+-                                    <div id="custom-page-snippets" class="space-y-2 overflow-auto min-h-0"></div>
++                    </section>
++                    <section class="mt-2">
++                        <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-dollar-sign text-[var(--primary-blue)]"></i> Proposed Pricing</h3>
++                        <div id="pricing-locations" class="space-y-4"></div>
++                        <button type="button" id="btn-add-location" class="mt-3 flex items-center gap-2 py-2 px-4 border border-dashed border-white/30 text-white/70 hover:border-[var(--primary-blue)] hover:text-[var(--primary-blue)] text-sm transition">
++                            <i class="fas fa-plus"></i> Add Location
++                        </button>
++                    </section>
++                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
++                        <section id="section-scope-finishes">
++                            <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-hammer text-[var(--primary-blue)]"></i> Scope of Work & Finishes</h3>
++                            <label class="block text-xs text-white/60 mb-1">Narrative scope</label>
++                            <textarea id="scope-narrative" rows="10" placeholder="Describe scope of work…" class="w-full bg-black/20 border border-white/20 text-white py-2 px-3 text-sm placeholder-white/40 mb-4 resize-y min-h-[200px]"></textarea>
++                            <label class="block text-xs text-white/60 mb-1">Materials & Finishes</label>
++                            <div id="scope-materials" class="space-y-2"></div>
++                            <button type="button" id="btn-add-material" class="mt-2 flex items-center gap-2 py-2 px-4 border border-dashed border-white/30 text-white/70 hover:border-[var(--primary-blue)] hover:text-[var(--primary-blue)] text-sm transition"><i class="fas fa-plus"></i> Add material</button>
++                        </section>
++                        <div class="flex flex-col gap-4">
++                            <section id="section-deliverables">
++                                <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-list-check text-[var(--primary-blue)]"></i> Deliverables & Specifications</h3>
++                                <p class="text-xs text-white/50 mb-2">Item, description/specs, and quantity (no pricing).</p>
++                                <div class="overflow-x-auto border border-white/20 bg-black/20">
++                                    <table class="w-full text-sm">
++                                        <thead>
++                                            <tr class="border-b border-white/20 text-left text-white/70">
++                                                <th class="py-2 px-2 font-semibold">Item</th>
++                                                <th class="py-2 px-2 font-semibold">Description / Specs</th>
++                                                <th class="py-2 px-2 font-semibold w-20">Qty</th>
++                                                <th class="w-10"></th>
++                                            </tr>
++                                        </thead>
++                                        <tbody id="deliverables-tbody"></tbody>
++                                    </table>
+                                 </div>
+-                            </div>
++                                <button type="button" id="btn-add-deliverable" class="mt-2 flex items-center gap-2 py-2 px-4 border border-dashed border-white/30 text-white/70 hover:border-[var(--primary-blue)] hover:text-[var(--primary-blue)] text-sm transition"><i class="fas fa-plus"></i> Add Row</button>
++                            </section>
++                            <section id="section-exclusions">
++                                <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-rectangle-xmark text-[var(--primary-blue)]"></i> Exclusions (By Others)</h3>
++                                <p class="text-xs text-white/50 mb-2">Items not in scope (provided by others).</p>
++                                <div id="exclusions-list" class="space-y-2"></div>
++                                <button type="button" id="btn-add-exclusion" class="mt-2 flex items-center gap-2 py-2 px-4 border border-dashed border-white/30 text-white/70 hover:border-[var(--primary-blue)] hover:text-[var(--primary-blue)] text-sm transition"><i class="fas fa-plus"></i> Add Exclusion</button>
++                            </section>
+                         </div>
+                     </div>
+-
+-                    <div id="custom-pdf-section" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all duration-300">
+-                        <div class="flex items-center mb-4 border-b border-slate-100 pb-2 gap-2">
+-                            <svg class="w-6 h-6 text-slate-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+-                            <h3 class="text-2xl font-bold text-slate-800">Upload Custom PDF (Exec Summary, etc.)</h3>
+-                        </div>
+-                        <input type="file" id="custom-pdf-upload" class="hidden" accept="application/pdf">
+-                        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-orange-50 hover:border-orange-400 transition cursor-pointer group" onclick="document.getElementById('custom-pdf-upload').click()">
+-                            <svg class="mx-auto h-12 w-12 text-slate-400 group-hover:text-blue-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+-                            <span id="custom-pdf-filename" class="mt-2 block text-slate-600 font-medium group-hover:text-orange-600">Drag and drop Custom PDF here, or click to browse</span>
+-                        </div>
+-                    </div>
+-
+-                    <div id="references-section" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all duration-300">
+-                        <div class="flex items-center mb-6 border-b border-slate-100 pb-2 gap-2">
+-                            <svg class="w-6 h-6 text-slate-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+-                            <h3 class="text-2xl font-bold text-slate-800">References</h3>
+-                        </div>
+-                        <div class="grid grid-cols-2 gap-6" id="references-container">
+-                            </div>
+-                    </div>
+-
+-                    <div id="pricing-section" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all duration-300 flex flex-col">
+-                        <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-2">
+-                            <h3 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+-                                <svg class="w-6 h-6 text-slate-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+-                                Dynamic Pricing Engine
+-                            </h3>
+-                            <button id="add-location-btn" class="bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-sm hover:bg-slate-900 transition">+ Add Location</button>
+-                        </div>
+-                        <div class="mb-6 w-1/3 min-w-[200px]">
+-                            <label class="block text-sm font-semibold text-slate-700">Contract Term (Months)</label>
+-                            <input type="text" id="contract-term" class="w-full border border-slate-300 p-2 rounded-lg mt-1 bg-slate-50 focus:bg-white outline-none focus:border-orange-500 transition" placeholder="e.g. 36">
+-                        </div>
+-                        <div id="locations-container" class="space-y-8"></div>
+-                        <div class="mt-6 border-t border-slate-200 pt-6 flex justify-between items-center bg-slate-50 p-6 rounded-lg">
+-                            <span class="text-xl font-bold text-slate-800 uppercase">Total Monthly Cost:</span>
+-                            <span id="grand-total" class="text-3xl font-extrabold text-blue-600">$0.00</span>
+-                        </div>
+-                    </div>
+-
+-                    <div id="impact-roi-section" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all duration-300">
+-                        <div class="flex items-center mb-6 border-b border-slate-100 pb-2 gap-2">
+-                            <svg class="w-6 h-6 text-slate-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+-                            <h3 class="text-2xl font-bold text-slate-800">Impact & ROI</h3>
+-                        </div>
+-                        <div class="grid grid-cols-2 gap-6 mb-6">
+-                            <div class="rounded-xl border border-slate-200 p-5 bg-slate-50 shadow-sm">
+-                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">Current State</h4>
+-                                <textarea id="impact-current" class="w-full border border-slate-300 p-2 rounded-lg text-sm text-slate-800 bg-white min-h-[100px] resize-y outline-none focus:border-orange-500 transition" placeholder="Current infrastructure, pain points…"></textarea>
+-                            </div>
+-                            <div class="rounded-xl border border-slate-200 border-l-4 border-l-orange-500 p-5 bg-slate-50 shadow-sm">
+-                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">Proposed Solution</h4>
+-                                <textarea id="impact-proposed" class="w-full border border-slate-300 p-2 rounded-lg text-sm text-slate-800 bg-white min-h-[100px] resize-y outline-none focus:border-orange-500 transition" placeholder="Proposed solution, benefits…"></textarea>
+-                            </div>
+-                        </div>
+-                        <div class="grid grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+-                            <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Current monthly ($)</label><input type="number" id="impact-current-cost" placeholder="0" class="w-full border border-slate-300 p-2 rounded-lg text-slate-800 bg-white"></div>
+-                            <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Proposed monthly ($)</label><input type="number" id="impact-proposed-cost" placeholder="0" class="w-full border border-slate-300 p-2 rounded-lg text-slate-800 bg-white"></div>
+-                            <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Net impact</label><div id="impact-net" class="w-full border border-slate-200 p-2 rounded-lg text-slate-800 bg-slate-50 font-semibold">$0</div></div>
+-                        </div>
+-                    </div>
+-
+-                    <div id="usac-upload-section" class="hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 transition-all duration-300">
+-                        <div class="flex items-center mb-4 border-b border-slate-100 pb-2">
+-                            <h3 class="text-2xl font-bold text-slate-800">USAC Original RFP Upload</h3>
+-                        </div>
+-                        <input type="file" id="usac-upload" class="hidden" accept="application/pdf">
+-                        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-orange-50 hover:border-orange-400 transition cursor-pointer group" onclick="document.getElementById('usac-upload').click()">
+-                            <svg class="mx-auto h-12 w-12 text-slate-400 group-hover:text-blue-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+-                            <span id="usac-filename" class="mt-2 block text-slate-600 font-medium group-hover:text-orange-600">Drag and drop USAC RFP PDF here, or click to browse</span>
+-                        </div>
+-                    </div>
+-
+-                    <div class="pb-10 mt-8"></div>
++                    <section id="section-project-timeline" class="pt-8 pb-12 mt-6">
++                        <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-clock text-[var(--primary-blue)]"></i> Project Timeline</h3>
++                        <p class="text-xs text-white/50 mb-4">Add milestones here (task name, start, end). You can also load from a project; later, projects can import from this proposal.</p>
++                        <div id="timeline-milestones" class="space-y-2"></div>
++                    </section>
+                 </div>
+             </div>
++        </main>
++
++        <div id="render-zones" class="fixed top-[-9999px] left-0 w-[800px] z-[-1] overflow-hidden bg-transparent" aria-hidden="true"></div>
++        <div id="hidden-cover-template" class="fixed top-[-9999px] left-0 w-[800px] p-10 bg-transparent font-serif text-[17px] leading-[1.65] box-border" style="color:#1F2329;" aria-hidden="true">
++            <div id="print-cover-body"></div>
+         </div>
++        <div id="hidden-pricing-template" class="fixed top-[-9999px] left-0 w-[800px] bg-transparent" aria-hidden="true"></div>
++        <div id="hidden-deliverables-template" class="fixed top-[-9999px] left-0 w-[800px] bg-transparent" aria-hidden="true"></div>
++        <div id="hidden-exclusions-template" class="fixed top-[-9999px] left-0 w-[800px] bg-transparent" aria-hidden="true"></div>
+     </div>
+ 
+-<div id="pdf-preview-modal" class="hidden absolute inset-0 bg-slate-900 bg-opacity-90 flex flex-col items-center justify-center z-[80] p-6">
+-        <div class="flex flex-col h-[85vh] w-[calc(85vh*0.82)] max-w-full">
++    <div id="loading-overlay" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center z-[100]">
++        <img src="assets/logo.svg" alt="" class="animate-spin h-20 w-20 mb-6 opacity-90" aria-hidden="true">
++        <p class="text-white text-xl font-bold tracking-wider">Generating proposal…</p>
++    </div>
++
++    <div id="pdf-preview-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center z-[80] p-6">
++        <div class="flex flex-col h-[92vh] w-full max-w-4xl">
+             <div class="flex justify-between items-center mb-4 w-full">
+-                <h2 class="text-white text-2xl font-bold" id="pdf-preview-title">PDF Preview</h2>
++                <h2 class="text-white text-2xl font-bold" id="pdf-preview-title">Proposal Preview</h2>
+                 <div class="flex items-center gap-4">
+-                    <button id="modal-download-btn" class="hidden bg-white text-orange-600 hover:bg-orange-50 font-bold py-2 px-6 rounded shadow-lg transition">⬇ Download Proposal</button>
+-                    <button onclick="closePdfModal()" class="text-white hover:text-red-500 font-bold text-3xl transition leading-none">✕</button>
++                    <button type="button" id="modal-download-btn" class="hidden px-6 py-2.5 font-semibold text-white bg-[var(--primary-blue)] hover:opacity-90 transition">
++                        <i class="fas fa-download mr-2"></i>Download Proposal
++                    </button>
++                    <button type="button" id="modal-close-btn" class="text-white hover:text-red-400 font-bold text-2xl transition leading-none">×</button>
+                 </div>
+             </div>
+-            <div class="bg-[#525659] rounded-lg shadow-2xl flex-1 overflow-hidden border-4 border-slate-700 w-full">
+-                <iframe id="pdf-preview-iframe" class="w-full h-full border-0" src=""></iframe>
++            <div class="overflow-hidden border-2 border-white/20 bg-slate-800 flex-1 w-full min-h-0">
++                <iframe id="pdf-preview-iframe" class="w-full h-full border-0" title="PDF preview"></iframe>
+             </div>
+         </div>
+     </div>
+ 
+-    <div id="loading-overlay" class="hidden fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-md">
+-        <div class="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl px-12 py-10 flex flex-col items-center">
+-            <img src="Proposal_Assets/GPC-White-1-1.webp" alt="" class="h-16 mb-4 object-contain">
+-            <div class="animate-spin rounded-full h-20 w-20 border-b-4 mb-6 border-orange-500"></div>
+-            <p class="text-xl font-bold tracking-widest animate-pulse text-white">Assembling Proposal...</p>
+-        </div>
+-    </div>
+-
+-    <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[150] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
+-
+-    <div id="render-zones" class="absolute top-[-9999px] left-[-9999px] w-[800px] bg-white p-12 gpc-pdf-font">
+-        
+-        <div id="freeflow-render-zone" class="w-full bg-white text-black p-8">
+-            <div id="render-freeflow-body" style="overflow: visible !important; height: auto !important; max-height: none !important; padding: 0; font-size: 16px; line-height: 1.5;"></div>
+-        </div>
+-
+-     <div id="hidden-pricing-template" class="w-full bg-white text-black gpc-pdf-font" style="width: 750px;"></div>
+-     <div id="pricing-render-zone" class="w-full bg-white text-black p-4 gpc-pdf-font" style="width: 800px;">
+-    <div id="flex-table-container">
+-        <div>
+-            <div>PRODUCT</div>
+-            <div>LIST PRICE</div>
+-            <div>QTY</div>
+-            <div>TOTAL</div>
+-        </div>
+-
+-        <div id="flex-table-body"></div>
+-
+-        <div>
+-            <div>TOTAL MONTHLY COST</div>
+-            <div id="render-grand-total-flex">$0.00</div>
+-        </div>
+-    </div>
+-    <p class="text-center text-sm text-black mt-8" id="render-term-text-flex">Pricing based off XX-month term</p>
+-</div>
+-
+-        <div id="references-render-zone" class="w-full bg-white text-black p-8">
+-            <div id="render-references-body" class="space-y-0">
+-                </div>
+-        </div>
+-    </div>
+-
+-    <!-- Hybrid chassis: off-screen wrappers for Snapdom (swap .png to .svg in production) -->
+-    <div id="gpc-title-render-wrapper" class="absolute -top-[9999px] -left-[9999px] w-[8.5in] h-[11in]"></div>
+-    <div id="gpc-interior-render-wrapper" class="absolute -top-[9999px] -left-[9999px]"></div>
+-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
++    <script src="js/nav-loader.js"></script>
+     <script type="module" src="js/proposals.js"></script>
+-    <script src="js/enterprise-proposals-embed.js"></script>
+ </body>
+ </html>

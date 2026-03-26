@@ -2,94 +2,148 @@
 <html lang="en">
 
 <head>
-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+    <meta name="description" content="TenWorks CRM: A powerful and intuitive tool for managing your fabrication pipeline, contacts, and deals.">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>(function(){var t=localStorage.getItem('crm-theme')||'dark';document.documentElement.className='theme-'+t;if(!localStorage.getItem('crm-theme'))localStorage.setItem('crm-theme','dark');})();</script>
     <title>TenWorks Campaigns</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 
 <body data-nav="crm">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
     <div class="crm-container">
-        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
+        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
 
         <main class="content-area">
-            <div id="campaigns-view" class="content-view active-view">
-                <h2>Campaigns</h2>
-               <div class="split-view">
-                    <div class="item-list-container glass-panel">
-                        <button id="new-campaign-btn" class="btn-primary full-width">Create New Campaign</button>
-                        <button id="manage-templates-btn" class="btn-secondary full-width">Manage Email Templates</button>
-                        
-                        <button id="delete-campaign-btn" class="btn-danger full-width" style="margin-top: 10px;">Delete Selected Campaign</button>
-
-                        <h4>Active Campaigns</h4>
-                        <div id="campaign-list-active" class="item-list">
-                            </div>
-
-                        <h4 style="margin-top: 1.5rem;">Past Campaigns</h4>
-                        <div id="campaign-list-past" class="item-list">
-                            </div>
+            <div id="campaigns-view" class="content-view active-view campaigns-layout">
+                <!-- Left: floating picker (same style as accounts) -->
+                <div class="campaign-picker-panel">
+                    <div class="campaign-picker-header">
+                        <h2 class="section-title">Campaigns</h2>
                     </div>
-                    <div id="campaign-details" class="details-panel glass-panel">
-                        <h3>Campaign Details</h3>
-                        <div id="campaign-details-content">
-                            <p>Select a campaign to see its details or create a new one.</p>
+                    <div class="campaign-picker-body">
+                        <div class="campaign-picker-block campaign-picker-active">
+                            <h4 class="subsection-title">Active</h4>
+                            <div id="campaign-list-active" class="item-list"></div>
                         </div>
+                        <div class="campaign-picker-block campaign-picker-past">
+                            <h4 class="subsection-title">Past</h4>
+                            <div id="campaign-list-past" class="item-list"></div>
+                        </div>
+                    </div>
+                </div>
 
-                        <div id="call-blitz-ui" class="hidden">
-                            <div id="call-summary-view">
-                                <p id="call-summary-text"></p>
-                                <button id="start-calling-btn" class="btn-primary">Start Calling</button>
+                <!-- Right: tools + details + run engine -->
+                <div id="campaign-details" class="campaign-details-content details-panel">
+                    <!-- Top row: tools + details side by side -->
+                    <div class="campaign-top-row">
+                        <!-- Left: merged Create/Manage flip card -->
+                        <div id="campaign-tools-card" class="section-card campaign-tools-card">
+                            <div class="section-card-header campaign-tools-header">
+                                <h3 id="campaign-tools-title" class="details-panel-title">Create New Campaign</h3>
+                                <button type="button" id="campaign-tools-flip-btn" class="btn-icon-header campaign-tools-flip-btn" title="Manage Templates"><i class="fas fa-file-lines" id="campaign-tools-flip-icon"></i></button>
                             </div>
-                            <div id="active-call-view" class="hidden">
-                                <h4 id="contact-name-call-blitz"></h4>
-                                <p id="contact-company-call-blitz"></p>
-                                <p><strong>Phone:</strong> <a href="#" id="contact-phone-call-blitz" class="call-link"></a></p>
-                                <hr>
-                                <label for="call-notes">Call Notes:</label>
-                                <textarea id="call-notes" rows="6" placeholder="Log notes from your call here..."></textarea>
-                                <div class="action-buttons">
-                                    <button id="log-call-btn" class="btn-primary">Log Call & Next</button>
-                                    <button id="skip-call-btn" class="btn-secondary">Skip & Next</button>
+                            <div class="section-card-body campaign-tools-body">
+                                <div id="campaign-tools-flippable" class="campaign-tools-flippable">
+                                    <div class="campaign-tools-flip-inner">
+                                        <div class="campaign-tools-front">
+                                            <div id="new-campaign-form-container"></div>
+                                            <div id="create-campaign-confirm" class="hidden create-campaign-confirm">
+                                                <p id="create-campaign-confirm-message"></p>
+                                                <div class="action-buttons">
+                                                    <button type="button" id="create-campaign-confirm-yes" class="btn-primary">Yes, Create</button>
+                                                    <button type="button" id="create-campaign-confirm-cancel" class="btn-secondary">Cancel</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="campaign-tools-back">
+                                            <div id="template-manager-container"></div>
+                                            <div id="template-form-inline-wrapper" class="hidden">
+                                                <h4 class="subsection-title" id="template-form-inline-title">New Template</h4>
+                                                <div id="template-form-inline"></div>
+                                                <div class="action-buttons">
+                                                    <button type="button" id="template-form-save-btn" class="btn-primary">Save</button>
+                                                    <button type="button" id="template-form-cancel-btn" class="btn-secondary">Cancel</button>
+                                                </div>
+                                            </div>
+                                            <div id="template-delete-confirm-inline" class="hidden template-delete-confirm-inline">
+                                                <p id="template-delete-confirm-message"></p>
+                                                <div class="action-buttons">
+                                                    <button type="button" id="template-delete-yes-btn" class="btn-danger">Delete</button>
+                                                    <button type="button" id="template-delete-cancel-btn" class="btn-secondary">Cancel</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="guided-email-ui" class="hidden">
-                            <div id="guided-email-summary-view">
-                                <p id="guided-email-summary-text"></p>
-                                <button id="start-guided-email-btn" class="btn-primary">Start Guided Emails</button>
+                        <!-- Right: Campaign details with full-card flip -->
+                        <div class="section-card campaign-details-card">
+                            <div class="section-card-header">
+                                <h3 class="details-panel-title">Campaign Details</h3>
                             </div>
-                            <div id="active-email-view" class="hidden">
-                                <p><strong>To:</strong> <span id="email-to-address"></span></p>
-                                <label for="email-subject">Subject:</label>
-                                <input type="text" id="email-subject">
-                                <label for="email-body-textarea">Body:</label>
-                                <div class="merge-fields-buttons">
-                                    <button type="button" class="btn-secondary" data-field="[FirstName]">First Name</button>
-                                    <button type="button" class="btn-secondary" data-field="[LastName]">Last Name</button>
-                                    <button type="button" class="btn-secondary" data-field="[AccountName]">Account Name</button>
-                                </div>
-                                <textarea id="email-body-textarea" rows="10"></textarea>
-                                <div class="action-buttons">
-                                    <button id="open-email-client-btn" class="btn-primary">Open in Email Client & Next</button>
-                                    <button id="skip-email-btn" class="btn-secondary">Skip & Next</button>
+                            <div class="section-card-body">
+                                <div id="campaign-details-flippable" class="campaign-details-flippable">
+                                    <div class="campaign-details-flip-inner">
+                                        <div class="campaign-details-front">
+                                            <div id="campaign-details-content">
+                                                <p>Select a campaign to see its details or create a new one.</p>
+                                            </div>
+                                        </div>
+                                        <div class="campaign-details-back">
+                                            <div id="campaign-details-email-back"></div>
+                                            <button
+                                                type="button"
+                                                id="campaign-details-back-btn"
+                                                class="btn-icon-header campaign-details-back-btn"
+                                                title="Back to details">
+                                                <i class="fas fa-rotate-left"></i>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div id="email-merge-ui" class="hidden">
-                            <p id="email-summary-text"></p>
-                            <div class="action-buttons">
-                                <button id="export-txt-btn" class="btn-secondary">Download Email Template (.txt)</button>
-                                <button id="export-csv-btn" class="btn-primary">Download Contacts (.csv)</button>
+                    <!-- Run Campaign card (full-width below) -->
+                    <div class="section-card campaign-engine-card">
+                        <div class="section-card-header">
+                            <h3 class="details-panel-title">Run Campaign</h3>
+                        </div>
+                        <div class="section-card-body">
+                            <div id="run-campaign-body" class="run-campaign-body">
+                                <div id="rc-summary" class="rc-summary hidden"></div>
+                                <div id="rc-layout" class="run-campaign-active-layout">
+                                    <div id="rc-contact-card" class="run-campaign-contact-card run-campaign-null-contact">
+                                        <div class="run-campaign-contact-content">
+                                        </div>
+                                    </div>
+                                    <div id="rc-middle-panel" class="run-campaign-notes-wrap">
+                                    </div>
+                                    <div id="rc-recent-activity" class="run-campaign-recent-activity">
+                                        <h4 class="subsection-title">Recent Activity</h4>
+                                        <div id="rc-activities-list" class="recent-activities-list">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -102,14 +156,12 @@
         <div class="modal-content">
             <h3 id="modal-title"></h3>
             <div id="modal-body"></div>
-           <div class="modal-actions" id="modal-actions">
-                <button id="modal-confirm-btn" class="btn-primary">Confirm</button>
-                <button id="modal-cancel-btn" class="btn-secondary">Cancel</button>
-            </div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
 
     <script src="js/nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
     <script type="module" src="js/campaigns.js"></script>
 </body>
 </html>

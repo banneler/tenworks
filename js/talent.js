@@ -6,7 +6,8 @@ import {
     setupUserMenuAndAuth, 
     loadSVGs,
     setupGlobalSearch,
-    runWhenNavReady
+    runWhenNavReady,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -14,12 +15,13 @@ const dayjs = window.dayjs;
 
 document.addEventListener("DOMContentLoaded", async () => {
     runWhenNavReady(async () => {
+        try {
     // ------------------------------------------------------------------------
     // 1. INITIALIZATION
     // ------------------------------------------------------------------------
-    await loadSVGs(); 
+    await loadSVGs();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = 'index.html'; return; }
+    if (!user) { hideGlobalLoader(); window.location.href = 'index.html'; return; }
     await setupUserMenuAndAuth(supabase, { currentUser: user });
     await setupGlobalSearch(supabase, user);
 
@@ -712,5 +714,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         recalcStagingLane();
         renderMatrix();
     }
+        } finally {
+            hideGlobalLoader();
+        }
     }); // runWhenNavReady
 });

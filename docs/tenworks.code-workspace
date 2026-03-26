@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../Constellation-V"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "tenworks"
+	}
+}

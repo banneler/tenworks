@@ -1,28 +1,37 @@
-<div data-svg-loader="assets/logo.svg"></div>
-
-<div class="global-search-container">
-    <input type="text" id="global-search-input" placeholder="Global Search...">
-    <div id="global-search-results" class="global-search-results hidden"></div>
-</div>
-
-<div class="nav-pill-container" role="group" aria-label="Switch CRM or Production view">
-    <a href="command-center.html" class="nav-pill nav-pill-crm" data-pill="crm">CRM</a>
-    <a href="schedule.html" class="nav-pill nav-pill-erp" data-pill="erp">Production</a>
-</div>
-
-<a href="schedule.html" class="nav-button" data-nav-page="schedule">Schedule</a>
-<a href="talent.html" class="nav-button" data-nav-page="talent">Talent Matrix</a>
-<a href="projects.html" class="nav-button" data-nav-page="projects">Projects</a>
-<a href="inventory.html" class="nav-button" data-nav-page="inventory">Inventory</a>
-
-<div class="nav-bottom-section">
-    <div class="user-menu" style="margin-top: auto;">
-        <div class="user-menu-header">
-            <div data-svg-loader="assets/user-icon.svg"></div>
-            <span id="user-name-display">Loading...</span>
+<div class="nav-drawer-content">
+    <div class="nav-top-section">
+        <button type="button" id="nav-collapse-toggle" class="nav-collapse-toggle" title="Collapse sidebar" aria-label="Collapse sidebar">
+            <i class="fa-solid fa-chevron-left nav-collapse-icon"></i>
+        </button>
+        <div class="nav-logo-wrap">
+            <div class="nav-logo nav-logo-expanded"><div data-svg-loader="assets/logo.svg"></div></div>
+            <div class="nav-logo nav-logo-collapsed"><div data-svg-loader="assets/logo-small.svg"></div></div>
         </div>
-        <div id="user-menu-popup" class="user-menu-popup">
-            <button id="logout-btn" class="nav-button logout-btn-danger">Logout</button>
+    </div>
+    <div class="global-search-container">
+        <input type="text" id="global-search-input" placeholder="Global Search..." class="nav-search-input">
+        <div id="global-search-results" class="global-search-results hidden"></div>
+    </div>
+    <div class="nav-pill-container" role="group" aria-label="Switch CRM or Production view">
+        <a href="command-center.html" class="nav-pill nav-pill-crm" data-pill="crm" title="CRM"><i class="fa-brands fa-sellsy nav-pill-icon"></i><span class="nav-pill-label">CRM</span></a>
+        <a href="schedule.html" class="nav-pill nav-pill-erp" data-pill="erp" title="Production"><i class="fa-solid fa-calendar-days nav-pill-icon"></i><span class="nav-pill-label">Production</span></a>
+    </div>
+    <a href="schedule.html" class="nav-button" data-nav-page="schedule"><i class="fa-solid fa-calendar-days nav-icon"></i><span class="nav-label-text">Schedule</span></a>
+    <a href="talent.html" class="nav-button" data-nav-page="talent"><i class="fa-solid fa-users nav-icon"></i><span class="nav-label-text">Talent Matrix</span></a>
+    <a href="projects.html" class="nav-button" data-nav-page="projects"><i class="fa-solid fa-folder-open nav-icon"></i><span class="nav-label-text">Projects</span></a>
+    <a href="inventory.html" class="nav-button" data-nav-page="inventory"><i class="fa-solid fa-boxes-stacked nav-icon"></i><span class="nav-label-text">Inventory</span></a>
+    <div class="nav-bottom-section">
+        <div class="user-menu">
+            <button type="button" id="nav-menu-toggle" class="nav-button nav-menu-toggle" title="Menu" aria-label="Menu" aria-expanded="false">
+                <i class="fa-solid fa-bars nav-icon"></i>
+                <span class="nav-label-text">Menu</span>
+                <i class="fa-solid fa-chevron-down nav-menu-chevron"></i>
+            </button>
+            <div id="user-menu-popup" class="user-menu-content user-menu-popup user-menu-collapsed">
+                <div class="user-menu-user-name" id="user-name-display">Loading...</div>
+                <a href="ai-admin.html" class="nav-button" title="AI Admin"><span class="nav-label-text">AI Admin</span></a>
+                <button type="button" id="logout-btn" class="nav-button nav-button-logout"><i class="fa-solid fa-right-from-bracket nav-icon"></i><span class="nav-label-text">Logout</span></button>
+            </div>
         </div>
     </div>
 </div>

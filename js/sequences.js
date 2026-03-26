@@ -1,26 +1,27 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, addDays, loadSVGs, setupGlobalSearch, checkAndSetNotifications, runWhenNavReady } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, initializeAppState, getState, addDays, loadSVGs, showGlobalLoader, hideGlobalLoader, setupGlobalSearch, checkAndSetNotifications, runWhenNavReady } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("sequences.js script started parsing.");
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-   let state = {
-    currentUser: null,
-    sequences: [],
-    sequence_steps: [],
-    products: [], // <-- ADD THIS LINE
-    selectedSequenceId: null,
-    contacts: [],
-    activities: [],
-    accounts: [], 
-    contact_sequences: [],
-    isEditingSequenceDetails: false,
-    originalSequenceName: '',
-    originalSequenceDescription: '',
-    editingStepId: null,
-    originalStepValues: {},
-    aiGeneratedSteps: []
-};
+    let state = {
+        currentUser: null,
+        sequences: [],
+        sequence_steps: [],
+        selectedSequenceId: null,
+        contacts: [],
+        activities: [],
+        accounts: [], // Added accounts to state for the modal
+        contact_sequences: [],
+        isEditingSequenceDetails: false,
+        originalSequenceName: '',
+        originalSequenceDescription: '',
+        editingStepId: null,
+        originalStepValues: {},
+        aiGeneratedSteps: [],
+        draggedStepId: null,
+        dragPreviewEl: null
+    };
 
     // --- DOM Element Selectors ---
     const logoutBtn = document.getElementById("logout-btn");
@@ -31,7 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const sequenceCsvInput = document.getElementById("sequence-steps-csv-input");
     const deleteSequenceBtn = document.getElementById("delete-sequence-btn");
     const bulkAssignBtn = document.getElementById("bulk-assign-btn"); // The new button
-    const sequenceStepsTableBody = document.querySelector("#sequence-steps-table-body");
+    const sequenceStepsFlow = document.getElementById("sequence-steps-flow");
     const addStepBtn = document.getElementById("add-step-btn");
     const sequenceNameInput = document.getElementById("sequence-name");
     const sequenceDescriptionTextarea = document.getElementById("sequence-description");
@@ -42,64 +43,72 @@ document.addEventListener("DOMContentLoaded", async () => {
     const aiSequenceGoalTextarea = document.getElementById("ai-sequence-goal");
     const aiTotalDurationInput = document.getElementById("ai-total-duration");
     const aiNumStepsInput = document.getElementById("ai-num-steps");
-    const aiStepTypeEmailCheckbox = document.getElementById("ai-step-type-email");
-    const aiStepTypeLinkedinCheckbox = document.getElementById("ai-step-type-linkedin");
-    const aiStepTypeCallCheckbox = document.getElementById("ai-step-type-call");
-    const aiStepTypeTaskCheckbox = document.getElementById("ai-step-type-task");
-    const aiStepTypeOtherCheckbox = document.getElementById("ai-step-type-other");
-    const aiStepTypeOtherInput = document.getElementById("ai-step-type-other-input");
+    const aiStepTypePills = document.getElementById("ai-step-type-pills");
+    const aiStepTypeOtherPill = document.getElementById("ai-step-type-other-pill");
     const aiPersonaPromptTextarea = document.getElementById("ai-persona-prompt");
     const aiGenerateSequenceBtn = document.getElementById("ai-generate-sequence-btn");
     const aiGeneratedSequencePreview = document.getElementById("ai-generated-sequence-preview");
     const aiGeneratedSequenceForm = document.getElementById("ai-generated-sequence-form");
     const saveAiSequenceBtn = document.getElementById("save-ai-sequence-btn");
     const cancelAiSequenceBtn = document.getElementById("cancel-ai-sequence-btn");
-    
-    // --- Data Fetching ---
-  async function loadAllData() {
-    if (!state.currentUser) return;
-    
-    const userSpecificTables = ["sequences", "contacts", "accounts", "contact_sequences", "sequence_steps", "activities"];
-    const promises = userSpecificTables.map((table) =>
-        supabase.from(table).select("*").eq("user_id", state.currentUser.id)
-    );
-    // Add promise for product_knowledge without a user_id filter
-    promises.push(supabase.from('product_knowledge').select('product_name'));
-    
-    try {
-        const results = await Promise.allSettled(promises);
-        
-        // Use a combined list for processing results
-        const allTables = [...userSpecificTables, 'product_knowledge']; 
+    const sequenceStepEditPanel = document.getElementById("sequence-step-edit-panel");
+    const sequenceStepEditForm = document.getElementById("sequence-step-edit-form");
+    const sequenceStepsDropZonesRow = document.querySelector(".sequence-steps-drop-zones-row");
 
-        results.forEach((result, index) => {
-            const tableName = allTables[index];
-            if (result.status === "fulfilled" && !result.value.error) {
-                state[tableName] = result.value.data || [];
-            } else {
-                console.error(`Error fetching ${tableName}:`, result.status === 'fulfilled' ? result.value.error?.message : result.reason);
-            }
-        });
+    let tomSelectAssigned = null;
 
-        // Process products into a unique, sorted list
-        if (state.product_knowledge) {
-            state.products = [...new Set(state.product_knowledge.map(p => p.product_name))].sort();
-        }
-
-    } catch (error) {
-        console.error("Critical error in loadAllData:", error);
-    } finally {
-        renderSequenceList();
-        renderProductCheckboxes(); // Call the new render function
-        if (state.selectedSequenceId && state.sequences.some(s => s.id === state.selectedSequenceId)) {
-            renderSequenceDetails(state.selectedSequenceId);
-        } else {
-            clearSequenceDetailsPanel(false);
+    function initTomSelect(el, opts = {}) {
+        if (typeof window.TomSelect === 'undefined') return null;
+        try {
+            return new window.TomSelect(el, { create: false, ...opts });
+        } catch (e) {
+            return null;
         }
     }
-}
+    
+    // --- Data Fetching ---
+    async function loadAllData() {
+        if (!state.currentUser) return;
+        showGlobalLoader();
+        // Add "accounts" to the tables being fetched
+        const userSpecificTables = ["sequences", "contacts", "accounts", "contact_sequences", "sequence_steps", "activities"];
+        const promises = userSpecificTables.map((table) =>
+            supabase.from(table).select("*").eq("user_id", getState().effectiveUserId)
+        );
+        
+        try {
+            const results = await Promise.allSettled(promises);
+            results.forEach((result, index) => {
+                const tableName = userSpecificTables[index];
+                if (result.status === "fulfilled" && !result.value.error) {
+                    state[tableName] = result.value.data || [];
+                } else {
+                    console.error(`Error fetching ${tableName}:`, result.status === 'fulfilled' ? result.value.error?.message : result.reason);
+                }
+            });
+        } catch (error) {
+            console.error("Critical error in loadAllData:", error);
+        } finally {
+            hideGlobalLoader();
+            renderSequenceList();
+            const urlSeqId = typeof URLSearchParams !== 'undefined' && new URLSearchParams(window.location.search).get('sequenceId');
+            const sequenceIdFromUrl = urlSeqId ? Number(urlSeqId) : null;
+            if (sequenceIdFromUrl && state.sequences.some(s => s.id === sequenceIdFromUrl)) {
+                state.selectedSequenceId = sequenceIdFromUrl;
+                renderSequenceDetails(sequenceIdFromUrl);
+                document.querySelectorAll("#sequence-list .selected").forEach(i => i.classList.remove("selected"));
+                const listItem = document.querySelector(`#sequence-list .list-item[data-id="${sequenceIdFromUrl}"]`);
+                if (listItem) listItem.classList.add("selected");
+            } else if (state.selectedSequenceId && state.sequences.some(s => s.id === state.selectedSequenceId)) {
+                renderSequenceDetails(state.selectedSequenceId);
+            } else {
+                clearSequenceDetailsPanel(false);
+            }
+        }
+    }
+
     // --- Render Functions ---
-const renderSequenceList = () => {
+    const renderSequenceList = () => {
         if (!sequenceList) return;
         sequenceList.innerHTML = "";
         state.sequences
@@ -117,13 +126,12 @@ const renderSequenceList = () => {
                 const completedCount = finishedSequences.filter(cs => cs.status === 'Completed').length;
                 const successRate = finishedSequences.length > 0 ? Math.round((completedCount / finishedSequences.length) * 100) : 0;
 
-                // Unified Rajdhani styling with gold success rates
                 item.innerHTML = `
-                    <div class="contact-info">
-                        <div class="contact-name">${indicatorHtml} ${seq.name}</div>
+                    <div class="sequence-info">
+                        <div class="sequence-name">${indicatorHtml} ${seq.name}</div>
                         <div class="sequence-list-stats"> 
-                            <span class="account-name">Active: ${activeContacts}</span>
-                            <span class="list-item-meta-accent">Success: ${successRate}%</span>
+                            <span>Active: ${activeContacts}</span>
+                            <span class="success-rate">Success: ${successRate}%</span>
                         </div>
                     </div>
                 `;
@@ -134,79 +142,192 @@ const renderSequenceList = () => {
                 sequenceList.appendChild(item);
             });
     };
-function renderProductCheckboxes() {
-    const productListContainer = document.getElementById('ai-product-list');
-    if (!productListContainer) return;
+    const escapeHtml = (value) => {
+        const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+        return String(value ?? "").replace(/[&<>"']/g, (char) => map[char]);
+    };
+    const abbreviateText = (value, maxLen = 72) => {
+        const clean = String(value ?? "").replace(/\s+/g, " ").trim();
+        if (!clean) return "";
+        return clean.length > maxLen ? `${clean.slice(0, maxLen - 1)}…` : clean;
+    };
+    const getStepTypeVisual = (type = "") => {
+        const t = String(type || "").toLowerCase();
+        if (t.includes("email")) return { iconClass: "icon-email", icon: "fa-envelope" };
+        if (t.includes("call")) return { iconClass: "icon-call", icon: "fa-phone" };
+        if (t.includes("meeting") || t.includes("zoom") || t.includes("video")) return { iconClass: "icon-meeting", icon: "fa-video" };
+        if (t.includes("linkedin")) return { iconClass: "icon-default", icon: "fa-linkedin-in", iconPrefix: "fa-brands" };
+        if (t.includes("task")) return { iconClass: "icon-default", icon: "fa-list-check" };
+        return { iconClass: "icon-default", icon: "fa-bolt" };
+    };
 
-    // --- CHANGE: Apply your existing class name ---
-    productListContainer.className = 'checkbox-group'; 
+    const getStepsForSelectedSequence = () => (
+        state.sequence_steps
+            .filter((s) => s.sequence_id === state.selectedSequenceId)
+            .sort((a, b) => a.step_number - b.step_number)
+    );
 
-    if (state.products.length === 0) {
-        productListContainer.innerHTML = '<p class="placeholder-text">No products found.</p>';
-        return;
-    }
+    const renderSequenceSteps = () => {
+        if (!sequenceStepsFlow) return;
+        sequenceStepsFlow.innerHTML = "";
 
-    // Use a simple 'div' wrapper to match the structure of your "Step Types"
-    productListContainer.innerHTML = state.products.map(product => `
-        <div>
-            <input type="checkbox" id="seq-prod-${product.replace(/\s+/g, '-')}" class="ai-product-checkbox" value="${product}">
-            <label for="seq-prod-${product.replace(/\s+/g, '-')}">${product}</label>
-        </div>
-    `).join('');
-}
- const renderSequenceSteps = () => {
-        if (!sequenceStepsTableBody) return;
-        sequenceStepsTableBody.innerHTML = "";
-        if (!state.selectedSequenceId) return;
+        if (!state.selectedSequenceId) {
+            sequenceStepsFlow.innerHTML = `<p class="placeholder-text">Select a sequence to view steps.</p>`;
+            return;
+        }
 
-        const steps = state.sequence_steps
-            .filter(s => s.sequence_id === state.selectedSequenceId)
-            .sort((a, b) => a.step_number - b.step_number);
+        const steps = getStepsForSelectedSequence();
+        if (steps.length === 0) {
+            sequenceStepsFlow.innerHTML = `<p class="placeholder-text">No steps yet. Add a step to build this sequence.</p>`;
+            return;
+        }
 
-        steps.forEach((step, index) => {
-            const row = sequenceStepsTableBody.insertRow();
-            row.dataset.id = step.id;
-            const isEditingThisStep = state.editingStepId === step.id;
-            const isFirstStep = index === 0;
-            const isLastStep = index === steps.length - 1;
+        const CARDS_PER_ROW = 5;
+        const stepsChunked = [];
+        for (let i = 0; i < steps.length; i += CARDS_PER_ROW) {
+            stepsChunked.push(steps.slice(i, i + CARDS_PER_ROW));
+        }
 
-            const actionsHtml = `
-                <td>
-                    <div class="actions-cell-content">
-                        ${isEditingThisStep ?
-                            `
-                            <button class="btn btn-sm btn-success save-step-btn" data-id="${step.id}">Save</button>
-                            <button class="btn btn-sm btn-secondary cancel-step-btn" data-id="${step.id}">Cancel</button>
-                            ` :
-                            `
-                            <button class="btn btn-sm btn-secondary move-up-btn ${isFirstStep ? 'hidden' : ''}" data-id="${step.id}" title="Move Up"><i class="fas fa-arrow-up"></i></button>
-                            <button class="btn btn-sm btn-primary edit-step-btn" data-id="${step.id}" title="Edit"><i class="fas fa-pencil-alt"></i></button>
-                            <button class="btn btn-sm btn-secondary move-down-btn ${isLastStep ? 'hidden' : ''}" data-id="${step.id}" title="Move Down"><i class="fas fa-arrow-down"></i></button>
-                            <button class="btn btn-sm btn-danger delete-step-btn" data-id="${step.id}" title="Delete"><i class="fas fa-trash-can"></i></button>
-                            `
-                        }
+        stepsChunked.forEach((rowSteps, rowIndex) => {
+            const row = document.createElement("div");
+            row.className = "sequence-flow-row";
+
+            rowSteps.forEach((step, colIndex) => {
+                const index = rowIndex * CARDS_PER_ROW + colIndex;
+                const isEditingThisStep = state.editingStepId === step.id;
+                const card = document.createElement("article");
+                card.className = `sequence-step-card ${isEditingThisStep ? "sequence-step-card-editing" : ""}`;
+                card.dataset.id = step.id;
+                card.dataset.stepNumber = String(step.step_number);
+                card.draggable = !isEditingThisStep;
+
+                const displayAssignedTo = escapeHtml(step.assigned_to || "Sales");
+                const delayText = Number(step.delay_days || 0);
+                const typeValue = escapeHtml(step.type || "");
+                const subjectValue = escapeHtml(step.subject || "");
+                const messageValue = escapeHtml(step.message || "");
+                const summaryText = abbreviateText(step.subject || step.message || "", 140);
+                const { iconClass, icon, iconPrefix } = getStepTypeVisual(step.type);
+
+                card.innerHTML = isEditingThisStep ? `
+                <div class="sequence-step-card-header">
+                    <div class="sequence-step-card-title-wrap">
+                        <span class="sequence-step-number-badge">Step ${step.step_number}</span>
+                        <input class="sequence-step-inline-input" data-field="type" type="text" value="${typeValue}" placeholder="Step Type">
                     </div>
-                </td>`;
+                    <div class="sequence-step-card-actions">
+                        <button class="btn btn-sm btn-success save-step-btn" data-id="${step.id}">Save</button>
+                        <button class="btn btn-sm btn-secondary cancel-step-btn" data-id="${step.id}">Cancel</button>
+                    </div>
+                </div>
+                <div class="sequence-step-card-body">
+                    <div class="sequence-step-grid">
+                        <label class="sequence-step-field">
+                            <span class="sequence-step-field-label">Delay (Days)</span>
+                            <input class="sequence-step-inline-input" data-field="delay_days" type="number" value="${delayText}" min="0">
+                        </label>
+                        <label class="sequence-step-field">
+                            <span class="sequence-step-field-label">Assigned To</span>
+                            <select class="sequence-step-inline-input" data-field="assigned_to">
+                                <option value="Sales" ${(step.assigned_to || "Sales") === "Sales" ? "selected" : ""}>Sales</option>
+                                <option value="Sales Manager" ${step.assigned_to === "Sales Manager" ? "selected" : ""}>Sales Manager</option>
+                                <option value="Marketing" ${step.assigned_to === "Marketing" ? "selected" : ""}>Marketing</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="sequence-step-field">
+                        <span class="sequence-step-field-label">Subject</span>
+                        <input class="sequence-step-inline-input" data-field="subject" type="text" value="${subjectValue}" placeholder="Subject (optional)">
+                    </label>
+                    <label class="sequence-step-field">
+                        <span class="sequence-step-field-label">Message / Description</span>
+                        <textarea class="sequence-step-inline-textarea" data-field="message" rows="3" placeholder="Message or instructions">${messageValue}</textarea>
+                    </label>
+                </div>
+            ` : `
+                <div class="sequence-step-card-bg-icon" aria-hidden="true"><i class="${iconPrefix || 'fas'} ${icon}"></i></div>
+                <div class="sequence-step-card-bg-number" aria-hidden="true">${step.step_number}</div>
+                <div class="sequence-step-card-assigned" aria-hidden="true">${displayAssignedTo}</div>
+                <div class="sequence-step-card-delay" aria-hidden="true">+${delayText}d</div>
+                <div class="sequence-step-card-body">
+                    <p class="sequence-step-summary" title="${escapeHtml(step.subject || step.message || "")}">${escapeHtml(summaryText || "No description")}</p>
+                </div>
+            `;
 
-       // Replace the corresponding cell logic in your loop with this:
-row.innerHTML = `
-    <td>
-        <div class="contact-info">
-            <div class="contact-name sequence-step-meta">${step.step_number}</div>
-        </div>
-    </td>
-    <td><div class="contact-info"><div class="contact-name sequence-step-type">${isEditingThisStep ? `<input type="text" class="edit-step-type" value="${step.type || ''}">` : (step.type || '')}</div></div></td>
-    <td>
-        <div class="contact-info">
-            <div class="contact-name sequence-step-meta">
-                ${isEditingThisStep ? `<input type="number" class="edit-step-delay" value="${step.delay_days || 0}">` : (step.delay_days || 0)}
-            </div>
-        </div>
-    </td>
-    <td><div class="contact-info"><div class="contact-name sequence-step-meta">${isEditingThisStep ? `<input type="text" class="edit-step-subject" value="${step.subject || ''}">` : (step.subject || '')}</div></div></td>
-    <td><div class="contact-info"><div class="contact-name sequence-step-body">${isEditingThisStep ? `<textarea class="edit-step-message" style="width: 100%; min-height: 60px;">${step.message || ''}</textarea>` : (step.message || '')}</div></div></td>
-    ${actionsHtml}
-`;
+                row.appendChild(card);
+
+                if (colIndex < rowSteps.length - 1) {
+                    const arrow = document.createElement("div");
+                    arrow.className = "sequence-step-arrow sequence-step-arrow-right";
+                    arrow.setAttribute("aria-hidden", "true");
+                    arrow.innerHTML = `<i class="fas fa-arrow-right"></i>`;
+                    row.appendChild(arrow);
+                }
+            });
+
+            sequenceStepsFlow.appendChild(row);
+
+            if (rowIndex < stepsChunked.length - 1) {
+                const numTop = rowSteps.length;
+                const numBottom = stepsChunked[rowIndex + 1].length;
+                
+                const offsetTop = (numTop * 14 + (numTop - 1) * 4) / 2 - 7;
+                const offsetBottom = (numBottom * 14 + (numBottom - 1) * 4) / 2 - 7;
+
+                const connector = document.createElement("div");
+                connector.className = "sequence-flow-connector-css";
+                connector.setAttribute("aria-hidden", "true");
+                
+                // If top offset is larger, the horizontal line starts at right (top) and goes left (bottom).
+                // It spans precisely between the two offsets from the center line.
+                connector.innerHTML = `
+                    <div class="sfc-horiz" style="left: calc(50% - ${Math.max(offsetTop, offsetBottom)}rem); right: calc(50% - ${Math.max(offsetTop, offsetBottom)}rem);"></div>
+                    <div class="sfc-vert-right" style="right: calc(50% - ${offsetTop}rem);"></div>
+                    <div class="sfc-vert-left" style="left: calc(50% - ${offsetBottom}rem);"></div>
+                    <div class="sfc-arrow" style="left: calc(50% - ${offsetBottom}rem);">
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                `;
+                
+                // Fix the horizontal line to properly span from the leftmost point to the rightmost point
+                // If top offset is 29.5 (right side of line) and bottom offset is 14.75 (left side of line)
+                // then right: calc(50% - 29.5rem) and left: calc(50% - 14.75rem).
+                // Wait, if offsetTop is smaller, e.g. top is 3 cards (14.75), bottom is 5 cards (29.5).
+                // The right side of the line is top Card 3, so right: calc(50% - 14.75rem).
+                // The left side of the line is bottom Card 1, so left: calc(50% - 29.5rem).
+                // In both cases, the formula is:
+                // left: calc(50% - ${Math.max(offsetTop, offsetBottom)}rem)
+                // right: calc(50% - ${Math.max(offsetTop, offsetBottom)}rem)
+                // Wait! No, that's wrong! If we use Math.max, it will span equally symmetrically!
+                // We want it to span specifically from left: calc(50% - offsetBottom) to right: calc(50% - offsetTop).
+                // Wait, what if offsetBottom > offsetTop? 
+                // e.g., offsetBottom = 29.5, offsetTop = 14.75.
+                // left: calc(50% - 29.5) and right: calc(50% - 14.75).
+                // That works perfectly! The left property anchors the left side, the right property anchors the right side.
+                // Let's use the exact variables.
+                connector.innerHTML = `
+                    <div class="sfc-horiz" style="left: calc(50% - ${Math.max(offsetBottom, offsetTop)}rem); right: calc(50% - ${Math.max(offsetBottom, offsetTop)}rem);"></div>
+                    <div class="sfc-vert-right" style="right: calc(50% - ${offsetTop}rem);"></div>
+                    <div class="sfc-vert-left" style="left: calc(50% - ${offsetBottom}rem);"></div>
+                    <div class="sfc-arrow" style="left: calc(50% - ${offsetBottom}rem);">
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                `;
+                
+                // Let's correct sfc-horiz style.
+                // If offsetTop is 29.5 and offsetBottom is 14.75.
+                // left: calc(50% - 14.75rem); right: calc(50% - 29.5rem).
+                // This is exactly correct! It doesn't need Math.max!
+                connector.innerHTML = `
+                    <div class="sfc-horiz" style="left: calc(50% - ${offsetBottom}rem); right: calc(50% - ${offsetTop}rem);"></div>
+                    <div class="sfc-vert-right" style="right: calc(50% - ${offsetTop}rem);"></div>
+                    <div class="sfc-vert-left" style="left: calc(50% - ${offsetBottom}rem);"></div>
+                    <div class="sfc-arrow" style="left: calc(50% - ${offsetBottom}rem);">
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                `;
+                sequenceStepsFlow.appendChild(connector);
+            }
         });
     };
     
@@ -238,6 +359,9 @@ row.innerHTML = `
         bulkAssignBtn.style.display = 'inline-block'; // Show the bulk assign button
         
         state.editingStepId = null;
+        if (sequenceStepEditPanel) sequenceStepEditPanel.classList.add("hidden");
+        if (sequenceStepsFlow) sequenceStepsFlow.classList.remove("hidden");
+        if (sequenceStepsDropZonesRow) sequenceStepsDropZonesRow.classList.remove("hidden");
         renderSequenceSteps();
     };
 
@@ -252,7 +376,7 @@ row.innerHTML = `
             sequenceDescriptionTextarea.value = "";
             sequenceDescriptionTextarea.disabled = true;
         }
-        if (sequenceStepsTableBody) sequenceStepsTableBody.innerHTML = "";
+        if (sequenceStepsFlow) sequenceStepsFlow.innerHTML = "";
 
         if (hidePanel && sequenceDetailsPanel) {
             sequenceDetailsPanel.classList.add('hidden');
@@ -268,9 +392,13 @@ row.innerHTML = `
 
         document.querySelectorAll("#sequence-list .selected").forEach(item => item.classList.remove("selected"));
         state.editingStepId = null;
+        state.draggedStepId = null;
         state.originalStepValues = {};
         state.aiGeneratedSteps = [];
         aiGeneratedSequencePreview.classList.add('hidden');
+        if (sequenceStepEditPanel) sequenceStepEditPanel.classList.add("hidden");
+        if (sequenceStepsFlow) sequenceStepsFlow.classList.remove("hidden");
+        if (sequenceStepsDropZonesRow) sequenceStepsDropZonesRow.classList.remove("hidden");
     };
 
     function setupPageEventListeners() {
@@ -289,7 +417,26 @@ row.innerHTML = `
         if (addStepBtn) addStepBtn.addEventListener("click", handleAddStep);
         if (bulkAssignBtn) bulkAssignBtn.addEventListener("click", handleBulkAssignClick); // Event listener for new button
         if (sequenceList) sequenceList.addEventListener("click", handleSequenceListClick);
-        if (sequenceStepsTableBody) sequenceStepsTableBody.addEventListener("click", handleSequenceStepActions);
+        if (sequenceStepsFlow) {
+            sequenceStepsFlow.addEventListener("click", handleSequenceStepActions);
+            sequenceStepsFlow.addEventListener("dragstart", handleSequenceStepDragStart);
+            sequenceStepsFlow.addEventListener("dragover", handleSequenceStepDragOver);
+            sequenceStepsFlow.addEventListener("drop", handleSequenceStepDrop);
+            sequenceStepsFlow.addEventListener("dragend", handleSequenceStepDragEnd);
+        }
+
+        document.addEventListener("dragover", (e) => {
+            if (state.draggedStepId && state.dragPreviewEl) updateDragPreviewPosition(e);
+        }, { passive: true });
+        document.querySelectorAll(".sequence-drop-zone").forEach((zone) => {
+            zone.addEventListener("dragover", handleDropZoneDragOver);
+            zone.addEventListener("drop", handleDropZoneDrop);
+            zone.addEventListener("dragleave", handleDropZoneDragLeave);
+        });
+        if (sequenceStepEditForm) sequenceStepEditForm.addEventListener("submit", handleStepEditFormSubmit);
+        if (document.getElementById("step-edit-cancel-btn")) {
+            document.getElementById("step-edit-cancel-btn").addEventListener("click", hideStepEditPanel);
+        }
 
         document.body.addEventListener("click", (e) => {
             const target = e.target;
@@ -302,20 +449,36 @@ row.innerHTML = `
             }
         });
 
-        if (aiStepTypeOtherCheckbox && aiStepTypeOtherInput) {
-            aiStepTypeOtherCheckbox.addEventListener('change', () => {
-                aiStepTypeOtherInput.disabled = !aiStepTypeOtherCheckbox.checked;
-                if (!aiStepTypeOtherCheckbox.checked) {
-                    aiStepTypeOtherInput.value = '';
-                }
+        if (aiStepTypePills) {
+            aiStepTypePills.addEventListener("click", (e) => {
+                const pill = e.target.closest(".sequence-step-type-pill");
+                if (!pill || pill === aiStepTypeOtherPill) return; /* Other is an input, not a toggle */
+
+                const nextState = !pill.classList.contains("is-active");
+                pill.classList.toggle("is-active", nextState);
+                pill.setAttribute("aria-pressed", nextState ? "true" : "false");
             });
         }
 
         if (aiGenerateSequenceBtn) aiGenerateSequenceBtn.addEventListener("click", handleAiGenerateSequence);
         if (saveAiSequenceBtn) saveAiSequenceBtn.addEventListener("click", handleSaveAiSequence);
         if (cancelAiSequenceBtn) cancelAiSequenceBtn.addEventListener("click", handleCancelAiSequence);
+        const aiCardCollapseBtn = document.getElementById("sequence-ai-card-collapse-btn");
+        const aiCard = document.getElementById("sequence-ai-card");
+        if (aiCardCollapseBtn && aiCard) {
+            aiCardCollapseBtn.addEventListener("click", () => {
+                const isCollapsed = aiCard.classList.toggle("collapsed");
+                const icon = aiCardCollapseBtn.querySelector("i");
+                if (icon) {
+                    icon.className = isCollapsed ? "fas fa-chevron-down" : "fas fa-chevron-up";
+                }
+                aiCardCollapseBtn.title = isCollapsed ? "Expand" : "Collapse";
+                aiCardCollapseBtn.setAttribute("aria-label", isCollapsed ? "Expand AI Generate" : "Collapse AI Generate");
+            });
+        }
     }
     
+  // Replace the entire handleBulkAssignClick function in sequences.js with this one.
 async function handleBulkAssignClick() {
     if (!state.selectedSequenceId) {
         showModal("Error", "Please select a sequence first.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
@@ -333,26 +496,13 @@ async function handleBulkAssignClick() {
         return;
     }
 
-    // Generate unique lists for datalist dropdowns.
-    const uniqueTitles = [...new Set(state.contacts.map(c => c.title).filter(Boolean))];
-    const uniqueCompanies = [...new Set(state.accounts.map(a => a.name).filter(Boolean))];
-    const uniqueIndustries = [...new Set(state.accounts.map(a => a.industry).filter(Boolean))];
-
-    const titlesDatalist = `<datalist id="titles-list">${uniqueTitles.map(t => `<option value="${t}"></option>`).join('')}</datalist>`;
-    const companiesDatalist = `<datalist id="companies-list">${uniqueCompanies.map(c => `<option value="${c}"></option>`).join('')}</datalist>`;
-    const industriesDatalist = `<datalist id="industries-list">${uniqueIndustries.map(i => `<option value="${i}"></option>`).join('')}</datalist>`;
-
     const modalBody = `
         <p>Select contacts to add to this sequence. Contacts already in an active sequence are not shown.</p>
         
-        ${titlesDatalist}
-        ${companiesDatalist}
-        ${industriesDatalist}
-
         <div class="filter-controls">
-            <input type="text" id="filter-title" class="form-control" placeholder="Filter by Title..." list="titles-list">
-            <input type="text" id="filter-company" class="form-control" placeholder="Filter by Company..." list="companies-list">
-            <input type="text" id="filter-industry" class="form-control" placeholder="Filter by Industry..." list="industries-list">
+            <input type="text" id="filter-title" class="form-control" placeholder="Filter by Title...">
+            <input type="text" id="filter-company" class="form-control" placeholder="Filter by Company...">
+            <input type="text" id="filter-industry" class="form-control" placeholder="Filter by Industry...">
             <select id="filter-activity" class="form-control">
                 <option value="all">Recent Activity (All)</option>
                 <option value="yes">Has Recent Activity</option>
@@ -360,10 +510,10 @@ async function handleBulkAssignClick() {
             </select>
         </div>
 
-<label class="bulk-assign-select-all">
-    <input type="checkbox" id="select-all-checkbox" class="bulk-assign-checkbox">
-    <span>Select All / Deselect All</span>
-</label>
+        <div class="select-all-container">
+             <input type="checkbox" id="select-all-checkbox">
+             <label for="select-all-checkbox">Select All / Deselect All</label>
+        </div>
 
         <div class="item-list-container-modal" id="bulk-assign-contact-list">
             </div>
@@ -371,6 +521,7 @@ async function handleBulkAssignClick() {
 
     showModal("Bulk Assign Contacts", modalBody, processBulkAssignment, true, `<button id="modal-confirm-btn" class="btn-primary">Assign Selected</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
     
+    // FIX: Wrap the setup logic in a setTimeout to ensure the modal DOM exists before we try to access it.
     setTimeout(() => {
         const contactListContainer = document.getElementById('bulk-assign-contact-list');
         const titleFilter = document.getElementById('filter-title');
@@ -379,13 +530,17 @@ async function handleBulkAssignClick() {
         const activityFilter = document.getElementById('filter-activity');
         const selectAllCheckbox = document.getElementById('select-all-checkbox');
 
+        // This check prevents errors if the user closes the modal very quickly
         if (!contactListContainer) return;
 
+        if (activityFilter && typeof window.TomSelect !== 'undefined') {
+            try { initTomSelect(activityFilter, { render: { dropdown: () => { const d = document.createElement('div'); d.className = 'ts-dropdown tom-select-no-search'; return d; } } }); } catch (e) {}
+        }
         const renderFilteredContacts = () => {
             const titleQuery = titleFilter.value.toLowerCase();
             const companyQuery = companyFilter.value.toLowerCase();
             const industryQuery = industryFilter.value.toLowerCase();
-            const activityQuery = activityFilter.value;
+            const activityQuery = activityFilter?.tomselect ? activityFilter.tomselect.getValue() : (activityFilter?.value || 'all');
             
             const filteredContacts = availableContacts.filter(contact => {
                 const account = state.accounts.find(a => a.id === contact.account_id) || {};
@@ -410,10 +565,7 @@ async function handleBulkAssignClick() {
                         <div class="list-item contact-item-row"> 
                             <input type="checkbox" id="contact-${contact.id}" data-contact-id="${contact.id}" class="bulk-assign-checkbox">
                             <label for="contact-${contact.id}">
-                                <div class="contact-main-info">
-                                    <div class="contact-name">${contact.first_name} ${contact.last_name}</div>
-                                    <div class="contact-title-company">${contact.title || 'No Title'} at ${account ? account.name : 'No Account'}</div>
-                                </div>
+                                <span>${contact.first_name} ${contact.last_name} <small>(${account ? account.name : 'No Account'})</small></span>
                                 <span class="last-activity-date">${lastActivity}</span>
                             </label>
                         </div>
@@ -439,8 +591,9 @@ async function handleBulkAssignClick() {
             });
         });
 
+        // Initial render of the contact list
         renderFilteredContacts();
-    }, 0);
+    }, 0); // A delay of 0 is all we need.
 }
     
 async function processBulkAssignment() {
@@ -466,7 +619,7 @@ async function processBulkAssignment() {
         current_step_number: 1,
         status: 'Active',
         next_step_due_date: addDays(new Date(), firstStep.delay_days).toISOString(),
-        user_id: state.currentUser.id
+        user_id: getState().effectiveUserId
     }));
 
     const { error } = await supabase.from('contact_sequences').insert(newContactSequences);
@@ -544,7 +697,7 @@ async function processBulkAssignment() {
         showModal("New Personal Sequence", `<label>Sequence Name</label><input type="text" id="modal-sequence-name" required>`, async () => {
             const name = document.getElementById("modal-sequence-name").value.trim();
             if (name) {
-                const { data: newSeq, error } = await supabase.from("sequences").insert([{ name, source: 'Personal', user_id: state.currentUser.id }]).select().single();
+                const { data: newSeq, error } = await supabase.from("sequences").insert([{ name, source: 'Personal', user_id: getState().effectiveUserId }]).select().single();
                 if (error) { showModal("Error", "Error adding sequence: " + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`); return false; }
                 state.selectedSequenceId = newSeq.id;
                 await loadAllData();
@@ -615,7 +768,7 @@ async function processBulkAssignment() {
                 subject: document.getElementById("modal-step-subject").value.trim(),
                 message: document.getElementById("modal-step-message").value.trim(),
                 delay_days: parseInt(document.getElementById("modal-step-delay").value),
-                user_id: state.currentUser.id
+                user_id: getState().effectiveUserId
             };
             if (!newStep.type) { showModal("Error", "Step Type is required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`); return false; }
             await supabase.from("sequence_steps").insert([newStep]);
@@ -629,10 +782,10 @@ async function processBulkAssignment() {
         const targetButton = e.target.closest('button');
         if (!targetButton) return;
     
-        const row = targetButton.closest("tr[data-id]");
-        if (!row) return;
+        const card = targetButton.closest(".sequence-step-card[data-id]");
+        if (!card) return;
 
-        const stepId = Number(row.dataset.id);
+        const stepId = Number(card.dataset.id);
 
         if (state.isEditingSequenceDetails || state.aiGeneratedSteps.length > 0) {
             showModal("Error", "Please save or cancel other edits before modifying steps.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
@@ -647,12 +800,17 @@ async function processBulkAssignment() {
             state.editingStepId = stepId;
             renderSequenceSteps();
         } else if (targetButton.matches(".save-step-btn, .save-step-btn *")) {
+            const getField = (field) => {
+                const el = card.querySelector(`[data-field="${field}"]`);
+                if (!el) return "";
+                return typeof el.value === "string" ? el.value.trim() : "";
+            };
             const updatedStep = {
-                type: row.querySelector(".edit-step-type").value.trim(),
-                subject: row.querySelector(".edit-step-subject").value.trim(),
-                message: row.querySelector(".edit-step-message").value.trim(),
-                delay_days: parseInt(row.querySelector(".edit-step-delay").value || 0, 10),
-                assigned_to: row.querySelector(".edit-step-assigned-to").value,
+                type: getField("type"),
+                subject: getField("subject"),
+                message: getField("message"),
+                delay_days: parseInt(getField("delay_days") || "0", 10),
+                assigned_to: getField("assigned_to") || "Sales",
             };
             if (!updatedStep.type) { 
                 showModal("Error", "Step Type is required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
@@ -674,25 +832,235 @@ async function processBulkAssignment() {
                 await loadAllData();
                 hideModal();
             }, true, `<button id="modal-confirm-btn" class="btn-danger">Delete</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
-        } else if (targetButton.matches(".move-up-btn, .move-up-btn *")) {
-            if (state.editingStepId) {
-                showModal("Error", "Please save or cancel any active edits first.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                return;
-            }
-            await handleMoveStep(stepId, 'up');
-        } else if (targetButton.matches(".move-down-btn, .move-down-btn *")) {
-            if (state.editingStepId) {
-                showModal("Error", "Please save or cancel any active edits first.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                return;
-            }
-            await handleMoveStep(stepId, 'down');
         }
     }
 
+    const persistSequenceStepOrder = async (orderedSteps) => {
+        const updates = orderedSteps.map((step, index) => (
+            supabase
+                .from("sequence_steps")
+                .update({ step_number: index + 1 })
+                .eq("id", step.id)
+        ));
+        const results = await Promise.all(updates);
+        const firstError = results.find((res) => res.error);
+        if (firstError) throw firstError.error;
+    };
+
+    function getDraggedCard() {
+        if (!state.draggedStepId) return null;
+        return document.querySelector(`.sequence-step-card[data-id="${state.draggedStepId}"]`);
+    }
+
+    function updateDragPreviewPosition(e) {
+        if (!state.dragPreviewEl || !state.draggedStepId) return;
+        const rect = state.dragPreviewEl.getBoundingClientRect();
+        const offsetX = state.dragPreviewEl.dataset.offsetX ? parseFloat(state.dragPreviewEl.dataset.offsetX) : rect.width / 2;
+        const offsetY = state.dragPreviewEl.dataset.offsetY ? parseFloat(state.dragPreviewEl.dataset.offsetY) : rect.height / 2;
+        state.dragPreviewEl.style.left = `${e.clientX - offsetX}px`;
+        state.dragPreviewEl.style.top = `${e.clientY - offsetY}px`;
+    }
+
+    function removeDragPreview() {
+        if (state.dragPreviewEl && state.dragPreviewEl.parentNode) {
+            state.dragPreviewEl.parentNode.removeChild(state.dragPreviewEl);
+            state.dragPreviewEl = null;
+        }
+    }
+
+    function handleDropZoneDragOver(e) {
+        if (!state.draggedStepId || state.editingStepId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        updateDragPreviewPosition(e);
+        const zone = e.target.closest(".sequence-drop-zone");
+        if (zone) {
+            document.querySelectorAll(".sequence-drop-zone").forEach((z) => z.classList.remove("drag-over"));
+            zone.classList.add("drag-over");
+            if (state.dragPreviewEl) state.dragPreviewEl.classList.add("is-near-drop-zone");
+        }
+    }
+
+    function handleDropZoneDragLeave(e) {
+        if (!e.relatedTarget || !e.relatedTarget.closest?.(".sequence-drop-zone")) {
+            document.querySelectorAll(".sequence-drop-zone").forEach((z) => z.classList.remove("drag-over"));
+            if (state.dragPreviewEl) state.dragPreviewEl.classList.remove("is-near-drop-zone");
+        }
+    }
+
+    function handleDropZoneDrop(e) {
+        if (!state.draggedStepId || state.editingStepId) return;
+        e.preventDefault();
+        document.querySelectorAll(".sequence-drop-zone").forEach((z) => z.classList.remove("drag-over"));
+        if (state.dragPreviewEl) state.dragPreviewEl.classList.remove("is-near-drop-zone");
+        const zone = e.target.closest(".sequence-drop-zone");
+        if (!zone) return;
+        const stepId = state.draggedStepId;
+        const dropzone = zone.dataset.dropzone;
+        removeDragPreview();
+        if (dropzone === "delete") {
+            showModal("Confirm Delete Step", "Are you sure you want to delete this step?", async () => {
+                await supabase.from("sequence_steps").delete().eq("id", stepId);
+                await loadAllData();
+                hideModal();
+            }, true, `<button id="modal-confirm-btn" class="btn-danger">Delete</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+        } else if (dropzone === "edit") {
+            showStepEditPanel(stepId);
+        }
+    }
+
+    function showStepEditPanel(stepId) {
+        const step = state.sequence_steps.find((s) => s.id === stepId);
+        if (!step || !sequenceStepEditPanel || !sequenceStepEditForm) return;
+        if (state.isEditingSequenceDetails || state.aiGeneratedSteps.length > 0) {
+            showModal("Error", "Please save or cancel other edits before editing this step.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+            return;
+        }
+        state.editingStepId = stepId;
+        document.getElementById("step-edit-id").value = step.id;
+        document.getElementById("step-edit-type").value = step.type || "";
+        document.getElementById("step-edit-delay").value = step.delay_days ?? 0;
+        document.getElementById("step-edit-assigned").value = step.assigned_to || "Sales";
+        document.getElementById("step-edit-subject").value = step.subject || "";
+        document.getElementById("step-edit-message").value = step.message || "";
+        if (tomSelectAssigned) {
+            tomSelectAssigned.destroy();
+            tomSelectAssigned = null;
+        }
+        const assignedEl = document.getElementById("step-edit-assigned");
+        if (assignedEl) {
+            tomSelectAssigned = initTomSelect(assignedEl, {
+                maxItems: 1,
+                render: {
+                    dropdown: function() {
+                        const d = document.createElement('div');
+                        d.className = 'ts-dropdown tom-select-no-search';
+                        return d;
+                    }
+                }
+            });
+            tomSelectAssigned.setValue(step.assigned_to || "Sales", true);
+        }
+        if (sequenceStepsFlow) sequenceStepsFlow.classList.add("hidden");
+        if (sequenceStepsDropZonesRow) sequenceStepsDropZonesRow.classList.add("hidden");
+        sequenceStepEditPanel.classList.remove("hidden");
+    }
+
+    function hideStepEditPanel() {
+        if (tomSelectAssigned) {
+            tomSelectAssigned.destroy();
+            tomSelectAssigned = null;
+        }
+        state.editingStepId = null;
+        if (sequenceStepEditPanel) sequenceStepEditPanel.classList.add("hidden");
+        if (sequenceStepsFlow) sequenceStepsFlow.classList.remove("hidden");
+        if (sequenceStepsDropZonesRow) sequenceStepsDropZonesRow.classList.remove("hidden");
+        renderSequenceSteps();
+    }
+
+    async function handleStepEditFormSubmit(e) {
+        e.preventDefault();
+        const stepId = Number(document.getElementById("step-edit-id").value);
+        const type = document.getElementById("step-edit-type").value.trim();
+        if (!type) {
+            showModal("Error", "Step Type is required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+            return;
+        }
+        const assignedValue = tomSelectAssigned ? tomSelectAssigned.getValue() : document.getElementById("step-edit-assigned").value;
+        const updatedStep = {
+            type,
+            subject: document.getElementById("step-edit-subject").value.trim(),
+            message: document.getElementById("step-edit-message").value.trim(),
+            delay_days: parseInt(document.getElementById("step-edit-delay").value || "0", 10),
+            assigned_to: assignedValue || "Sales",
+        };
+        await supabase.from("sequence_steps").update(updatedStep).eq("id", stepId);
+        hideStepEditPanel();
+        await loadAllData();
+    }
+
+    function handleSequenceStepDragStart(e) {
+        const card = e.target.closest(".sequence-step-card[data-id]");
+        if (!card || state.editingStepId || e.target.closest("button, input, textarea, select")) {
+            e.preventDefault();
+            return;
+        }
+        state.draggedStepId = Number(card.dataset.id);
+        card.classList.add("is-dragging");
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", String(state.draggedStepId));
+            const img = new Image();
+            img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+            e.dataTransfer.setDragImage(img, 0, 0);
+        }
+        const clone = card.cloneNode(true);
+        clone.classList.remove("is-dragging");
+        clone.classList.add("sequence-drag-preview");
+        clone.setAttribute("aria-hidden", "true");
+        const rect = card.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const offsetY = e.clientY - rect.top;
+        clone.dataset.offsetX = String(offsetX);
+        clone.dataset.offsetY = String(offsetY);
+        clone.style.cssText = `position:fixed;left:${e.clientX - offsetX}px;top:${e.clientY - offsetY}px;width:${rect.width}px;height:${rect.height}px;pointer-events:none;z-index:9999;margin:0;`;
+        document.body.appendChild(clone);
+        state.dragPreviewEl = clone;
+    }
+
+    function handleSequenceStepDragOver(e) {
+        if (!state.draggedStepId || state.editingStepId) return;
+        updateDragPreviewPosition(e);
+        const overCard = e.target.closest(".sequence-step-card[data-id]");
+        if (!overCard) return;
+        e.preventDefault();
+        if (!sequenceStepsFlow) return;
+        sequenceStepsFlow.querySelectorAll(".sequence-step-card.drag-over").forEach((card) => {
+            if (card !== overCard) card.classList.remove("drag-over");
+        });
+        overCard.classList.add("drag-over");
+    }
+
+    async function handleSequenceStepDrop(e) {
+        if (!state.draggedStepId || state.editingStepId) return;
+        e.preventDefault();
+
+        const targetCard = e.target.closest(".sequence-step-card[data-id]");
+        if (!targetCard) return;
+
+        const targetStepId = Number(targetCard.dataset.id);
+        const draggedStepId = state.draggedStepId;
+        if (draggedStepId === targetStepId) return;
+
+        const orderedSteps = getStepsForSelectedSequence();
+        const fromIndex = orderedSteps.findIndex((step) => step.id === draggedStepId);
+        const toIndex = orderedSteps.findIndex((step) => step.id === targetStepId);
+        if (fromIndex < 0 || toIndex < 0) return;
+
+        const [movedStep] = orderedSteps.splice(fromIndex, 1);
+        orderedSteps.splice(toIndex, 0, movedStep);
+
+        try {
+            await persistSequenceStepOrder(orderedSteps);
+            await loadAllData();
+        } catch (error) {
+            console.error("Error re-ordering steps:", error);
+            showModal("Error", "Could not re-order the steps. Please try again.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+        }
+    }
+
+    function handleSequenceStepDragEnd() {
+        removeDragPreview();
+        state.draggedStepId = null;
+        document.querySelectorAll(".sequence-drop-zone").forEach((z) => z.classList.remove("drag-over"));
+        if (!sequenceStepsFlow) return;
+        sequenceStepsFlow.querySelectorAll(".sequence-step-card").forEach((card) => {
+            card.classList.remove("is-dragging", "drag-over");
+        });
+    }
+
     async function handleMoveStep(stepId, direction) {
-        const allStepsInSequence = state.sequence_steps
-            .filter(s => s.sequence_id === state.selectedSequenceId)
-            .sort((a, b) => a.step_number - b.step_number);
+        const allStepsInSequence = getStepsForSelectedSequence();
     
         const currentIndex = allStepsInSequence.findIndex(s => s.id === stepId);
         if (currentIndex === -1) return;
@@ -704,23 +1072,10 @@ async function processBulkAssignment() {
         const [movedStep] = allStepsInSequence.splice(currentIndex, 1);
         allStepsInSequence.splice(targetIndex, 0, movedStep);
     
-        const updates = allStepsInSequence.map((step, index) => ({
-            id: step.id,
-            step_number: index + 1
-        }));
-        
-        const updatePromises = updates.map(update => 
-            supabase
-                .from("sequence_steps")
-                .update({ step_number: update.step_number })
-                .eq('id', update.id)
-        );
-    
-        const results = await Promise.all(updatePromises);
-        const firstError = results.find(res => res.error);
-    
-        if (firstError) {
-            console.error("Error re-ordering steps:", firstError.error);
+        try {
+            await persistSequenceStepOrder(allStepsInSequence);
+        } catch (error) {
+            console.error("Error re-ordering steps:", error);
             showModal("Error", "Could not re-order the steps. Please try again.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
         }
     
@@ -750,7 +1105,7 @@ async function processBulkAssignment() {
                     subject: c[2] || "",
                     message: c[3] || "",
                     delay_days: delayDays,
-                    user_id: state.currentUser.id
+                    user_id: getState().effectiveUserId
                 };
             }).filter(record => record !== null);
             
@@ -853,7 +1208,7 @@ async function importMarketingSequence() {
         description: originalSequence.description,
         source: 'Marketing', // We still label the source as 'Marketing' for the user's view
         is_abm: sourceSeqType === 'abm', // Carry over the ABM flag
-        user_id: state.currentUser.id
+        user_id: getState().effectiveUserId
     }).select().single();
 
     if (insertSeqError) {
@@ -871,7 +1226,7 @@ async function importMarketingSequence() {
             message: step.message,
             delay_days: step.delay_days,
             assigned_to: step.assigned_to || 'Sales', // Default to Sales if not specified
-            user_id: state.currentUser.id
+            user_id: getState().effectiveUserId
         }));
         const { error: insertStepsError } = await supabase.from('sequence_steps').insert(newSteps);
         if (insertStepsError) {
@@ -892,71 +1247,58 @@ async function importMarketingSequence() {
     return true;
 }
 
-   async function handleAiGenerateSequence() {
-    if (state.isEditingSequenceDetails || state.editingStepId || state.aiGeneratedSteps.length > 0) {
-        showModal("Error", "Please save or cancel any active edits or AI generation preview first.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-        return;
-    }
+    async function handleAiGenerateSequence() {
+        if (state.isEditingSequenceDetails || state.editingStepId || state.aiGeneratedSteps.length > 0) {
+            showModal("Error", "Please save or cancel any active edits or AI generation preview first.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+            return;
+        }
 
-    const sequenceGoal = aiSequenceGoalTextarea.value.trim();
-    const totalDuration = parseInt(aiTotalDurationInput.value, 10);
-    const numSteps = parseInt(aiNumStepsInput.value, 10);
-    
-    const selectedStepTypes = [];
-    if (aiStepTypeEmailCheckbox.checked) selectedStepTypes.push(aiStepTypeEmailCheckbox.value);
-    if (aiStepTypeLinkedinCheckbox.checked) selectedStepTypes.push(aiStepTypeLinkedinCheckbox.value);
-    if (aiStepTypeCallCheckbox.checked) selectedStepTypes.push(aiStepTypeCallCheckbox.value);
-    if (aiStepTypeTaskCheckbox.checked) selectedStepTypes.push(aiStepTypeTaskCheckbox.value);
-    
-    if (aiStepTypeOtherCheckbox.checked) {
-        const customType = aiStepTypeOtherInput.value.trim();
+        const sequenceGoal = aiSequenceGoalTextarea.value.trim();
+        const totalDuration = parseInt(aiTotalDurationInput.value, 10);
+        const numSteps = parseInt(aiNumStepsInput.value, 10);
+        const selectedStepTypes = Array.from(document.querySelectorAll(".sequence-step-type-pill.is-active"))
+            .map((pill) => pill.dataset.stepType)
+            .filter((stepType) => stepType && stepType !== "Other");
+
+        const customType = aiStepTypeOtherPill?.value?.trim();
         if (customType) selectedStepTypes.push(customType);
+        const personaPrompt = aiPersonaPromptTextarea.value.trim();
+
+        if (!sequenceGoal || isNaN(totalDuration) || totalDuration < 1 || numSteps < 1 || selectedStepTypes.length === 0 || !personaPrompt) {
+            showModal("Error", "Please fill out all AI generation fields correctly.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+            return;
+        }
+
+        showModal("Generating Sequence", `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">AI is drafting your sequence steps...</p>`, null, false, `<button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('generate-sequence-steps', {
+                body: { sequenceGoal, numSteps, totalDuration, stepTypes: selectedStepTypes, personaPrompt }
+            });
+
+            if (error) throw error;
+
+            state.aiGeneratedSteps = data.steps.map((step, index) => ({
+                id: `ai-temp-${index}`,
+                step_number: index + 1,
+                type: step.type,
+                subject: step.subject || '',
+                message: step.message || '',
+                delay_days: step.delay_days || 0,
+                isEditing: false
+            }));
+
+            renderAiGeneratedStepsPreview();
+            hideModal();
+            aiGeneratedSequencePreview.classList.remove('hidden');
+            showModal("Success", "AI sequence generated! Review and save below.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+
+        } catch (error) {
+            console.error("Error generating AI sequence:", error);
+            showModal("Error", `Failed to generate AI sequence: ${error.message}. Please try again.`, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+        }
     }
 
-    const personaPrompt = aiPersonaPromptTextarea.value.trim();
-
-    // VALIDATION: Removed industry and product checks
-    if (!sequenceGoal || isNaN(totalDuration) || totalDuration < 1 || numSteps < 1 || selectedStepTypes.length === 0 || !personaPrompt) {
-        showModal("Error", "Please fill out all AI generation fields.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-        return;
-    }
-
-    showModal("Generating Sequence", `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">AI is drafting your sequence steps...</p>`, null, false, `<button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
-
-    try {
-        // PAYLOAD: We send only what the TenWorks Edge Function now expects
-        const { data, error } = await supabase.functions.invoke('generate-sequence-steps', {
-            body: { 
-                goal: sequenceGoal, 
-                numSteps, 
-                totalDuration, 
-                stepTypes: selectedStepTypes, 
-                personaPrompt 
-            }
-        });
-
-        if (error) throw error;
-
-        // Map the results back to the state
-        state.aiGeneratedSteps = data.steps.map((step, index) => ({
-            id: `ai-temp-${index}`,
-            step_number: index + 1,
-            type: step.type,
-            subject: step.subject || '',
-            message: step.message || '',
-            delay_days: step.delay_days || 0,
-            isEditing: false
-        }));
-
-        renderAiGeneratedStepsPreview();
-        hideModal();
-        aiGeneratedSequencePreview.classList.remove('hidden');
-
-    } catch (error) {
-        console.error("Error generating AI sequence:", error);
-        showModal("Error", `Failed to generate AI sequence: ${error.message}`, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-    }
-}
     function renderAiGeneratedStepsPreview() {
         if (!aiGeneratedSequenceForm) return;
         aiGeneratedSequenceForm.innerHTML = "";
@@ -1070,7 +1412,7 @@ async function importMarketingSequence() {
 
             try {
                 const { data: newSeqArr, error: seqError } = await supabase.from("sequences").insert([
-                    { name: newSequenceName, description: "AI Generated Sequence", source: "AI", user_id: state.currentUser.id }
+                    { name: newSequenceName, description: "AI Generated Sequence", source: "AI", user_id: getState().effectiveUserId }
                 ]).select();
 
                 if (seqError) throw seqError;
@@ -1083,7 +1425,7 @@ async function importMarketingSequence() {
                     subject: step.subject,
                     message: step.message,
                     delay_days: step.delay_days,
-                    user_id: state.currentUser.id
+                    user_id: getState().effectiveUserId
                 }));
 
                 if (stepsToInsert.length > 0) {
@@ -1121,17 +1463,18 @@ async function importMarketingSequence() {
         await loadSVGs();
         updateActiveNavLink();
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            state.currentUser = session.user;
-            await setupUserMenuAndAuth(supabase, state);
-            setupPageEventListeners();
-            await setupGlobalSearch(supabase, state.currentUser); // <-- ADD THIS LINE
-            await checkAndSetNotifications(supabase);
-            await loadAllData();
-        } else {
-            window.location.href = "index.html";
+        const appState = await initializeAppState(supabase);
+        if (!appState.currentUser) {
+            hideGlobalLoader();
+            return;
         }
+        state.currentUser = appState.currentUser;
+        await setupUserMenuAndAuth(supabase, getState());
+        setupPageEventListeners();
+        await setupGlobalSearch(supabase, state.currentUser);
+        await checkAndSetNotifications(supabase);
+        await loadAllData();
+        window.addEventListener('effectiveUserChanged', loadAllData);
     }
 
     runWhenNavReady(function () { initializePage(); });

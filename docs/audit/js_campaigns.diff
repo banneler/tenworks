@@ -1,0 +1,22 @@
+--- /Users/ba/Constellation-V/js/campaigns.js	2026-02-27 00:15:43
++++ /Users/ba/tenworks/js/campaigns.js	2026-02-27 18:57:12
+@@ -18,11 +18,10 @@
+     hideGlobalLoader,
+     setupGlobalSearch,
+     checkAndSetNotifications,
+-    injectGlobalNavigation
++    runWhenNavReady,
+ } from './shared_constants.js';
+ 
+ document.addEventListener("DOMContentLoaded", async () => {
+-    injectGlobalNavigation();
+     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ 
+     let state = {
+@@ -1743,5 +1742,5 @@
+         window.addEventListener('effectiveUserChanged', loadAllData);
+     }
+ 
+-    initializePage();
++    runWhenNavReady(function () { initializePage(); });
+ });

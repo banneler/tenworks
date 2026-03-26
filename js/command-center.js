@@ -14,7 +14,8 @@ import {
     loadSVGs,
     setupGlobalSearch,
     checkAndSetNotifications,
-    runWhenNavReady
+    runWhenNavReady,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -50,13 +51,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- DOM Element Selectors ---
     const logoutBtn = document.getElementById("logout-btn");
-    const dashboardTable = document.querySelector("#dashboard-table tbody");
-    const recentActivitiesTable = document.querySelector("#recent-activities-table tbody");
-    const allTasksTable = document.querySelector("#all-tasks-table tbody");
-    const myTasksTable = document.querySelector("#my-tasks-table tbody");
-    const addNewTaskBtn = document.getElementById("add-new-task-btn");
-    const aiDailyBriefingBtn = document.getElementById("ai-daily-briefing-btn");
+    const myTasksList = document.getElementById("my-tasks-list");
+    const sequenceStepsList = document.getElementById("sequence-steps-list");
+    const recentActivitiesList = document.getElementById("recent-activities-list");
+    const sequenceToggleDue = document.getElementById("sequence-toggle-due");
+    const sequenceToggleUpcoming = document.getElementById("sequence-toggle-upcoming");
+    const myTasksHamburger = document.getElementById("my-tasks-hamburger");
     const aiBriefingContainer = document.getElementById("ai-briefing-container");
+
+    // Sequence Steps: single list, mode toggled by Due/Upcoming tabs
+    let sequenceViewMode = 'due';
 
     // --- Utility ---
     function getStartOfLocalDayISO() {
@@ -84,8 +88,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // --- Data Fetching ---
     async function loadAllData() {
-        if (!state.currentUser) return;
-        if(myTasksTable) myTasksTable.innerHTML = '<tr><td colspan="4">Loading tasks...</td></tr>';
+        if (!state.currentUser) {
+            hideGlobalLoader();
+            return;
+        }
+        if (myTasksList) myTasksList.innerHTML = '<p class="my-tasks-empty text-sm" style="color: var(--text-medium); padding: 1rem;">Loading tasks...</p>';
         
         const tableMap = {
             "contacts": "contacts", "accounts": "accounts", "sequences": "sequences",
@@ -125,6 +132,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
         } catch (error) {
             console.error("Critical error in loadAllData:", error);
+        } finally {
+            hideGlobalLoader();
         }
         
         const sixtyDaysAgo = new Date();
@@ -142,44 +151,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.nurtureAccounts = state.accounts.filter(account => !activeAccountIds.has(account.id));
         
         renderDashboard();
-        loadErpOverview();
+        populateQuickAddSelect();
     }
 
-    // --- ERP Overview (Sales-facing only: Active Projects, Staffing Gaps, Pending Proposals). Behind-schedule lives on Production (Schedule/Projects). ---
-    async function loadErpOverview() {
-        try {
-            const [projectsRes, tasksRes, assignmentsRes] = await Promise.all([
-                supabase.from('projects').select('*', { count: 'exact', head: true }).neq('status', 'Completed'),
-                supabase.from('project_tasks').select('id, estimated_hours').neq('status', 'Completed'),
-                supabase.from('task_assignments').select('task_id, assigned_date, hours')
-            ]);
-            const activeProjectsCount = projectsRes.count ?? 0;
-            const tasks = tasksRes.data || [];
-            const assignments = assignmentsRes.data || [];
-            const hoursByTask = {};
-            assignments.forEach(a => {
-                const hrs = typeof a.hours === 'number' && a.hours >= 0 ? a.hours : 8;
-                hoursByTask[a.task_id] = (hoursByTask[a.task_id] || 0) + hrs;
-            });
-            const tasksWithGaps = tasks.filter(t => {
-                const booked = hoursByTask[t.id] || 0;
-                const est = t.estimated_hours || 0;
-                return est > 0 && booked < est;
-            });
-            const staffingGapsCount = tasksWithGaps.length;
-            const pendingProposalsCount = (state.deals || []).filter(d => d.stage === 'Proposal').length;
-
-            const elProjects = document.getElementById('erp-active-projects-count');
-            const elGaps = document.getElementById('erp-staffing-gaps-count');
-            const elProposals = document.getElementById('erp-pending-proposals-count');
-            if (elProjects) elProjects.textContent = activeProjectsCount;
-            if (elGaps) elGaps.textContent = staffingGapsCount;
-            if (elProposals) elProposals.textContent = pendingProposalsCount;
-        } catch (e) {
-            console.warn('ERP overview load failed:', e);
-        }
+    function populateQuickAddSelect() {
+        const contactSelect = document.getElementById('quick-add-contact');
+        const accountSelect = document.getElementById('quick-add-account');
+        if (!contactSelect || !accountSelect) return;
+        const sortedContacts = [...state.contacts].sort((a, b) => {
+            const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+            const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        const sortedAccounts = [...state.accounts].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+        contactSelect.innerHTML = '<option value="">Link to Contact</option>' + sortedContacts.map(c => `<option value="${c.id}">${c.first_name} ${c.last_name}</option>`).join('');
+        accountSelect.innerHTML = '<option value="">Link to Account</option>' + sortedAccounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
     }
-        
+
     // --- Core Logic ---
     async function completeStep(csId, processedDescription = null) {
         const cs = state.contact_sequences.find((c) => c.id === csId);
@@ -238,6 +226,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --- AI Briefing Logic ---
     async function handleGenerateBriefing() {
         aiBriefingContainer.classList.remove('hidden');
+        document.querySelector('.ai-briefing-card-body')?.classList.add('briefing-visible');
         aiBriefingContainer.innerHTML = `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">Generating your daily briefing...</p>`;
 
         try {
@@ -271,26 +260,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
         
     function renderAIBriefing(briefing) {
-        const briefingHtml = `
-           <ol id="ai-briefing-list">
-                ${briefing.priorities.map(item => `
-                    <li>
-                        <strong>${item.title}</strong>
-                        <em>Why: ${item.reason}</em>
-                    </li>
-                `).join('')}
-            </ol>
-        `;
-        aiBriefingContainer.innerHTML = briefingHtml;
+        const cardsHtml = (briefing.priorities && briefing.priorities.length > 0)
+            ? briefing.priorities.map(item => `
+                <div class="ai-briefing-priority-card">
+                    <div class="priority-title">${item.title}</div>
+                    <div class="priority-reason">${item.reason}</div>
+                </div>
+            `).join('')
+            : '<p class="ai-briefing-empty text-sm" style="color: var(--text-medium);">No priorities for today.</p>';
+        aiBriefingContainer.innerHTML = cardsHtml;
+        sessionStorage.setItem('crm-briefing-generated', 'true');
+        sessionStorage.setItem('crm-briefing-html', aiBriefingContainer.innerHTML);
+        sessionStorage.setItem('crm-briefing-requested', 'true');
     }
 
     // --- Render Function ---
-function renderDashboard() {
-        if (!myTasksTable || !dashboardTable || !allTasksTable || !recentActivitiesTable) return;
-        myTasksTable.innerHTML = "";
-        dashboardTable.innerHTML = "";
-        allTasksTable.innerHTML = "";
-        recentActivitiesTable.innerHTML = "";
+    function renderDashboard() {
+        if (!myTasksList || !sequenceStepsList || !recentActivitiesList) return;
+        myTasksList.innerHTML = "";
+        sequenceStepsList.innerHTML = "";
+        recentActivitiesList.innerHTML = "";
 
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
@@ -317,7 +306,6 @@ function renderDashboard() {
                         sequence: sequence,
                         step: currentStep
                     };
-                    
                     if (cs.next_step_due_date && new Date(cs.next_step_due_date).setHours(0,0,0,0) <= startOfToday.getTime()) {
                         salesSequenceTasks.push(taskObject);
                     } else {
@@ -327,14 +315,15 @@ function renderDashboard() {
             }
         }
 
-        // --- 1. My Tasks Table (Styled) ---
+        salesSequenceTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
+        upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
+
+        // --- 1. My Tasks (list) ---
         const pendingTasks = state.tasks.filter(task => task.user_id === state.currentUser.id && task.status === 'Pending').sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
         if (pendingTasks.length > 0) {
             pendingTasks.forEach(task => {
-                const row = myTasksTable.insertRow();
-                if (task.due_date && new Date(task.due_date).setHours(0,0,0,0) < startOfToday.getTime()) {
-                    row.classList.add('past-due');
-                }
+                const taskDueDate = task.due_date ? new Date(task.due_date) : null;
+                const isPastDue = taskDueDate && taskDueDate.setHours(0, 0, 0, 0) < startOfToday.getTime();
                 let linkedEntity = 'N/A';
                 if (task.contact_id) {
                     const contact = state.contacts.find(c => c.id === task.contact_id);
@@ -343,111 +332,192 @@ function renderDashboard() {
                     const account = state.accounts.find(a => a.id === task.account_id);
                     if (account) linkedEntity = `<a href="accounts.html?accountId=${account.id}" class="contact-name-link">${account.name}</a>`;
                 }
-                row.innerHTML = `
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.due_date)}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name">${task.description}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${linkedEntity}</div></div></td>
-                    <td>
-                        <div class="button-group-wrapper">
-                            <button class="btn-primary mark-task-complete-btn" data-task-id="${task.id}">Complete</button>
-                            <button class="btn-secondary edit-task-btn" data-task-id="${task.id}">Edit</button>
-                            <button class="btn-danger delete-task-btn" data-task-id="${task.id}">Delete</button>
+                const actionsHtml = `
+                    <button class="btn-primary btn-icon-only mark-task-complete-btn" data-task-id="${task.id}" title="Complete"><i class="fa-solid fa-square-check"></i></button>
+                    <button class="btn-secondary btn-icon-only edit-task-btn" data-task-id="${task.id}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn-danger btn-icon-only delete-task-btn" data-task-id="${task.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                `;
+                const item = document.createElement("div");
+                item.className = `task-item ${isPastDue ? 'past-due' : ''}`;
+                item.innerHTML = `
+                    <div class="task-due">${formatSimpleDate(task.due_date)}</div>
+                    <div class="task-content">
+                        <div class="task-linked">${linkedEntity}</div>
+                        <div class="task-description">${task.description}</div>
+                    </div>
+                    <div class="task-actions">${actionsHtml}</div>
+                `;
+                myTasksList.appendChild(item);
+            });
+        } else {
+            myTasksList.innerHTML = '<p class="my-tasks-empty text-sm" style="color: var(--text-medium); padding: 1rem;">No pending tasks. Great job!</p>';
+        }
+
+        const myTasksCard = document.getElementById('my-tasks-card');
+        if (myTasksCard && myTasksHamburger) {
+            myTasksCard.classList.add('quick-add-hidden');
+            myTasksCard.classList.remove('hamburger-expanded');
+            const icon = myTasksHamburger.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-plus';
+            myTasksHamburger.setAttribute('title', 'Add task');
+            myTasksHamburger.setAttribute('aria-label', 'Add task');
+        }
+
+        // --- 2. Sequence Steps (single list, re-rendered on tab switch) ---
+        function renderSequenceStepsList() {
+            sequenceStepsList.innerHTML = "";
+            const tasks = sequenceViewMode === 'due' ? salesSequenceTasks : upcomingSalesTasks;
+            if (tasks.length > 0) {
+                tasks.forEach(task => {
+                    const dueDate = new Date(task.next_step_due_date);
+                    const isPastDue = sequenceViewMode === 'due' && dueDate < startOfToday;
+                    const contactName = `${task.contact.first_name || ''} ${task.contact.last_name || ''}`.trim();
+                    const description = task.step.subject || task.step.message || '';
+                    const stepType = (task.step.type || '').toLowerCase();
+                    const getStepIcon = () => {
+                        if (stepType.includes('linkedin')) return { icon: 'fa-paper-plane', title: 'Go to LinkedIn' };
+                        if (stepType.includes('email')) return { icon: 'fa-envelope', title: 'Send Email' };
+                        if (stepType.includes('call')) return { icon: 'fa-phone', title: 'Complete' };
+                        if (stepType.includes('gift')) return { icon: 'fa-gift', title: 'Complete' };
+                        return { icon: 'fa-square-check', title: 'Complete' };
+                    };
+                    let btnHtml;
+                    if (sequenceViewMode === 'due') {
+                        const { icon, title } = getStepIcon();
+                        if (stepType.includes('linkedin')) {
+                            btnHtml = `<button class="btn-primary btn-icon-only send-linkedin-message-btn" data-cs-id="${task.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+                        } else if (stepType.includes('email') && task.contact.email) {
+                            btnHtml = `<button class="btn-primary btn-icon-only send-email-btn" data-cs-id="${task.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+                        } else if (stepType.includes('call')) {
+                            btnHtml = `<button class="btn-primary btn-icon-only dial-call-btn" data-cs-id="${task.id}" title="Log a call"><i class="fa-solid ${icon}"></i></button>`;
+                        } else {
+                            btnHtml = `<button class="btn-primary btn-icon-only complete-step-btn" data-cs-id="${task.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+                        }
+                    } else {
+                        btnHtml = `<button class="btn-secondary btn-icon-only revisit-step-btn" data-cs-id="${task.id}" title="Revisit Last Step"><i class="fa-solid fa-rotate-left"></i></button>`;
+                    }
+                    const item = document.createElement("div");
+                    item.className = `sequence-step-item ${isPastDue ? 'past-due' : ''}`;
+                    item.innerHTML = `
+                        <div class="sequence-step-left">
+                            <div class="sequence-step-due">${formatSimpleDate(task.next_step_due_date)}</div>
+                            <div class="sequence-step-actions">${btnHtml}</div>
                         </div>
-                    </td>`;
-            });
-        } else {
-            myTasksTable.innerHTML = '<tr><td colspan="4" class="placeholder-text">No pending tasks. Great job!</td></tr>';
+                        <div class="sequence-step-content">
+                            <div class="sequence-step-meta">${contactName} · ${task.step.type}</div>
+                            <div class="sequence-step-description">${description}</div>
+                            <div class="sequence-step-sequence">${task.sequence.name}</div>
+                        </div>
+                    `;
+                    sequenceStepsList.appendChild(item);
+                });
+            } else {
+                const emptyMsg = sequenceViewMode === 'due' ? 'No sequence steps due today.' : 'No upcoming sequence steps.';
+                sequenceStepsList.innerHTML = `<p class="sequence-steps-empty text-sm" style="color: var(--text-medium); padding: 1rem;">${emptyMsg}</p>`;
+            }
         }
+        renderSequenceStepsList();
 
-        // --- 2. Sequence Actions Due Today (Styled) ---
-        salesSequenceTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
-        if (salesSequenceTasks.length > 0) {
-            salesSequenceTasks.forEach(task => {
-                const row = dashboardTable.insertRow();
-                if (new Date(task.next_step_due_date) < startOfToday) row.classList.add('past-due');
-                
-                const description = replacePlaceholders(task.step.subject || task.step.message || '', task.contact, task.account);
-
-                let btnHtml;
-                const typeLower = task.step.type.toLowerCase();
-                if (typeLower === "linkedin message") btnHtml = `<button class="btn-primary send-linkedin-message-btn" data-cs-id="${task.id}">Send Message</button>`;
-                else if (typeLower.includes("linkedin")) btnHtml = `<button class="btn-primary open-linkedin-btn" data-cs-id="${task.id}">Open LinkedIn</button>`;
-                else if (typeLower.includes("email") && task.contact.email) btnHtml = `<button class="btn-primary send-email-btn" data-cs-id="${task.id}">Send Email</button>`;
-                else if (typeLower === "call") btnHtml = `<button class="btn-primary dial-call-btn" data-cs-id="${task.id}">Dial</button>`;
-                else btnHtml = `<button class="btn-primary complete-step-btn" data-cs-id="${task.id}">Complete</button>`;
-
-                row.innerHTML = `
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name">${task.contact.first_name} ${task.contact.last_name}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.sequence.name}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--warning-yellow);">${task.step.type}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif; white-space: normal; line-height: 1.2;">${description}</div></div></td>
-                    <td><div class="button-group-wrapper">${btnHtml}</div></td>`;
-            });
+        // --- 3. Recent Activities (stacked list, no Salesforce) ---
+        const sortedActivities = state.activities
+            .filter(act => isManager || act.user_id === state.currentUser.id)
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 20);
+        if (sortedActivities.length === 0) {
+            recentActivitiesList.innerHTML = '<p class="recent-activities-empty text-sm" style="color: var(--text-medium); padding: 1rem;">No recent activities yet.</p>';
         } else {
-            dashboardTable.innerHTML = '<tr><td colspan="6" class="placeholder-text">No sequence steps due today.</td></tr>';
-        }
-
-        // --- 3. Upcoming Sales Tasks (Styled) ---
-        upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date)).forEach(task => {
-            const row = allTasksTable.insertRow();
-            row.innerHTML = `
-                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.9rem; color: var(--text-dim);">${formatSimpleDate(task.next_step_due_date)}</div></div></td>
-                <td><div class="contact-info"><div class="contact-name">${task.contact.first_name} ${task.contact.last_name}</div></div></td>
-                <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; color: var(--text-medium);">${task.account ? task.account.name : "N/A"}</div></div></td>
-                <td><div class="button-group-wrapper"><button class="btn-secondary revisit-step-btn" data-cs-id="${task.id}">Revisit Last Step</button></div></td>`;
-        });
-
-        // --- 4. Recent Activities Table (Styled & UUID-Resilient) ---
-        state.activities.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20).forEach(act => {
-            // Check if activity belongs to user OR if manager view is active
-            if (isManager || act.user_id === state.currentUser.id) {
+            sortedActivities.forEach(act => {
                 const contact = state.contacts.find(c => c.id === act.contact_id);
                 const account = contact ? state.accounts.find(a => a.id === contact.account_id) : null;
-                const row = recentActivitiesTable.insertRow();
-                row.innerHTML = `
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.8rem; color: var(--text-dim);">${formatDate(act.date)}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem;">${account ? account.name : "N/A"}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem;">${contact ? `${contact.first_name} ${contact.last_name}` : "N/A"}</div></div></td>
-                    <td><div class="contact-info"><div class="contact-name" style="font-size: 0.85rem; font-family: 'Inter', sans-serif;">${act.type}: ${act.description}</div></div></td>`;
-            }
-        });
+                const accountName = account ? account.name : "N/A";
+                const contactName = contact ? `${contact.first_name} ${contact.last_name}` : "N/A";
+                const meta = `${accountName} · ${contactName}`;
+                const typeLower = (act.type || '').toLowerCase();
+                let iconClass = "activity-icon-wrap icon-default", icon = "fa-circle-info", iconPrefix = "fas";
+                if (typeLower.includes("cognito") || typeLower.includes("intelligence")) { icon = "fa-magnifying-glass"; }
+                else if (typeLower.includes("email")) { iconClass = "activity-icon-wrap icon-email"; icon = "fa-envelope"; }
+                else if (typeLower.includes("call")) { iconClass = "activity-icon-wrap icon-call"; icon = "fa-phone"; }
+                else if (typeLower.includes("meeting")) { iconClass = "activity-icon-wrap icon-meeting"; icon = "fa-video"; }
+                else if (typeLower.includes("linkedin")) { iconClass = "activity-icon-wrap icon-linkedin"; icon = "fa-linkedin-in"; iconPrefix = "fa-brands"; }
+                const item = document.createElement("div");
+                item.className = "recent-activity-item";
+                item.innerHTML = `
+                    <div class="${iconClass}"><i class="${iconPrefix} ${icon}"></i></div>
+                    <div class="activity-body">
+                        <div class="activity-meta">${meta}</div>
+                        <div class="activity-description">${act.type}: ${act.description}</div>
+                        <div class="activity-date">${formatDate(act.date)}</div>
+                    </div>
+                `;
+                recentActivitiesList.appendChild(item);
+            });
+        }
     }
 
     // --- EVENT LISTENER SETUP ---
     function setupPageEventListeners() {
         setupModalListeners();
+
+        // Sequence Steps Due / Upcoming tab toggle (single list, re-render via renderDashboard)
+        if (sequenceToggleDue && sequenceToggleUpcoming) {
+            sequenceToggleDue.addEventListener('click', () => {
+                if (sequenceViewMode === 'due') return;
+                sequenceViewMode = 'due';
+                sequenceToggleDue.classList.add('active');
+                sequenceToggleDue.setAttribute('aria-selected', 'true');
+                sequenceToggleUpcoming.classList.remove('active');
+                sequenceToggleUpcoming.setAttribute('aria-selected', 'false');
+                renderDashboard();
+            });
+            sequenceToggleUpcoming.addEventListener('click', () => {
+                if (sequenceViewMode === 'upcoming') return;
+                sequenceViewMode = 'upcoming';
+                sequenceToggleUpcoming.classList.add('active');
+                sequenceToggleUpcoming.setAttribute('aria-selected', 'true');
+                sequenceToggleDue.classList.remove('active');
+                sequenceToggleDue.setAttribute('aria-selected', 'false');
+                renderDashboard();
+            });
+        }
+
         if (logoutBtn) {
             logoutBtn.addEventListener("click", async () => {
+                sessionStorage.removeItem('crm-briefing-generated');
+                sessionStorage.removeItem('crm-briefing-html');
+                sessionStorage.removeItem('crm-briefing-requested');
                 await supabase.auth.signOut();
                 window.location.href = "index.html";
             });
         }
-        if (addNewTaskBtn) {
-            addNewTaskBtn.addEventListener('click', () => {
-                const contactsOptions = state.contacts.map(c => `<option value="c-${c.id}">${c.first_name} ${c.last_name} (Contact)</option>`).join('');
-                const accountsOptions = state.accounts.map(a => `<option value="a-${a.id}">${a.name} (Account)</option>`).join('');
-                showModal('Add New Task', `
-                    <label>Description:</label><input type="text" id="modal-task-description" required>
-                    <label>Due Date:</label><input type="date" id="modal-task-due-date">
-                    <label>Link To (Optional):</label>
-                    <select id="modal-task-linked-entity">
-                        <option value="">-- None --</option>
-                        <optgroup label="Contacts">${contactsOptions}</optgroup>
-                        <optgroup label="Accounts">${accountsOptions}</optgroup>
-                    </select>
-                `, async () => {
-                    const description = document.getElementById('modal-task-description').value.trim();
-                    const dueDate = document.getElementById('modal-task-due-date').value;
-                    const linkedEntityValue = document.getElementById('modal-task-linked-entity').value;
-                    if (!description) { alert('Description is required.'); return; }
-                    const taskData = { description, due_date: dueDate || null, user_id: state.currentUser.id, status: 'Pending' };
-                    if (linkedEntityValue.startsWith('c-')) { taskData.contact_id = Number(linkedEntityValue.substring(2)); }
-                    else if (linkedEntityValue.startsWith('a-')) { taskData.account_id = Number(linkedEntityValue.substring(2)); }
-                    const { error } = await supabase.from('tasks').insert(taskData);
-                    if (error) { alert('Error adding task: ' + error.message); }
-                    else { await loadAllData(); }
-                });
+        if (myTasksHamburger) {
+            myTasksHamburger.addEventListener('click', () => {
+                const card = document.getElementById('my-tasks-card');
+                if (!card) return;
+                const isExpanded = card.classList.toggle('hamburger-expanded');
+                const icon = myTasksHamburger.querySelector('i');
+                if (icon) icon.className = isExpanded ? 'fa-solid fa-times' : 'fa-solid fa-plus';
+                myTasksHamburger.setAttribute('title', isExpanded ? 'Close' : 'Add task');
+                myTasksHamburger.setAttribute('aria-label', isExpanded ? 'Close' : 'Add task');
+            });
+        }
+        const quickAddForm = document.getElementById('quick-add-task-form');
+        if (quickAddForm) {
+            quickAddForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const description = document.getElementById('quick-add-description').value.trim();
+                const dueDate = document.getElementById('quick-add-due-date').value;
+                const contactId = document.getElementById('quick-add-contact').value;
+                const accountId = document.getElementById('quick-add-account').value;
+                if (!description) { alert('Description is required.'); return; }
+                const taskData = { description, due_date: dueDate || null, user_id: state.currentUser.id, status: 'Pending' };
+                if (contactId) taskData.contact_id = Number(contactId);
+                if (accountId) taskData.account_id = Number(accountId);
+                const { error } = await supabase.from('tasks').insert(taskData);
+                if (error) { alert('Error adding task: ' + error.message); }
+                else {
+                    quickAddForm.reset();
+                    await loadAllData();
+                }
             });
         }
         document.body.addEventListener('click', async (e) => {
@@ -652,6 +722,7 @@ function renderDashboard() {
 
     // --- App Initialization ---
     async function initializePage() {
+        try {
         await loadSVGs();
         updateActiveNavLink();
         const { data: { session } } = await supabase.auth.getSession();
@@ -679,14 +750,39 @@ function renderDashboard() {
             
             // The `loadAllData` function will now use the correct `state.isManager` flag.
             await loadAllData();
-            
-            if (aiDailyBriefingBtn) {
-                aiDailyBriefingBtn.addEventListener('click', handleGenerateBriefing);
-            }
-            
+
             setupPageEventListeners();
+
+            const aiBriefingRefreshBtn = document.getElementById('ai-briefing-refresh-btn');
+            if (aiBriefingRefreshBtn) {
+                aiBriefingRefreshBtn.addEventListener('click', handleGenerateBriefing);
+            }
+
+            // Auto-run briefing once per session: restore from sessionStorage if we have it; otherwise run only if we haven't already requested this session (avoids duplicate API calls if user navigates away before response).
+            const savedHtml = sessionStorage.getItem('crm-briefing-html');
+            const alreadyGenerated = sessionStorage.getItem('crm-briefing-generated');
+            const alreadyRequestedThisSession = sessionStorage.getItem('crm-briefing-requested');
+
+            if (savedHtml) {
+                aiBriefingContainer.innerHTML = savedHtml;
+                aiBriefingContainer.classList.remove('hidden');
+                document.querySelector('.ai-briefing-card-body')?.classList.add('briefing-visible');
+            } else if (alreadyGenerated) {
+                const placeholder = document.getElementById('ai-briefing-placeholder');
+                if (placeholder) placeholder.textContent = 'Refresh to generate a new briefing.';
+            } else if (alreadyRequestedThisSession) {
+                const placeholder = document.getElementById('ai-briefing-placeholder');
+                if (placeholder) placeholder.textContent = 'Refresh to generate a new briefing.';
+            } else {
+                sessionStorage.setItem('crm-briefing-requested', 'true');
+                handleGenerateBriefing();
+            }
         } else {
+            hideGlobalLoader();
             window.location.href = "index.html";
+        }
+        } finally {
+            hideGlobalLoader();
         }
     }
 

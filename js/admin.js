@@ -3,11 +3,13 @@ import {
     SUPABASE_ANON_KEY,
     formatDate,
     formatCurrencyK,
+    getStageDisplayName,
     setupModalListeners,
     showModal,
     hideModal,
     loadSVGs,
-    setupUserMenuAndAuth
+    setupUserMenuAndAuth,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -68,7 +70,7 @@ function renderSettingsPage() {
 
     dealStagesList.innerHTML = state.dealStages.map(stage => `
         <li data-id="${stage.id}" class="settings-list-item">
-            <span>${stage.stage_name}</span>
+            <span>${getStageDisplayName(stage.stage_name)}</span>
             <button class="btn-danger btn-sm delete-setting-btn" data-type="deal_stage">&times;</button>
         </li>
     `).join('');
@@ -692,12 +694,14 @@ function setupPageEventListeners() {
 }
 
 async function initializePage() {
+    try {
     setupModalListeners();
     await loadSVGs();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.href = "index.html"; return; }
+    if (!session) { hideGlobalLoader(); window.location.href = "index.html"; return; }
     state.currentUser = session.user;
     if (state.currentUser.user_metadata?.is_admin !== true) {
+        hideGlobalLoader();
         alert("Access Denied: You must be an admin to view this page.");
         window.location.href = "command-center.html";
         return;
@@ -705,6 +709,9 @@ async function initializePage() {
     await setupUserMenuAndAuth(supabase, state);
     setupPageEventListeners();
     handleNavigation();
+    } finally {
+        hideGlobalLoader();
+    }
 }
 
 initializePage();

@@ -7,98 +7,149 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Contacts</title>
     <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 
 <body data-nav="crm">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
     <div class="crm-container">
-        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
+        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
 
         <main class="content-area">
-            <div id="contacts" class="content-view active-view">
-                <h2>Contacts</h2>
+            <div id="contacts" class="content-view active-view contacts-layout">
+                <div class="details-panel-scrim" id="contact-details-scrim" aria-hidden="true"></div>
                 <div id="toast-container" class="toast-container"></div>
-                <div class="split-view">
-                    <div class="item-list-container glass-panel">
-                        <button id="add-contact-btn" class="btn-primary full-width">Add New Contact</button>
-                        <button id="import-contact-screenshot-btn" class="btn-secondary full-width">Import Contact Screenshot</button>
-                        <button id="take-picture-btn" class="btn-secondary full-width mobile-only">Take Picture of Signature</button>
-                        <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
-                        <button id="bulk-import-contacts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
-                        <input type="file" id="contact-csv-input" accept=".csv" class="hidden">
-                        <button id="bulk-export-contacts-btn" class="btn-secondary full-width">Download Contacts CSV</button>
-                        <input type="text" id="contact-search" placeholder="Search by name, email...">
-                        
-                        <!-- NEW: Contact Display Toggle -->
-                        <div class="display-toggle-container">
-                            <button id="sort-first-last-btn" class="btn-secondary">First Name</button>
-                            <button id="sort-last-first-btn" class="btn-secondary">Last Name</button>
-                        </div>
-
-                        <div id="contact-list" class="item-list"></div>
+                <div class="contact-picker-panel">
+                    <div class="contact-picker-header">
+                        <h2 class="section-title">Contacts</h2>
                     </div>
-                    <div id="contact-details" class="details-panel glass-panel">
-                        <span id="organic-star-indicator" class="organic-star" title="Mark as organic contact">★</span>
-                        
-                        <div id="contact-pending-task-reminder" class="pending-task-reminder hidden"></div>
-                        
-                        <div class="details-header-line">
-                            <h3>Contact Details</h3>
+                    <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+                    <input type="file" id="contact-csv-input" accept=".csv" class="hidden">
+                    <div class="contact-picker-body">
+                        <input type="text" id="contact-search" placeholder="Search by name, email...">
+                        <div class="sort-pill">
+                            <button id="sort-first-last-btn" class="sort-pill-btn">First</button>
+                            <div class="sort-pill-divider"></div>
+                            <button id="sort-last-first-btn" class="sort-pill-btn active">Last</button>
                         </div>
-
-                        <form id="contact-form">
-                            <input type="hidden" id="contact-id">
-                            <div class="form-grid">
-                                <div><label for="contact-first-name">First Name</label><input type="text" id="contact-first-name" required></div>
-                                <div><label for="contact-last-name">Last Name</label><input type="text" id="contact-last-name" required></div>
-                                <div><label for="contact-email">Email</label><input type="email" id="contact-email"></div>
-                                <div><label for="contact-phone">Phone</label><input type="tel" id="contact-phone"></div>
-                                <div><label for="contact-title">Title</label><input type="text" id="contact-title"></div>
-                                <div><label for="contact-account-name">Account</label>
-                                    <select id="contact-account-name">
-                                        <option value="">-- No Account --</option>
-                                    </select>
+                        <div id="contact-list" class="contact-picker-list"></div>
+                    </div>
+                    <div class="contact-picker-actions">
+                        <button id="add-contact-btn" class="btn-icon contact-picker-icon" title="Add New Contact"><i class="fas fa-plus"></i></button>
+                        <button id="import-contact-screenshot-btn" class="btn-icon contact-picker-icon" title="Import Contact Screenshot"><i class="fas fa-image"></i></button>
+                        <button id="bulk-import-contacts-btn" class="btn-icon contact-picker-icon" title="Bulk Import from CSV"><i class="fas fa-file-import"></i></button>
+                        <button id="take-picture-btn" class="btn-icon contact-picker-icon mobile-only" title="Take Picture of Signature"><i class="fas fa-camera"></i></button>
+                        <button id="bulk-export-contacts-btn" class="btn-icon contact-picker-icon" title="Download Contacts CSV"><i class="fas fa-file-export"></i></button>
+                    </div>
+                </div>
+                <div id="contact-details" class="details-panel contact-details-content glass-panel">
+                    <button type="button" class="details-panel-close-btn" id="contact-details-close-btn" aria-label="Close details"><i class="fas fa-times"></i></button>
+                    <div class="contact-details-top-row">
+                        <div class="contact-details-form-card">
+                            <div class="contact-details-form-header">
+                                <h3 class="details-panel-title">Contact Details</h3>
+                                <div class="contact-details-header-actions">
+                                    <span id="organic-star-indicator" class="organic-star" title="Mark as organic contact">★</span>
                                 </div>
                             </div>
-                            <div class="notes-section">
-                                <label for="contact-notes">Notes</label>
-                                <textarea id="contact-notes"></textarea>
-                                <small id="contact-last-saved" class="last-saved-text"></small>
+                            <div id="contact-form-placeholder" class="contact-form-placeholder">
+                                <p class="recent-activities-empty">Select a contact to see details.</p>
                             </div>
-                            <div class="form-buttons">
-                                <button type="submit" class="btn-primary">Save Changes</button>
-                                <button type="button" id="delete-contact-btn" class="btn-danger">Delete Contact</button>
-                            </div>
-                        </form>
-                        <hr>
-                        <div class="action-buttons">
-                            <button id="log-activity-btn" class="btn-secondary">Log Activity</button>
-                            <button id="assign-sequence-btn" class="btn-secondary">Assign Sequence</button>
-                            <button id="add-task-contact-btn" class="btn-secondary">Add Task</button>
-                            <button id="ai-activity-insight-btn" class="btn-primary"><i class="fas fa-bolt-lightning"></i> &nbsp;AI Activity Insight</button>
-                            <button id="ai-write-email-btn" class="btn-primary"><i class="fas fa-bolt-lightning"></i> &nbsp;Write Email with AI</button>
+                            <form id="contact-form" class="hidden">
+                                <input type="hidden" id="contact-id">
+                                <div class="form-grid">
+                                    <div><label for="contact-first-name">First Name</label><input type="text" id="contact-first-name" required></div>
+                                    <div><label for="contact-last-name">Last Name</label><input type="text" id="contact-last-name" required></div>
+                                    <div><label for="contact-email">Email</label><input type="email" id="contact-email"></div>
+                                    <div><label for="contact-phone">Phone</label><input type="tel" id="contact-phone"></div>
+                                    <div><label for="contact-title">Title</label><input type="text" id="contact-title"></div>
+                                    <div><label for="contact-account-name">Account</label>
+                                        <select id="contact-account-name">
+                                            <option value="">-- No Account --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="notes-section">
+                                    <label for="contact-notes">Notes</label>
+                                    <textarea id="contact-notes"></textarea>
+                                    <small id="contact-last-saved" class="last-saved-text"></small>
+                                </div>
+                                <div class="form-buttons">
+                                    <div id="contact-pending-task-reminder" class="pending-task-reminder-banner hidden"></div>
+                                    <button type="submit" class="btn-primary">Save Changes</button>
+                                    <button type="button" id="delete-contact-btn" class="btn-danger">Delete Contact</button>
+                                </div>
+                            </form>
                         </div>
-                        <div class="related-info">
-                            <h4>Sequence Status</h4>
-                            <div id="sequence-status-content" class="sequence-status-display hidden">
-                                <div id="ring-chart" class="ring-chart-container">
+                        <div class="sequence-status-card">
+                            <div class="sequence-status-card-header">
+                                <h3 class="details-panel-title">Sequence Status</h3>
+                            </div>
+                            <div class="sequence-status-card-body">
+                                <div id="ring-chart" class="ring-chart-container sequence-status-hero">
                                     <div id="ring-chart-progress"></div>
                                     <div id="ring-chart-text" class="ring-chart-text"></div>
                                 </div>
-                                <p id="contact-sequence-info-text"></p>
-                                <button id="complete-sequence-btn" class="btn-primary">Complete Sequence</button>
-                                <button id="remove-from-sequence-btn" class="btn-danger">Remove from Sequence</button>
+                                <div id="sequence-enrollment-text" class="sequence-enrollment-text sequence-enrollment-empty">Select a contact to see details.</div>
+                                <div id="sequence-next-step-wrapper"></div>
+                                <div class="sequence-status-actions">
+                                    <select id="assign-sequence-select" class="assign-sequence-select hidden" aria-label="Assign Sequence">
+                                        <option value="">Assign Sequence</option>
+                                    </select>
+                                    <button id="complete-sequence-btn" class="btn-primary hidden" title="Complete Sequence"><i class="fas fa-circle-check"></i></button>
+                                    <button id="remove-from-sequence-btn" class="btn-danger hidden" title="Remove from Sequence"><i class="fas fa-user-minus"></i></button>
+                                </div>
                             </div>
-                            <p id="no-sequence-text" class="placeholder-text">Select a contact to see details.</p>
                         </div>
-                                                <div class="related-info">
-                            <h4>Related Activities</h4>
-                            <ul id="contact-activities-list"></ul>
+                    </div>
+                    <div class="contact-cards-row">
+                        <div class="section-card ai-assistant-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title">AI</h2>
+                                <div class="ai-assistant-header-actions">
+                                    <button id="ai-activity-insight-btn" class="btn-icon-header" title="Activity Insight"><i class="fas fa-bolt-lightning"></i></button>
+                                    <button id="ai-write-email-btn" class="btn-icon-header" title="Write Email with AI"><i class="fas fa-envelope"></i></button>
+                                </div>
+                            </div>
+                            <div class="ai-assistant-content">
+                                <p class="recent-activities-empty">Select a contact to use AI features.</p>
+                            </div>
+                        </div>
+                        <div class="section-card contact-activities-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title">Recent Activities</h2>
+                                <div class="flex items-center gap-2">
+                                    <div class="contact-activities-header-actions">
+                                        <button id="log-activity-btn" class="btn-icon-header" title="Log Activity"><i class="fas fa-clipboard-list"></i></button>
+                                        <button id="add-task-contact-btn" class="btn-icon-header" title="Add Task"><i class="fas fa-square-plus"></i></button>
+                                    </div>
+                                    <button id="contact-activities-expand-btn" class="btn-icon-header" title="Expand"><i class="fas fa-expand"></i></button>
+                                </div>
+                            </div>
+                            <div id="contact-activities-list" class="recent-activities-list contact-activities-body"></div>
+                        </div>
+                        <div class="section-card logged-emails-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title">Logged Emails</h2>
+                            </div>
+                            <div class="logged-emails-container contact-activities-body">
+                                <div id="contact-emails-list" class="logged-emails-list">
+                                    <p class="recent-activities-empty">No logged emails.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -132,9 +183,10 @@
             </div>
         </div>
     </div>
-        
-        <script src="js/nav-loader.js"></script>
-        <script type="module" src="js/contacts.js"></script>
+
+    <script src="js/nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
+    <script type="module" src="js/contacts.js"></script>
 </body>
 
 </html>

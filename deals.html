@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Deals</title>
     <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -14,32 +15,31 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0/dist/chartjs-plugin-annotation.min.js"></script> 
 </head>
 
 <body class="theme-dark" data-nav="crm">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
     <div class="crm-container">
-        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
+        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
         
         <main class="content-area">
             <div id="deals" class="content-view active-view">
-                <div class="deals-main-header">
-                    <h2>Deals</h2>
-                    <div class="view-mode-toggle">
-                        <button id="list-view-btn" class="view-mode-btn active" title="List View"><i class="fas fa-list"></i></button>
-                        <button id="board-view-btn" class="view-mode-btn" title="Board View"><i class="fas fa-th-large"></i></button>
-                    </div>
-                </div>
-
-                <div class="deals-header">
-                    <div class="deals-view-toggle">
-                        <div>
-                            <button id="view-my-deals-btn" class="btn-secondary active">My Deals</button>
-                            <button id="view-all-deals-btn" class="btn-secondary">My Team's Deals</button>
+                <div class="deals-top-section">
+                    <div class="deals-top-row">
+                        <h2 class="page-title">Deals</h2>
+                        <div class="view-mode-toggle">
+                            <button id="list-view-btn" class="view-mode-btn active" title="List View"><i class="fas fa-list"></i></button>
+                            <button id="board-view-btn" class="view-mode-btn" title="Board View"><i class="fas fa-th-large"></i></button>
                         </div>
                     </div>
-
                     <div class="deals-metrics-container">
                         <div class="metric-card">
                             <div class="metric-title" id="metric-current-commit-title">My Current Commit</div>
@@ -57,61 +57,106 @@
                             <div class="metric-title">My Current Funnel</div>
                             <div class="metric-value" id="metric-funnel"></div>
                         </div>
+                        <div class="metric-card">
+                            <div class="metric-title">Average Deal Size (ARPU)</div>
+                            <div class="metric-value" id="metric-arpu">$0</div>
+                        </div>
                         <div class="metric-card metric-card-won">
-                            <div class="metric-title">Closed Won (MTD)</div>
+                            <div class="metric-title">Sold (MTD)</div>
                             <div class="metric-value" id="metric-closed-won"></div>
                         </div>
                     </div>
                 </div>
 
-                <div id="list-view-container" class="glass-panel">
-                    <div class="table-container deals-table-container">
-                        <table id="deals-table">
-                            <thead>
-                                <tr>
-                                    <th>Committed</th>
-                                    <th data-sort="name" class="sortable">Deal Name <span></span></th>
-                                    <th data-sort="account_name" class="sortable">Account Name <span></span></th>
-                                    <th data-sort="stage" class="sortable">Stage <span></span></th>
-                                    <th data-sort="mrc" class="sortable">Project Value <span></span></th>
-                                    <th data-sort="close_month" class="sortable">Close Month <span></span></th>
-                                    <th data-sort="products" class="sortable">Job Details <span></span></th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div id="kanban-board-view" class="kanban-board-container glass-panel hidden"></div>
-
-                <div class="deals-table-options">
-                    <div class="checkbox-label-group">
-                        <input type="checkbox" id="show-closed-lost-check">
-                        <label for="show-closed-lost-check">Show Closed Lost</label>
-                    </div>
-                </div>
-
-                <div class="deals-charts-section">
-                    <hr> <h3>Deal Insights</h3>
-                    <div class="charts-grid">
-                        <div class="chart-container" id="deals-by-stage-chart-container">
-                            <h4>Deals by Stage</h4>
-                            <div class="chart-wrapper">
-                                <canvas id="deals-by-stage-chart"></canvas>
+                <div class="section-card deals-pipeline-card">
+                    <div class="section-card-header deals-pipeline-header">
+                        <h2 class="section-title">Deal Pipeline</h2>
+                        <button type="button" id="add-deal-btn" class="btn-icon-header" title="New Deal" aria-label="New Deal"><i class="fas fa-plus"></i></button>
+                        <div class="deals-filters">
+                            <div class="deals-filter-group">
+                                <span class="deals-filter-label">Committed</span>
+                                <div id="filter-committed-pills" class="deals-filter-pills"></div>
                             </div>
-                            <div id="chart-empty-message" class="chart-empty-message hidden">
-                                No open deal data to display.
+                            <div class="deals-filter-group">
+                                <span class="deals-filter-label">Stage</span>
+                                <div id="filter-stage-pills" class="deals-filter-pills"></div>
+                            </div>
+                            <div class="deals-filter-group">
+                                <span class="deals-filter-label">Close Month</span>
+                                <div class="deals-close-month-wrap">
+                                    <button type="button" id="close-month-prev" class="deals-close-month-nav" aria-label="Previous months"><i class="fa-solid fa-chevron-left"></i></button>
+                                    <div id="filter-close-month-scroll" class="deals-close-month-scroll">
+                                        <div id="filter-close-month-pills" class="deals-filter-pills"></div>
+                                    </div>
+                                    <button type="button" id="close-month-next" class="deals-close-month-nav" aria-label="Next months"><i class="fa-solid fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+                            <button type="button" id="deals-filters-reset" class="deals-filter-reset" title="Reset all filters">Reset</button>
+                        </div>
+                    </div>
+                    <div class="section-card-body deals-pipeline-body">
+                        <div id="list-view-container">
+                            <div class="table-container deals-table-container">
+                                <table id="deals-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="deal-th-committed">Commit</th>
+                                            <th data-sort="stage" class="sortable deal-th-stage">Stage <span></span></th>
+                                            <th data-sort="close_month" class="sortable deal-th-close">Close Month <span></span></th>
+                                            <th data-sort="name" class="sortable deal-th-details">Deal Details <span></span></th>
+                                            <th class="deal-th-elements">Elements</th>
+                                            <th data-sort="mrc" class="sortable deal-th-value">Value <span></span></th>
+                                            <th class="deal-th-notes">Job Details</th>
+                                            <th class="deal-th-actions" title="Actions"><i class="fas fa-bolt"></i></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
                             </div>
                         </div>
-                        <div class="chart-container">
-                            <h4>30/60/90 Day Funnel</h4>
-                            <div class="chart-wrapper">
-                                <canvas id="deals-by-time-chart"></canvas>
+                        <div id="kanban-board-view" class="kanban-board-container hidden"></div>
+                        <div id="list-view-closed-lost-row" class="deals-filter-toggle-row list-view-only hidden">
+                            <label class="deals-filter-toggle">
+                                <span class="deals-filter-toggle-switch"><span class="deals-filter-toggle-knob"></span></span>
+                                <input type="checkbox" id="show-closed-lost" class="sr-only">
+                                <span class="deals-filter-toggle-label">Show closed lost (past months)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card deals-charts-section">
+                    <div class="section-card-header">
+                        <h2 class="section-title">Deal Insights</h2>
+                    </div>
+                    <div class="section-card-body">
+                        <div class="charts-grid">
+                            <div class="chart-container" id="deals-by-stage-chart-container">
+                                <h4>Deals by Stage</h4>
+                                <div class="chart-wrapper">
+                                    <canvas id="deals-by-stage-chart"></canvas>
+                                </div>
+                                <div id="chart-empty-message" class="chart-empty-message hidden">
+                                    No open deal data to display.
+                                </div>
                             </div>
-                            <div id="time-chart-empty-message" class="chart-empty-message hidden">
-                                No deals with future close dates.
+                            <div class="chart-container">
+                                <h4>30/60/90 Day Funnel</h4>
+                                <div class="chart-wrapper">
+                                    <canvas id="deals-by-time-chart"></canvas>
+                                </div>
+                                <div id="time-chart-empty-message" class="chart-empty-message hidden">
+                                    No deals with future close dates.
+                                </div>
+                            </div>
+                            <div class="chart-container" id="deals-by-product-chart-container">
+                                <h4>Pipeline by Element</h4>
+                                <div class="chart-wrapper">
+                                    <canvas id="deals-by-product-chart"></canvas>
+                                </div>
+                                <div id="product-chart-empty-message" class="chart-empty-message hidden">
+                                    No element data available for open deals.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -127,6 +172,7 @@
         </div>
     </div>
     <script src="js/nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
     <script type="module" src="js/deals.js"></script>
 </body>
 </html>

@@ -300,15 +300,16 @@ document.addEventListener("DOMContentLoaded", () => {
             accountForm.querySelector("#account-id").value = account.id;
             accountForm.querySelector("#account-name").value = account.name || "";
             accountForm.querySelector("#account-website").value = account.website || "";
-            accountForm.querySelector("#account-industry").value = account.industry || "";
             accountForm.querySelector("#account-phone").value = account.phone || "";
+            const accountSocialEl = accountForm.querySelector("#account-social");
+            if (accountSocialEl) accountSocialEl.value = account.social_media || "";
             accountForm.querySelector("#account-address").value = account.address || "";
             accountForm.querySelector("#account-notes").value = account.notes || "";
             document.getElementById("account-last-saved").textContent = account.last_saved ? `Last Saved: ${formatDate(account.last_saved)}` : "";
 
             state.deals.filter(d => d.account_id === account.id).forEach(deal => {
                 const row = accountDealsTableBody.insertRow();
-                row.innerHTML = `<td><input type="checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td><td>${deal.name}</td><td>${deal.stage}</td><td>$${deal.mrc}</td>`;
+                row.innerHTML = `<td><input type="checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td><td>${deal.name}</td><td>${deal.stage === 'Closed Won' ? 'Sold' : (deal.stage || '')}</td><td>$${deal.mrc}</td>`;
             });
             
             state.contacts.filter(c => c.account_id === account.id).forEach(c => {
@@ -363,7 +364,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Add sorting logic here if needed...
         dealsWithAccount.forEach(deal => {
             const row = dealsTableBody.insertRow();
-            row.innerHTML = `<td><input type="checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td><td>${deal.name}</td><td>${deal.account_name}</td><td>${deal.stage}</td><td>$${deal.mrc}</td>`;
+            row.innerHTML = `<td><input type="checkbox" data-deal-id="${deal.id}" ${deal.is_committed ? "checked" : ""}></td><td>${deal.name}</td><td>${deal.account_name}</td><td>${deal.stage === 'Closed Won' ? 'Sold' : (deal.stage || '')}</td><td>$${deal.mrc}</td>`;
         });
     };
 

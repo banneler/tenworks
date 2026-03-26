@@ -1,0 +1,297 @@
+--- /Users/ba/Constellation-V/accounts.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/accounts.html	2026-02-27 16:18:18
+@@ -2,37 +2,33 @@
+ <html lang="en">
+ 
+ <head>
+-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, outreach, and deals.">
++    <meta name="description" content="TenWorks CRM: A powerful and intuitive tool for managing your fabrication pipeline, contacts, and deals.">
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - Accounts</title>
+-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
+-    <link rel="stylesheet" href="output.css">
+-    <link rel="stylesheet" href="css/global-loader.css">
++    <title>TenWorks Accounts</title>
++    <link rel="stylesheet" href="css/style.css">
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+-    <script src="https://unpkg.com/@zumer/snapdom/dist/snapdom.js"></script>
++    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+ </head>
+ 
+-<body>
++<body data-nav="crm">
+     <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+         <div class="global-loader-content">
+             <div class="global-loader-spinner" aria-hidden="true">
+-                <svg class="global-loader-svg global-loader-constellation" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                    <path class="global-loader-constellation-line" pathLength="1" d="M24 8 L10 22 L18 38 L30 38 L38 22 L24 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+-                    <circle class="global-loader-star" cx="24" cy="8" r="2.2"/><circle class="global-loader-star" cx="10" cy="22" r="1.8"/><circle class="global-loader-star" cx="18" cy="38" r="2"/><circle class="global-loader-star" cx="30" cy="38" r="1.8"/><circle class="global-loader-star" cx="38" cy="22" r="2"/>
+-                </svg>
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+             </div>
+             <p class="global-loader-text">Loading…</p>
+         </div>
+     </div>
+     <div class="crm-container">
+-        <nav class="nav-sidebar">
+-            <script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.currentScript.parentElement.classList.add('nav-sidebar-collapsed');}catch(e){}})();</script>
+-            <div id="global-nav-container" class="flex flex-col flex-1 min-h-0"></div>
+-        </nav>
++        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
++
+         <main class="content-area">
+             <div id="accounts" class="content-view active-view accounts-layout">
+                 <div class="account-picker-panel">
+@@ -57,131 +53,120 @@
+                         <button id="bulk-export-accounts-btn" class="btn-icon account-picker-icon" title="Bulk Export to CSV"><i class="fas fa-file-export"></i></button>
+                     </div>
+                 </div>
+-                <div id="account-details" class="details-panel account-details-content">
+-                        <div class="account-details-top-row">
+-                            <div class="account-details-form-card">
+-                                <div class="account-details-form-header">
+-                                    <div class="account-details-form-header-row">
+-                                        <h3 class="details-panel-title">Account Details</h3>
+-                                        <div class="flex items-center gap-2">
+-                                            <div class="header-locators-stack">
+-                                                <span class="sf-locator-inline" id="sf-locator-inline-wrap">
+-                                                    <span class="sf-locator-text" id="sf-locator-display">Salesforce ID</span>
+-                                                    <button type="button" class="sf-locator-edit-btn" id="sf-locator-edit-btn" title="Edit Salesforce ID" aria-label="Edit Salesforce ID"><i class="fas fa-pencil"></i></button>
+-                                                    <input type="text" class="sf-locator-input" id="sf-locator-input" placeholder="e.g. 001XXXXXXXXXXXX" maxlength="18" />
+-                                                </span>
+-                                                <span class="sf-locator-inline zoominfo-locator-inline" id="zoominfo-locator-inline-wrap">
+-                                                    <span class="sf-locator-text" id="zoominfo-locator-display">Zoom Info Company Id</span>
+-                                                    <button type="button" class="sf-locator-edit-btn" id="zoominfo-locator-edit-btn" title="Edit Zoom Info Company Id" aria-label="Edit Zoom Info Company Id"><i class="fas fa-pencil"></i></button>
+-                                                    <input type="text" class="sf-locator-input" id="zoominfo-locator-input" placeholder="e.g. 123456789" />
+-                                                </span>
+-                                            </div>
+-                                            <button id="zoominfo-account-btn" class="btn-icon-header zoominfo-btn" title="Open in ZoomInfo" aria-label="Open in ZoomInfo"><img src="assets/zoominfo-logo-2024.svg" alt="ZoomInfo" class="zoominfo-logo" /></button>
+-                                            <button id="salesforce-account-btn" class="btn-icon-header salesforce-btn" title="Open in Salesforce"><i class="fa-brands fa-salesforce"></i></button>
+-                                            <button id="ai-briefing-btn" class="btn-icon-header" title="Generate AI Briefing"><i class="fas fa-bolt-lightning"></i></button>
+-                                        </div>
++
++                <div class="details-panel-scrim" id="account-details-scrim" aria-hidden="true"></div>
++                <div id="account-details" class="details-panel glass-panel account-details-content">
++                    <button type="button" class="details-panel-close-btn" id="account-details-close-btn" aria-label="Close details"><i class="fas fa-times"></i></button>
++                    <div class="account-details-top-row">
++                        <div class="account-details-form-card">
++                            <div class="account-details-form-header">
++                                <div class="account-details-form-header-row">
++                                    <h3 class="details-panel-title">Account Details</h3>
++                                    <div class="flex items-center gap-2">
++                                        <button id="ai-briefing-btn" class="btn-icon-header" title="Generate AI Briefing"><i class="fas fa-bolt-lightning"></i></button>
+                                     </div>
+                                 </div>
+-                                <form id="account-form">
+-                            <input type="hidden" id="account-id">
+-                            <div class="form-grid form-grid-account">
+-                                <div><label for="account-name">Account Name</label><input type="text" id="account-name" required></div>
+-                                <div>
+-                                    <label for="account-website">Website</label>
+-                                    <div class="input-with-icon">
+-                                        <input type="text" id="account-website">
+-                                        <a href="#" id="account-website-link" target="_blank" class="external-link-icon hidden" title="Open website in new tab">
+-                                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+-                                        </a>
++                            </div>
++                            <form id="account-form">
++                                <input type="hidden" id="account-id">
++                                <div class="form-grid form-grid-account">
++                                    <div><label for="account-name">Account Name</label><input type="text" id="account-name" required></div>
++                                    <div>
++                                        <label for="account-website">Website</label>
++                                        <div class="input-with-icon">
++                                            <input type="text" id="account-website">
++                                            <a href="#" id="account-website-link" target="_blank" class="external-link-icon hidden" title="Open website in new tab">
++                                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
++                                            </a>
++                                        </div>
+                                     </div>
++                                    <div class="form-address-cell"><label for="account-address">Address</label><textarea id="account-address"></textarea></div>
++                                    <div><label for="account-phone">Phone</label><input type="tel" id="account-phone"></div>
++                                    <div><label for="account-sites">Quantity of Sites</label><input type="number" id="account-sites" min="0"></div>
++                                    <div><label for="account-employees">Employee Count</label><input type="number" id="account-employees" min="0"></div>
++                                    <div><label for="account-industry">Industry</label>
++                                        <select id="account-industry">
++                                            <option value="">-- Select Industry --</option>
++                                            <option value="General">General</option>
++                                            <option value="Healthcare">Healthcare</option>
++                                            <option value="Financial">Financial</option>
++                                            <option value="Retail">Retail</option>
++                                            <option value="Manufacturing">Manufacturing</option>
++                                            <option value="K-12 Education">K-12 Education</option>
++                                            <option value="Technology">Technology</option>
++                                            <option value="Government">Government</option>
++                                            <option value="Nonprofit">Nonprofit</option>
++                                        </select>
++                                    </div>
+                                 </div>
+-                                <div class="form-address-cell"><label for="account-address">Address</label><textarea id="account-address"></textarea></div>
+-                                <div><label for="account-phone">Phone</label><input type="tel" id="account-phone"></div>
+-                                <div><label for="account-sites">Quantity of Sites</label><input type="number" id="account-sites" min="0"></div>
+-                                <div><label for="account-employees">Employee Count</label><input type="number" id="account-employees" min="0"></div>
+-                                <div><label for="account-industry">Industry</label>
+-                                    <select id="account-industry">
+-                                        <option value="">-- Select Industry --</option>
+-                                        <option value="General">General</option>
+-                                        <option value="Healthcare">Healthcare</option>
+-                                        <option value="Financial">Financial</option>
+-                                        <option value="Retail">Retail</option>
+-                                        <option value="Manufacturing">Manufacturing</option>
+-                                        <option value="K-12 Education">K-12 Education</option>
+-                                        <option value="Technology">Technology</option>
+-                                        <option value="Government">Government</option>
+-                                        <option value="Nonprofit">Nonprofit</option>
+-                                    </select>
++                                <div class="notes-section"><label for="account-notes">Notes</label><textarea id="account-notes"></textarea><small id="account-last-saved" class="last-saved-text"></small></div>
++                                <div class="form-buttons">
++                                    <button type="submit" class="btn-icon btn-icon-save" title="Save Changes"><i class="fas fa-floppy-disk"></i></button>
++                                    <button type="button" id="delete-account-btn" class="btn-icon btn-icon-danger" title="Delete Account"><i class="fas fa-trash"></i></button>
++                                    <div id="account-pending-task-reminder" class="pending-task-reminder pending-task-reminder-banner hidden" role="alert"></div>
++                                    <label class="customer-toggle" for="account-is-customer">
++                                        <input type="checkbox" id="account-is-customer" class="customer-toggle-input">
++                                        <span class="customer-toggle-slider"></span>
++                                        <span class="customer-toggle-label">Customer</span>
++                                    </label>
+                                 </div>
++                            </form>
++                        </div>
++                        <div class="section-card account-deals-card">
++                            <div class="section-card-header flex justify-between items-center gap-3">
++                                <h2 class="section-title">Current Deals</h2>
++                                <div class="account-deals-header-actions">
++                                    <button id="add-deal-btn" class="btn-icon-header" title="New Deal"><i class="fas fa-square-plus"></i></button>
++                                </div>
+                             </div>
+-                            <div class="notes-section"><label for="account-notes">Notes</label><textarea id="account-notes"></textarea><small id="account-last-saved" class="last-saved-text"></small></div>
+-                            <div class="form-buttons">
+-                                <button type="submit" class="btn-icon btn-icon-save" title="Save Changes"><i class="fas fa-floppy-disk"></i></button>
+-                                <button type="button" id="delete-account-btn" class="btn-icon btn-icon-danger" title="Delete Account"><i class="fas fa-trash"></i></button>
+-                                <div id="account-pending-task-reminder" class="pending-task-reminder pending-task-reminder-pill hidden"></div>
+-                                <label class="customer-toggle" for="account-is-customer">
+-                                    <input type="checkbox" id="account-is-customer" class="customer-toggle-input">
+-                                    <span class="customer-toggle-slider"></span>
+-                                    <span class="customer-toggle-label">Customer</span>
+-                                </label>
++                            <div class="account-deals-body">
++                                <div id="account-deals-cards" class="account-deals-cards"></div>
+                             </div>
+-                        </form>
+-                            </div>
+-                            <div class="section-card account-deals-card">
+-                                <div class="section-card-header flex justify-between items-center gap-3">
+-                                    <h2 class="section-title">Current Deals</h2>
+-                                    <div class="account-deals-header-actions">
+-                                        <button id="add-deal-btn" class="btn-icon-header" title="New Deal"><i class="fas fa-plus"></i></button>
++                        </div>
++                    </div>
++                    <div class="account-cards-row">
++                        <div class="section-card account-contacts-card">
++                            <div class="section-card-header flex justify-between items-center gap-3">
++                                <h2 class="section-title">Associated Contacts</h2>
++                                <div class="flex items-center gap-2">
++                                    <div class="view-mode-toggle">
++                                        <button id="contact-list-btn" class="view-mode-btn active" title="List View"><i class="fas fa-list"></i></button>
++                                        <button id="contact-org-chart-btn" class="view-mode-btn" title="Org Chart View"><i class="fas fa-sitemap"></i></button>
+                                     </div>
++                                    <button id="org-chart-maximize-btn" class="btn-icon-header hidden" title="Expand Org Chart"><i class="fas fa-expand"></i></button>
+                                 </div>
+-                                <div class="account-deals-body">
+-                                    <div id="account-deals-cards" class="account-deals-cards"></div>
++                            </div>
++                            <div class="account-contacts-body">
++                                <div id="contact-list-view">
++                                    <ul id="account-contacts-list"></ul>
+                                 </div>
++                                <div id="contact-org-chart-view" class="hidden"><!-- Filled by JS: org-chart-render-target + zoom controls --></div>
++                                <div id="unassigned-contacts-container" class="hidden"></div>
+                             </div>
+                         </div>
+-                        <div class="account-cards-row">
+-                            <div class="section-card account-contacts-card">
+-                                <div class="section-card-header flex justify-between items-center gap-3">
+-                                    <h2 class="section-title">Associated Contacts</h2>
+-                                    <div class="flex items-center gap-2">
+-                                        <div class="view-mode-toggle">
+-                                            <button id="contact-list-btn" class="view-mode-btn active" title="List View"><i class="fas fa-list"></i></button>
+-                                            <button id="contact-org-chart-btn" class="view-mode-btn" title="Org Chart View"><i class="fas fa-sitemap"></i></button>
+-                                        </div>
+-                                        <button id="org-chart-maximize-btn" class="btn-icon-header hidden" title="Expand Org Chart"><i class="fas fa-expand"></i></button>
+-                                    </div>
+-                                </div>
+-                                <div class="account-contacts-body">
+-                                    <div id="contact-list-view">
+-                                        <ul id="account-contacts-list"></ul>
+-                                    </div>
+-                                    <div id="contact-org-chart-view" class="hidden">
+-                                        <!-- Filled by JS: chart + zoom controls -->
+-                                    </div>
+-                                </div>
++                        <div class="section-card account-activities-card">
++                            <div class="section-card-header flex justify-between items-center gap-3">
++                                <h2 class="section-title">Related Activities</h2>
++                                <button id="add-task-account-btn" class="btn-icon-header" title="Add Task"><i class="fas fa-plus"></i></button>
+                             </div>
+-                            <div class="section-card account-activities-card">
+-                                <div class="section-card-header flex justify-between items-center gap-3">
+-                                    <h2 class="section-title">Related Activities</h2>
+-                                    <button id="add-task-account-btn" class="btn-icon-header" title="Add Task"><i class="fas fa-square-plus"></i></button>
+-                                </div>
+-                                <div class="account-activities-body">
+-                                    <div id="account-activities-list" class="recent-activities-list"></div>
+-                                </div>
++                            <div class="account-activities-body">
++                                <div id="account-activities-list" class="recent-activities-list"></div>
+                             </div>
+                         </div>
+                     </div>
++                </div>
+             </div>
+         </main>
+     </div>
++
+     <div id="modal-backdrop" class="modal-backdrop hidden">
+         <div class="modal-content">
+             <h3 id="modal-title"></h3>
+             <div id="modal-body"></div>
+-            <div id="modal-actions" class="modal-actions">
+-            </div>
++            <div id="modal-actions" class="modal-actions"></div>
+         </div>
+     </div>
++
+     <div id="email-view-modal-backdrop" class="modal-backdrop hidden">
+         <div class="email-view-modal">
+             <div class="email-view-header">
+@@ -198,6 +183,7 @@
+             </div>
+         </div>
+     </div>
++
+     <div id="org-chart-modal-backdrop" class="modal-backdrop hidden">
+         <div class="org-chart-modal">
+             <div class="org-chart-modal-header">
+@@ -207,13 +193,15 @@
+             <div id="org-chart-modal-content" class="org-chart-modal-content"></div>
+         </div>
+     </div>
++
+     <script>
+         (function() {
+             const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+             document.body.className = `theme-${savedTheme}`;
+         })();
+     </script>
+-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
++    <script src="js/nav-loader.js"></script>
+     <script type="module" src="js/accounts.js"></script>
+ </body>
++
+ </html>

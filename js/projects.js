@@ -7,7 +7,8 @@ import {
     setupUserMenuAndAuth, 
     loadSVGs,
     setupGlobalSearch,
-    runWhenNavReady
+    runWhenNavReady,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -56,25 +57,29 @@ function checkStaleness() {
 
 document.addEventListener("DOMContentLoaded", async () => {
     runWhenNavReady(async () => {
-    await loadSVGs();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = 'index.html'; return; }
-    
-    state.currentUser = user;
-    await setupUserMenuAndAuth(supabase, { currentUser: user });
-    await setupGlobalSearch(supabase, user);
+        try {
+        await loadSVGs();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { hideGlobalLoader(); window.location.href = 'index.html'; return; }
 
-    const { data: trades } = await supabase.from('shop_trades').select('*').order('id');
-    state.trades = trades || [];
+        state.currentUser = user;
+        await setupUserMenuAndAuth(supabase, { currentUser: user });
+        await setupGlobalSearch(supabase, user);
 
-    setupEventListeners();
-    await loadProjectsList();
+        const { data: trades } = await supabase.from('shop_trades').select('*').order('id');
+        state.trades = trades || [];
 
-    const launchDealId = new URLSearchParams(window.location.search).get('launch_deal_id');
-    if (launchDealId) {
-        history.replaceState({}, '', window.location.pathname);
-        openLaunchProjectModal(launchDealId);
-    }
+        setupEventListeners();
+        await loadProjectsList();
+
+        const launchDealId = new URLSearchParams(window.location.search).get('launch_deal_id');
+        if (launchDealId) {
+            history.replaceState({}, '', window.location.pathname);
+            openLaunchProjectModal(launchDealId);
+        }
+        } finally {
+            hideGlobalLoader();
+        }
     });
 });
 
@@ -388,7 +393,9 @@ function renderTeam() {
         btn.addEventListener('click', async () => {
             const contactId = btn.dataset.contactId;
             if (!contactId) return;
-            const { data: token, error } = await supabase.rpc('get_or_create_contact_portal_token', { p_contact_id: contactId });
+            const id = Number(contactId);
+            if (Number.isNaN(id)) { alert('Invalid contact id.'); return; }
+            const { data: token, error } = await supabase.rpc('get_or_create_contact_portal_token', { p_contact_id: id });
             if (error) { alert('Could not get portal link: ' + error.message); return; }
             const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html?portal=${token}`;
             try {

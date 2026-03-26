@@ -1,0 +1,104 @@
+--- /Users/ba/Constellation-V/social_hub.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/social_hub.html	2026-02-27 14:14:43
+@@ -1,58 +1,35 @@
+ <!DOCTYPE html>
+ <html lang="en">
+ <head>
+-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - Social Hub</title>
+-    <link rel="stylesheet" href="output.css">
+-    <link rel="stylesheet" href="css/global-loader.css">
+-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
++    <title>TenWorks Social Hub</title>
++    <link rel="stylesheet" href="css/style.css">
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+ </head>
+-<body>
++<body data-nav="crm">
+     <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+         <div class="global-loader-content">
+             <div class="global-loader-spinner" aria-hidden="true">
+-                <svg class="global-loader-svg global-loader-constellation" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                    <path class="global-loader-constellation-line" pathLength="1" d="M24 8 L10 22 L18 38 L30 38 L38 22 L24 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+-                    <circle class="global-loader-star" cx="24" cy="8" r="2.2"/><circle class="global-loader-star" cx="10" cy="22" r="1.8"/><circle class="global-loader-star" cx="18" cy="38" r="2"/><circle class="global-loader-star" cx="30" cy="38" r="1.8"/><circle class="global-loader-star" cx="38" cy="22" r="2"/>
+-                </svg>
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+             </div>
+             <p class="global-loader-text">Loading…</p>
+         </div>
+     </div>
+     <div class="crm-container">
+-        <nav class="nav-sidebar">
+-            <script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.currentScript.parentElement.classList.add('nav-sidebar-collapsed');}catch(e){}})();</script>
+-            <div id="global-nav-container" class="flex flex-col flex-1 min-h-0"></div>
+-        </nav>
++        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
+         
+         <main class="content-area">
+             <div id="social-hub-view" class="content-view active-view">
+-                <div class="section-card">
+-                    <div class="section-card-header">
+-                        <h2 class="page-title">Social Hub</h2>
++                <h2>Social Hub</h2>
++                               <h3>AI-Curated Content</h3>
++                <div id="ai-articles-container" class="alerts-container">
+                     </div>
+-                    <div class="px-5 pb-5">
+-                        <p class="placeholder-text mb-6">Amplify our voice. Share relevant news and updates with your network.</p>
+-                        <h3 class="section-title">AI-Curated Content</h3>
+-                        <div id="ai-articles-container" class="alerts-container"></div>
+-                    </div>
+-                </div>
+-                <div class="section-card">
+-                    <div class="section-card-header flex justify-between items-center gap-3">
+-                        <h2 class="section-title">From Our Marketing Team</h2>
+-                        <a href="https://gpcom-my.sharepoint.com/personal/dmunoz_gpcom_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fdmunoz%5Fgpcom%5Fcom%2FDocuments%2FDesktop%2FGraphics%20for%20LI%20posts&ga=1&startedResponseCatch=true" class="btn-primary" target="_blank" rel="noopener noreferrer">
+-                            View Content Image Library ↗
+-                        </a>
+-                    </div>
+-                    <div class="px-5 pb-5">
+-                        <div id="marketing-posts-container" class="alerts-container"></div>
+-                    </div>
+-                </div>
+             </div>
+         </main>
+     </div>
+@@ -69,24 +46,18 @@
+                 <div id="refine-prompt-section" style="margin-top: 20px;">
+                     <label for="custom-prompt-input">Refine with Custom Prompt:</label>
+                     <input type="text" id="custom-prompt-input" placeholder="e.g., 'Make it more casual' or 'Add a question at the end'">
+-                    <button class="btn-primary" id="generate-custom-btn" style="width: 100%; margin-top: 10px;"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Regenerate</span></button>
++                    <button class="btn-primary" id="generate-custom-btn" style="width: 100%; margin-top: 10px;">Regenerate</button>
+                 </div>
+             </div>
+             <div id="modal-actions" class="modal-actions">
+-                 <button id="copy-text-btn" class="btn-secondary icon-only-btn" title="Copy Text"><i class="fa-regular fa-copy"></i></button>
+-                 <button id="post-to-linkedin-btn" class="btn-primary icon-only-btn" title="Post to LinkedIn"><i class="fa-regular fa-paper-plane"></i></button>
+-                 <button id="modal-close-btn" class="btn-secondary icon-only-btn" title="Close"><i class="fa-solid fa-xmark"></i></button>
++                 <button id="copy-text-btn" class="btn-secondary">Copy Text</button>
++                 <button id="post-to-linkedin-btn" class="btn-primary">Post to LinkedIn</button>
++                 <button id="modal-close-btn" class="btn-secondary">Close</button>
+             </div>
+         </div>
+     </div>
+-    <script>
+-    // This script runs synchronously to apply the theme before the page renders
+-    (function() {
+-        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+-        document.body.className = `theme-${savedTheme}`;
+-    })();
+-    </script>
+-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
++    
++    <script src="js/nav-loader.js"></script>
+     <script type="module" src="js/social_hub.js"></script>
+ </body>
+ </html>

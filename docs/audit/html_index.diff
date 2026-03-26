@@ -1,0 +1,157 @@
+--- /Users/ba/Constellation-V/index.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/index.html	2026-02-22 00:20:29
+@@ -1,61 +1,93 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-
+-<head>
+-    <meta charset="UTF-8">
+-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - Login</title>
+-    <link rel="stylesheet" href="output.css">
+-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+-</head>
+-
+-<body>
+-    <div id="auth-container" class="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+-        <div class="bg-white border border-slate-200 shadow-xl rounded-2xl p-8 w-full max-w-md flex flex-col items-center relative z-10 text-slate-800">
+-            <div data-svg-loader="assets/constellation-logo-full.svg" class="constellation-main-logo"></div>
+-            <p id="auth-error" class="min-h-[0.8rem] mt-0.5 mb-0.5 text-sm text-red-400"></p>
+-            
+-            <form id="auth-form" class="w-full">
+-                <input type="email" id="auth-email" placeholder="Email" required
+-                    class="w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400 px-4 py-3 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-slate-50 transition-all">
+-                <input type="password" id="auth-password" placeholder="Password" required
+-                    class="w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400 px-4 py-3 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-slate-50 transition-all">
+-                <div id="signup-fields" class="hidden">
+-                    <input type="password" id="auth-confirm-password" placeholder="Confirm Password"
+-                        class="w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400 px-4 py-3 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-slate-50 transition-all">
+-                </div>
+-                <button type="submit" id="auth-submit-btn" class="btn-primary w-full mb-4">Login</button>
+-            </form>
+-
+-            <form id="reset-form" class="hidden w-full">
+-                <input type="email" id="reset-email" placeholder="Email" required
+-                    class="w-full bg-white border border-slate-300 text-slate-900 placeholder-slate-400 px-4 py-3 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-slate-50 transition-all">
+-                <button type="submit" id="reset-submit-btn" class="btn-primary w-full mb-4">Send Reset Link</button>
+-            </form>
+-
+-            <a href="#" id="auth-toggle-link" class="block mt-2 text-sm text-blue-600 hover:text-blue-700 no-underline hover:underline">Need an account? Sign Up</a>
+-            <a href="#" id="forgot-password-link" class="block mt-1 text-sm text-blue-600 hover:text-blue-700 no-underline hover:underline">Forgot Password?</a>
+-            <a href="#" id="return-to-login-link" class="hidden block mt-2 text-sm text-blue-600 hover:text-blue-700 no-underline hover:underline">Return to Login</a>
+-        </div>
+-    </div>
+-
+-   <div id="modal-backdrop" class="modal-backdrop hidden">
+-        <div class="modal-content">
+-            <h3 id="modal-title"></h3>
+-            <div id="modal-body"></div>
+-            <div id="modal-actions" class="modal-actions">
+-                </div>
+-        </div>
+-    </div>
+-
+-    <script>
+-    // This script runs synchronously to apply the theme before the page renders
+-    (function() {
+-        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+-        document.body.className = `theme-${savedTheme}`;
+-    })();
+-    </script>
+-    <script type="module" src="js/auth.js"></script>
+-</body>
+-
+-</html>
++<!DOCTYPE html>
++<html lang="en">
++
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>TenWorks CRM</title>
++    
++    <script>
++        (function() {
++            // Check for saved theme, default to 'dark' for virgin browsers
++            const savedTheme = localStorage.getItem('crm-theme') || 'dark';
++            
++            // Apply to <html> to activate CSS variables immediately
++            document.documentElement.className = 'theme-' + savedTheme;
++            
++            // Force save 'dark' if it's a first-time visit
++            if (!localStorage.getItem('crm-theme')) {
++                localStorage.setItem('crm-theme', 'dark');
++            }
++        })();
++    </script>
++
++    <style>
++        /* Define the base dark variables to match your logo palette */
++        :root {
++            --bg-dark: #1F2329; 
++            --bg-medium: #23272e; 
++            --text-light: #ffffff;
++            --primary-blue: #b38c62; /* Gold Brand Color */
++        }
++
++        /* The 'Bully' rule: Force the background dark immediately */
++        html, body {
++            background-color: #1F2329 !important;
++            color: #ffffff !important;
++            margin: 0;
++            padding: 0;
++            height: 100%;
++            font-family: 'Inter', sans-serif;
++        }
++
++        /* Light theme overrides if ever needed */
++        .theme-light, .theme-light body {
++            background-color: #f0f2f5 !important;
++            color: #1F2329 !important;
++        }
++    </style>
++
++    <link rel="stylesheet" href="css/style.css">
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
++    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
++</head>
++
++<body class="theme-dark"> <div id="auth-container" class="auth-container">
++        <div class="auth-box">
++            <div data-svg-loader="assets/logo.svg"></div>
++            <p id="auth-error" class="auth-error"></p>
++            
++            <form id="auth-form">
++                <input type="email" id="auth-email" placeholder="Email" required>
++                <input type="password" id="auth-password" placeholder="Password" required>
++                <div id="signup-fields" class="hidden">
++                    <input type="password" id="auth-confirm-password" placeholder="Confirm Password">
++                </div>
++                <button type="submit" id="auth-submit-btn" class="btn-primary full-width">Login</button>
++            </form>
++
++            <form id="reset-form" class="hidden">
++                <input type="email" id="reset-email" placeholder="Email" required>
++                <button type="submit" id="reset-submit-btn" class="btn-primary full-width">Send Reset Link</button>
++            </form>
++
++            <a href="#" id="auth-toggle-link">Need an account? Sign Up</a>
++            <a href="#" id="forgot-password-link">Forgot Password?</a>
++            <a href="#" id="return-to-login-link" class="hidden">Return to Login</a>
++        </div>
++    </div>
++
++    <div id="modal-backdrop" class="modal-backdrop hidden">
++        <div class="modal-content">
++            <h3 id="modal-title"></h3>
++            <div id="modal-body"></div>
++            <div id="modal-actions" class="modal-actions"></div>
++        </div>
++    </div>
++
++    <script type="module" src="js/auth.js"></script>
++</body>
++
++</html>

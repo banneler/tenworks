@@ -4,9 +4,11 @@ import {
     formatCurrency, 
     showModal, 
     hideModal, 
+    showToast,
     setupUserMenuAndAuth, 
     loadSVGs,
-    runWhenNavReady 
+    runWhenNavReady,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -22,20 +24,24 @@ let state = {
 
 document.addEventListener("DOMContentLoaded", async () => {
     runWhenNavReady(async () => {
-    await loadSVGs();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = 'index.html'; return; }
-    state.currentUser = user;
-    await setupUserMenuAndAuth(supabase, { currentUser: user });
+        try {
+        await loadSVGs();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { hideGlobalLoader(); window.location.href = 'index.html'; return; }
+        state.currentUser = user;
+        await setupUserMenuAndAuth(supabase, { currentUser: user });
 
-    document.getElementById('btn-add-item').addEventListener('click', openAddItemModal);
-    document.getElementById('inventory-search').addEventListener('input', renderTable);
-    document.getElementById('inventory-filter').addEventListener('change', renderTable);
-    document.getElementById('kpi-low-stock')?.addEventListener('click', () => { state.filterBy = 'lowStock'; renderTable(); document.getElementById('inventory-table-container')?.scrollIntoView({ behavior: 'smooth' }); });
-    document.getElementById('kpi-short')?.addEventListener('click', () => { state.filterBy = 'short'; renderTable(); document.getElementById('inventory-table-container')?.scrollIntoView({ behavior: 'smooth' }); });
-    document.getElementById('filter-show-all')?.addEventListener('click', (e) => { e.preventDefault(); state.filterBy = 'all'; renderTable(); });
+        document.getElementById('btn-add-item').addEventListener('click', openAddItemModal);
+        document.getElementById('inventory-search').addEventListener('input', renderTable);
+        document.getElementById('inventory-filter').addEventListener('change', renderTable);
+        document.getElementById('kpi-low-stock')?.addEventListener('click', () => { state.filterBy = 'lowStock'; renderTable(); document.getElementById('inventory-table-container')?.scrollIntoView({ behavior: 'smooth' }); });
+        document.getElementById('kpi-short')?.addEventListener('click', () => { state.filterBy = 'short'; renderTable(); document.getElementById('inventory-table-container')?.scrollIntoView({ behavior: 'smooth' }); });
+        document.getElementById('filter-show-all')?.addEventListener('click', (e) => { e.preventDefault(); state.filterBy = 'all'; renderTable(); });
 
-    await loadInventory();
+        await loadInventory();
+        } finally {
+            hideGlobalLoader();
+        }
     });
 });
 
@@ -174,28 +180,23 @@ function openOrderMoreModal(item) {
             <div><label>Expected date (optional)</label><input type="date" id="po-expected" class="form-control"></div>
             <div style="grid-column:span 2;"><label>Notes (optional)</label><input type="text" id="po-notes" class="form-control" placeholder="PO number, supplier..."></div>
         </div>
-        <button id="btn-po-submit" class="btn-primary" style="width:100%; margin-top:15px;">Create order</button>
-    `, () => {});
-
-    setTimeout(() => {
-        document.getElementById('btn-po-submit').onclick = async () => {
-            const qty = parseFloat(document.getElementById('po-qty').value) || 1;
-            const expected = document.getElementById('po-expected').value || null;
-            const notes = document.getElementById('po-notes').value?.trim() || null;
-            if (qty <= 0) { alert('Enter a quantity.'); return; }
-            const { error } = await supabase.from('purchase_orders').insert({
-                inventory_item_id: item.id,
-                qty_ordered: qty,
-                qty_received: 0,
-                status: 'ordered',
-                expected_date: expected,
-                notes
-            });
-            if (error) { alert('Failed: ' + error.message); return; }
-            hideModal();
-            await loadInventory();
-        };
-    }, 100);
+    `, async (modalBody) => {
+        const qty = parseFloat(modalBody.querySelector('#po-qty')?.value) || 1;
+        const expected = modalBody.querySelector('#po-expected')?.value || null;
+        const notes = modalBody.querySelector('#po-notes')?.value?.trim() || null;
+        if (qty <= 0) { showToast('Enter a quantity.', 'error'); return false; }
+        const { error } = await supabase.from('purchase_orders').insert({
+            inventory_item_id: item.id,
+            qty_ordered: qty,
+            qty_received: 0,
+            status: 'ordered',
+            expected_date: expected,
+            notes
+        });
+        if (error) { showToast('Failed: ' + error.message, 'error'); return false; }
+        showToast('Order created.', 'success');
+        await loadInventory();
+    }, true, '<button id="modal-confirm-btn" class="btn-primary">Create order</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>');
 }
 
 function openReceiveModal(po) {
@@ -207,27 +208,21 @@ function openReceiveModal(po) {
             <label>Qty to receive now</label>
             <input type="number" id="receive-qty" class="form-control" min="0" step="0.01" value="${remaining}">
         </div>
-        <button id="btn-receive-submit" class="btn-primary" style="width:100%; margin-top:15px;">Receive & update stock</button>
-    `, () => {});
-
-    setTimeout(() => {
-        document.getElementById('btn-receive-submit').onclick = async () => {
-            const qty = parseFloat(document.getElementById('receive-qty').value) || 0;
-            if (qty <= 0) { hideModal(); return; }
-            const item = state.inventory.find(i => i.id === po.inventory_item_id);
-            if (!item) { alert('Item not found.'); hideModal(); return; }
-            const newOnHand = (Number(item.qty_on_hand) || 0) + qty;
-            const newReceived = (Number(po.qty_received) || 0) + qty;
-            const newStatus = newReceived >= Number(po.qty_ordered) ? 'received' : 'ordered';
-
-            const { error: errInv } = await supabase.from('inventory_items').update({ qty_on_hand: newOnHand }).eq('id', po.inventory_item_id);
-            if (errInv) { alert('Update inventory failed: ' + errInv.message); return; }
-            const { error: errPo } = await supabase.from('purchase_orders').update({ qty_received: newReceived, status: newStatus }).eq('id', po.id);
-            if (errPo) { alert('Update order failed: ' + errPo.message); return; }
-            hideModal();
-            await loadInventory();
-        };
-    }, 100);
+    `, async (modalBody) => {
+        const qty = parseFloat(modalBody.querySelector('#receive-qty')?.value) || 0;
+        if (qty <= 0) return true;
+        const item = state.inventory.find(i => i.id === po.inventory_item_id);
+        if (!item) { showToast('Item not found.', 'error'); return false; }
+        const newOnHand = (Number(item.qty_on_hand) || 0) + qty;
+        const newReceived = (Number(po.qty_received) || 0) + qty;
+        const newStatus = newReceived >= Number(po.qty_ordered) ? 'received' : 'ordered';
+        const { error: errInv } = await supabase.from('inventory_items').update({ qty_on_hand: newOnHand }).eq('id', po.inventory_item_id);
+        if (errInv) { showToast('Update inventory failed: ' + errInv.message, 'error'); return false; }
+        const { error: errPo } = await supabase.from('purchase_orders').update({ qty_received: newReceived, status: newStatus }).eq('id', po.id);
+        if (errPo) { showToast('Update order failed: ' + errPo.message, 'error'); return false; }
+        showToast('Stock updated.', 'success');
+        await loadInventory();
+    }, true, '<button id="modal-confirm-btn" class="btn-primary">Receive & update stock</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>');
 }
 
 window.orderMore = (inventoryItemId) => {
@@ -241,7 +236,8 @@ window.receiveOrder = (poId) => {
 window.cancelOrder = async (poId) => {
     if (!confirm('Cancel this order line?')) return;
     const { error } = await supabase.from('purchase_orders').update({ status: 'cancelled' }).eq('id', poId);
-    if (!error) await loadInventory();
+    if (error) showToast('Could not cancel order.', 'error');
+    else { showToast('Order cancelled.', 'success'); await loadInventory(); }
 };
 
 const UOM_OPTIONS = ['ea', 'ft', 'lb', 'sheet', 'gal', 'box'];
@@ -258,30 +254,35 @@ function openAddItemModal() {
             <div><label>Reorder Point</label><input type="number" id="inv-reorder" class="form-control" value="0" min="0" placeholder="Low stock alert below this"></div>
             <div><label>Cost Per Unit</label><input type="number" id="inv-cost" class="form-control" value="0.00" step="0.01" min="0"></div>
         </div>
-        <button id="btn-save-inv" class="btn-primary" style="width:100%; margin-top:15px;">Save Item</button>
-    `, async () => {});
-
-    setTimeout(() => {
-        document.getElementById('btn-save-inv').onclick = async () => {
-            const sku = document.getElementById('inv-sku').value?.trim();
-            const name = document.getElementById('inv-name').value?.trim();
-            if (!sku || !name) { alert('SKU and Name are required.'); return; }
-            const newItem = {
-                sku,
-                name,
-                category: document.getElementById('inv-cat').value,
-                uom: document.getElementById('inv-uom').value || 'ea',
-                location: document.getElementById('inv-loc').value?.trim() || null,
-                qty_on_hand: Number(document.getElementById('inv-qty').value) || 0,
-                reorder_point: Number(document.getElementById('inv-reorder').value) || 0,
-                cost_per_unit: Number(document.getElementById('inv-cost').value) || 0
-            };
-            const { error } = await supabase.from('inventory_items').insert(newItem);
-            if (error) { alert('Save failed: ' + error.message); return; }
-            hideModal();
-            await loadInventory();
+    `, async (modalBody) => {
+        const catEl = modalBody.querySelector('#inv-cat');
+        const uomEl = modalBody.querySelector('#inv-uom');
+        const sku = modalBody.querySelector('#inv-sku')?.value?.trim();
+        const name = modalBody.querySelector('#inv-name')?.value?.trim();
+        if (!sku || !name) { showToast('SKU and Name are required.', 'error'); return false; }
+        const newItem = {
+            sku,
+            name,
+            category: catEl?.tomselect ? catEl.tomselect.getValue() : (catEl?.value || ''),
+            uom: uomEl?.tomselect ? uomEl.tomselect.getValue() : (uomEl?.value || 'ea'),
+            location: modalBody.querySelector('#inv-loc')?.value?.trim() || null,
+            qty_on_hand: Number(modalBody.querySelector('#inv-qty')?.value) || 0,
+            reorder_point: Number(modalBody.querySelector('#inv-reorder')?.value) || 0,
+            cost_per_unit: Number(modalBody.querySelector('#inv-cost')?.value) || 0
         };
-    }, 100);
+        const { error } = await supabase.from('inventory_items').insert(newItem);
+        if (error) { showToast('Save failed: ' + error.message, 'error'); return false; }
+        showToast('Item added.', 'success');
+        await loadInventory();
+    }, true, '<button id="modal-confirm-btn" class="btn-primary">Save Item</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>');
+    const invCat = document.getElementById('inv-cat');
+    const invUom = document.getElementById('inv-uom');
+    if (typeof window.TomSelect !== 'undefined') {
+        try {
+            if (invCat && !invCat.tomselect) new window.TomSelect(invCat, { create: false, render: { dropdown: () => { const d = document.createElement('div'); d.className = 'ts-dropdown tom-select-no-search'; return d; } } });
+            if (invUom && !invUom.tomselect) new window.TomSelect(invUom, { create: false, render: { dropdown: () => { const d = document.createElement('div'); d.className = 'ts-dropdown tom-select-no-search'; return d; } } });
+        } catch (e) {}
+    }
 }
 
 function openEditItemModal(item) {
@@ -297,31 +298,36 @@ function openEditItemModal(item) {
             <div><label>Reorder Point</label><input type="number" id="inv-reorder" class="form-control" value="${Number(item.reorder_point) ?? ''}" min="0" placeholder="Low stock alert below this"></div>
             <div><label>Cost Per Unit</label><input type="number" id="inv-cost" class="form-control" value="${Number(item.cost_per_unit) || 0}" step="0.01" min="0"></div>
         </div>
-        <button id="btn-save-inv" class="btn-primary" style="width:100%; margin-top:15px;">Save Changes</button>
-    `, async () => {});
-
-    setTimeout(() => {
-        document.getElementById('btn-save-inv').onclick = async () => {
-            const sku = document.getElementById('inv-sku').value?.trim();
-            const name = document.getElementById('inv-name').value?.trim();
-            if (!sku || !name) { alert('SKU and Name are required.'); return; }
-            const reorderVal = document.getElementById('inv-reorder').value;
-            const update = {
-                sku,
-                name,
-                category: document.getElementById('inv-cat').value,
-                uom: document.getElementById('inv-uom').value || 'ea',
-                location: document.getElementById('inv-loc').value?.trim() || null,
-                qty_on_hand: Number(document.getElementById('inv-qty').value) || 0,
-                reorder_point: reorderVal === '' || reorderVal == null ? null : Number(reorderVal),
-                cost_per_unit: Number(document.getElementById('inv-cost').value) || 0
-            };
-            const { error } = await supabase.from('inventory_items').update(update).eq('id', item.id);
-            if (error) { alert('Update failed: ' + error.message); return; }
-            hideModal();
-            await loadInventory();
+    `, async (modalBody) => {
+        const catEl = modalBody.querySelector('#inv-cat');
+        const uomEl = modalBody.querySelector('#inv-uom');
+        const sku = modalBody.querySelector('#inv-sku')?.value?.trim();
+        const name = modalBody.querySelector('#inv-name')?.value?.trim();
+        if (!sku || !name) { showToast('SKU and Name are required.', 'error'); return false; }
+        const reorderVal = modalBody.querySelector('#inv-reorder')?.value;
+        const update = {
+            sku,
+            name,
+            category: catEl?.tomselect ? catEl.tomselect.getValue() : (catEl?.value || ''),
+            uom: uomEl?.tomselect ? uomEl.tomselect.getValue() : (uomEl?.value || 'ea'),
+            location: modalBody.querySelector('#inv-loc')?.value?.trim() || null,
+            qty_on_hand: Number(modalBody.querySelector('#inv-qty')?.value) || 0,
+            reorder_point: reorderVal === '' || reorderVal == null ? null : Number(reorderVal),
+            cost_per_unit: Number(modalBody.querySelector('#inv-cost')?.value) || 0
         };
-    }, 100);
+        const { error } = await supabase.from('inventory_items').update(update).eq('id', item.id);
+        if (error) { showToast('Update failed: ' + error.message, 'error'); return false; }
+        showToast('Item updated.', 'success');
+        await loadInventory();
+    }, true, '<button id="modal-confirm-btn" class="btn-primary">Save Changes</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>');
+    const invCat = document.getElementById('inv-cat');
+    const invUom = document.getElementById('inv-uom');
+    if (typeof window.TomSelect !== 'undefined') {
+        try {
+            if (invCat && !invCat.tomselect) new window.TomSelect(invCat, { create: false, render: { dropdown: () => { const d = document.createElement('div'); d.className = 'ts-dropdown tom-select-no-search'; return d; } } });
+            if (invUom && !invUom.tomselect) new window.TomSelect(invUom, { create: false, render: { dropdown: () => { const d = document.createElement('div'); d.className = 'ts-dropdown tom-select-no-search'; return d; } } });
+        } catch (e) {}
+    }
 }
 
 window.editItem = (id) => {

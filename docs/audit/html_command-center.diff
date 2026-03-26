@@ -1,0 +1,251 @@
+--- /Users/ba/Constellation-V/command-center.html	2026-02-26 23:17:06
++++ /Users/ba/tenworks/command-center.html	2026-02-27 18:57:12
+@@ -1,133 +1,115 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-
+-<head>
+-    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
+-    <meta charset="UTF-8">
+-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-    <title>Strategic - CRM - Command Center</title>
+-    <link rel="stylesheet" href="output.css">
+-    <link rel="stylesheet" href="css/global-loader.css">
+-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
+-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+-</head>
+-
+-<body>
+-    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+-        <div class="global-loader-content">
+-            <div class="global-loader-spinner" aria-hidden="true">
+-                <svg class="global-loader-svg global-loader-constellation" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                    <path class="global-loader-constellation-line" pathLength="1" d="M24 8 L10 22 L18 38 L30 38 L38 22 L24 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+-                    <circle class="global-loader-star" cx="24" cy="8" r="2.2"/><circle class="global-loader-star" cx="10" cy="22" r="1.8"/><circle class="global-loader-star" cx="18" cy="38" r="2"/><circle class="global-loader-star" cx="30" cy="38" r="1.8"/><circle class="global-loader-star" cx="38" cy="22" r="2"/>
+-                </svg>
+-            </div>
+-            <p class="global-loader-text">Loading…</p>
+-        </div>
+-    </div>
+-    <div class="crm-container">
+-       <nav class="nav-sidebar">
+-            <script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.currentScript.parentElement.classList.add('nav-sidebar-collapsed');}catch(e){}})();</script>
+-            <div id="global-nav-container" class="flex flex-col flex-1 min-h-0"></div>
+-        </nav>
+-        
+-        <main class="content-area">
+-            <div id="dashboard" class="content-view active-view">
+-                
+-                <div id="dashboard-sections-grid" class="dashboard-sections-grid">
+-                <div class="dashboard-column-left">
+-                <div class="dashboard-left-top-row">
+-                    <div class="section-card ai-briefing-card">
+-                        <div class="section-card-header flex justify-between items-center gap-3">
+-                            <h2 class="section-title">AI Daily Briefing</h2>
+-                            <button type="button" id="ai-briefing-refresh-btn" class="btn-primary btn-icon-header" title="Refresh Briefing"><i class="fas fa-rotate-right"></i></button>
+-                        </div>
+-                        <div id="ai-briefing-container" class="ai-briefing-content hidden"></div>
+-                        <div id="ai-briefing-placeholder" class="ai-briefing-placeholder px-4 pb-4 text-sm text-[var(--text-medium)]">Loading your briefing...</div>
+-                    </div>
+-                    <div class="section-card my-tasks-card" id="my-tasks-card">
+-                        <div class="section-card-header flex justify-between items-center gap-3">
+-                            <h2 class="section-title">My Tasks</h2>
+-                            <button type="button" id="my-tasks-hamburger" class="my-tasks-hamburger btn-primary btn-icon-header" title="Add task" aria-label="Add task">
+-                                <i class="fa-solid fa-plus"></i>
+-                            </button>
+-                        </div>
+-                        <div class="my-tasks-body">
+-                            <div class="quick-add-card" id="quick-add-card">
+-                                <form id="quick-add-task-form" class="quick-add-task-form">
+-                                    <input type="text" id="quick-add-description" placeholder="Description" required class="quick-add-input">
+-                                    <div class="quick-add-row quick-add-links-row">
+-                                        <select id="quick-add-contact" class="quick-add-input">
+-                                            <option value="">Link to Contact</option>
+-                                        </select>
+-                                        <select id="quick-add-account" class="quick-add-input">
+-                                            <option value="">Link to Account</option>
+-                                        </select>
+-                                    </div>
+-                                    <div class="quick-add-row">
+-                                        <input type="date" id="quick-add-due-date" class="quick-add-input">
+-                                        <button type="submit" class="btn-primary text-xs py-1 px-2">Add</button>
+-                                    </div>
+-                                </form>
+-                            </div>
+-                            <div id="my-tasks-list" class="my-tasks-list"></div>
+-                        </div>
+-                    </div>
+-                </div>
+-
+-                <div class="section-card">
+-                    <div class="section-card-header flex justify-between items-center gap-3">
+-                        <h2 class="section-title">Sequence Steps</h2>
+-                        <div class="sequence-steps-toggle flex rounded-lg border border-[var(--border-color)] p-0.5 bg-[var(--bg-medium)]">
+-                            <button type="button" id="sequence-toggle-due" class="sequence-toggle-btn active rounded-md px-3 py-1.5 text-sm font-medium transition-colors">Due</button>
+-                            <button type="button" id="sequence-toggle-upcoming" class="sequence-toggle-btn rounded-md px-3 py-1.5 text-sm font-medium transition-colors">Upcoming</button>
+-                        </div>
+-                    </div>
+-                    <div id="sequence-steps-list" class="sequence-steps-list"></div>
+-                </div>
+-
+-                </div>
+-
+-                <div class="dashboard-column-right">
+-                <div class="section-card">
+-                    <div class="section-card-header">
+-                        <h2 class="section-title">Recent Activities</h2>
+-                    </div>
+-                    <div id="recent-activities-list" class="recent-activities-list"></div>
+-                </div>
+-
+-                </div>
+-
+-                </div>
+-                </div>
+-            </div>
+-        </main>
+-    </div>
+-
+-       <div id="modal-backdrop" class="modal-backdrop hidden">
+-        <div class="modal-content">
+-            <h3 id="modal-title"></h3>
+-            <div id="modal-body"></div>
+-            <div id="modal-actions" class="modal-actions">
+-                </div>
+-        </div>
+-    </div>
+-    </div>
+-    <script>
+-    // This script runs synchronously to apply the theme before the page renders
+-    (function() {
+-        const savedTheme = localStorage.getItem('crm-theme') || 'dark';
+-        document.body.className = `theme-${savedTheme}`;
+-    })();
+-    </script>
+-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
+-    <script type="module" src="js/command-center.js"></script>
+-</body>
+-
+-</html>
+-
+-
+-
+-
+-
++<!DOCTYPE html>
++<html lang="en">
++
++<head>
++    <meta name="description" content="Constellation CRM: A powerful and intuitive tool for managing your sales pipeline, contacts, and deals.">
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>TenWorks Command Center</title>
++    <link rel="stylesheet" href="css/style.css">
++    <link rel="preconnect" href="https://fonts.googleapis.com">
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
++    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
++    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
++</head>
++
++<body class="theme-dark" data-nav="crm">
++    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
++        <div class="global-loader-content">
++            <div class="global-loader-spinner" aria-hidden="true">
++                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
++            </div>
++            <p class="global-loader-text">Loading…</p>
++        </div>
++    </div>
++    <div class="crm-container">
++        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
++        
++        <main class="content-area">
++            <div id="dashboard" class="content-view active-view">
++
++                <!-- Dashboard 2-column grid (Constellation-V layout) -->
++                <div id="dashboard-sections-grid" class="dashboard-sections-grid">
++                    <div class="dashboard-column-left">
++                        <!-- Top row: AI Daily Briefing (left) | My Tasks (right) -->
++                        <div class="dashboard-left-top-row">
++                            <!-- AI Daily Briefing -->
++                            <div class="section-card ai-briefing-card">
++                                <div class="section-card-header" style="display: flex; justify-content: space-between; align-items: center;">
++                                    <h2 class="section-title">AI Daily Briefing</h2>
++                                    <button type="button" id="ai-briefing-refresh-btn" class="btn-icon-header btn-primary" title="Refresh briefing" aria-label="Refresh briefing"><i class="fas fa-rotate-right"></i></button>
++                                </div>
++                                <div class="ai-briefing-card-body" style="flex: 1; min-height: 0; overflow: auto; padding: 0.5rem 1rem;">
++                                    <div id="ai-briefing-placeholder" class="ai-briefing-placeholder" aria-live="polite">Loading your briefing…</div>
++                                    <div id="ai-briefing-container" class="hidden"></div>
++                                </div>
++                            </div>
++                            <!-- My Tasks -->
++                            <div class="section-card my-tasks-card" id="my-tasks-card">
++                                <div class="section-card-header" style="display: flex; justify-content: space-between; align-items: center;">
++                                    <h2 class="section-title">My Tasks</h2>
++                                    <button type="button" id="my-tasks-hamburger" class="my-tasks-hamburger btn-icon-header btn-primary" title="Add task" aria-label="Add task"><i class="fa-solid fa-plus"></i></button>
++                                </div>
++                                <div class="my-tasks-body">
++                                    <div class="quick-add-card" id="quick-add-card">
++                                        <form id="quick-add-task-form" class="quick-add-task-form">
++                                            <input type="text" id="quick-add-description" placeholder="Description" required class="quick-add-input">
++                                            <div class="quick-add-row quick-add-links-row">
++                                                <select id="quick-add-contact" class="quick-add-input">
++                                                    <option value="">Link to Contact</option>
++                                                </select>
++                                                <select id="quick-add-account" class="quick-add-input">
++                                                    <option value="">Link to Account</option>
++                                                </select>
++                                            </div>
++                                            <div class="quick-add-row">
++                                                <input type="date" id="quick-add-due-date" class="quick-add-input">
++                                                <button type="submit" class="btn-primary text-xs py-1 px-2">Add</button>
++                                            </div>
++                                        </form>
++                                    </div>
++                                    <div id="my-tasks-list" class="my-tasks-list"></div>
++                                </div>
++                            </div>
++                        </div>
++                        <!-- Sequence Steps: single list, Due / Upcoming tabs -->
++                        <div class="section-card sequence-steps-card">
++                            <div class="section-card-header" style="display: flex; justify-content: space-between; align-items: center;">
++                                <h2 class="section-title">Sequence Steps</h2>
++                                <div class="sequence-steps-toggle" role="tablist" aria-label="Sequence steps view">
++                                    <button type="button" id="sequence-toggle-due" class="sequence-toggle-btn active" role="tab" aria-selected="true">Due</button>
++                                    <button type="button" id="sequence-toggle-upcoming" class="sequence-toggle-btn" role="tab" aria-selected="false">Upcoming</button>
++                                </div>
++                            </div>
++                            <div id="sequence-steps-list" class="sequence-steps-list"></div>
++                        </div>
++                    </div>
++                    <div class="dashboard-column-right">
++                        <div class="section-card">
++                            <div class="section-card-header">
++                                <h2 class="section-title">Recent Activities</h2>
++                            </div>
++                            <div id="recent-activities-list" class="recent-activities-list"></div>
++                        </div>
++                    </div>
++                </div>
++
++            </div>
++        </main>
++    </div>
++
++    <div id="modal-backdrop" class="modal-backdrop hidden">
++        <div class="modal-content">
++            <h3 id="modal-title"></h3>
++            <div id="modal-body"></div>
++            <div id="modal-actions" class="modal-actions"></div>
++        </div>
++    </div>
++  
++    <script src="js/nav-loader.js"></script>
++    <script type="module" src="js/command-center.js"></script>
++</body>
++
++</html>

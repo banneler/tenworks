@@ -1,39 +1,54 @@
-<div data-svg-loader="assets/logo.svg"></div>
-
-<div class="global-search-container">
-    <input type="text" id="global-search-input" placeholder="Global Search...">
-    <div id="global-search-results" class="global-search-results hidden"></div>
-</div>
-
-<div class="nav-pill-container" role="group" aria-label="Switch CRM or Production view">
-    <a href="command-center.html" class="nav-pill nav-pill-crm" data-pill="crm">CRM</a>
-    <a href="schedule.html" class="nav-pill nav-pill-erp" data-pill="erp">Production</a>
-</div>
-
-<a href="command-center.html" class="nav-button" data-nav-page="command-center">Command Center</a>
-<a href="accounts.html" class="nav-button" data-nav-page="accounts">Accounts</a>
-<a href="contacts.html" class="nav-button" data-nav-page="contacts">Contacts</a>
-<a href="deals.html" class="nav-button" data-nav-page="deals">Deals</a>
-<a href="proposals.html" class="nav-button" data-nav-page="proposals">Proposals</a>
-<a href="campaigns.html" class="nav-button" data-nav-page="campaigns">Campaigns</a>
-<a href="sequences.html" class="nav-button" data-nav-page="sequences">Sequences</a>
-<a href="social_hub.html" class="nav-button" data-nav-page="social_hub">Social Hub <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
-
-<div class="nav-bottom-section">
-    <div style="position: relative;">
-        <a href="cognito.html" class="nav-button cognito-nav-link" data-nav-page="cognito">
-            <h1>C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#d6ad81;"></stop><stop offset="100%" style="stop-color:#b38c62;"></stop></linearGradient></defs><g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round"><path d="M32.2,32.2 L45,45"></path><circle cx="20" cy="20" r="15"></circle></g></svg>gnito</h1>
-        </a>
-        <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
-    </div>
-    <div class="user-menu" style="margin-top: auto;">
-        <div class="user-menu-header">
-            <div data-svg-loader="assets/user-icon.svg"></div>
-            <span id="user-name-display">Loading...</span>
+<div class="nav-drawer-content">
+    <div class="nav-top-section">
+        <button type="button" id="nav-collapse-toggle" class="nav-collapse-toggle" title="Collapse sidebar" aria-label="Collapse sidebar">
+            <i class="fa-solid fa-chevron-left nav-collapse-icon"></i>
+        </button>
+        <div class="nav-logo-wrap">
+            <div class="nav-logo nav-logo-expanded"><div data-svg-loader="assets/logo.svg"></div></div>
+            <div class="nav-logo nav-logo-collapsed"><div data-svg-loader="assets/logo-small.svg"></div></div>
         </div>
-        <div id="user-menu-popup" class="user-menu-popup">
-            <a href="ai-admin.html" class="nav-button user-menu-nav-link">&nbsp;AI Admin</a>
-            <button id="logout-btn" class="nav-button logout-btn-danger">Logout</button>
+    </div>
+    <div class="global-search-container">
+        <input type="text" id="global-search-input" placeholder="Global Search..." class="nav-search-input">
+        <div id="global-search-results" class="global-search-results hidden"></div>
+    </div>
+    <div class="nav-pill-container" role="group" aria-label="Switch CRM or Production view">
+        <a href="command-center.html" class="nav-pill nav-pill-crm" data-pill="crm" title="CRM"><i class="fa-brands fa-sellsy nav-pill-icon"></i><span class="nav-pill-label">CRM</span></a>
+        <a href="schedule.html" class="nav-pill nav-pill-erp" data-pill="erp" title="Production"><i class="fa-solid fa-calendar-days nav-pill-icon"></i><span class="nav-pill-label">Production</span></a>
+    </div>
+    <a href="command-center.html" class="nav-button" data-nav-page="command-center"><i class="fa-solid fa-gauge-high nav-icon"></i><span class="nav-label-text">Command Center</span></a>
+    <a href="accounts.html" class="nav-button" data-nav-page="accounts"><i class="fa-solid fa-building nav-icon"></i><span class="nav-label-text">Accounts</span></a>
+    <a href="contacts.html" class="nav-button" data-nav-page="contacts"><i class="fa-solid fa-address-book nav-icon"></i><span class="nav-label-text">Contacts</span></a>
+    <a href="deals.html" class="nav-button" data-nav-page="deals"><i class="fa-solid fa-handshake nav-icon"></i><span class="nav-label-text">Deals</span></a>
+    <a href="proposals.html" class="nav-button" data-nav-page="proposals"><i class="fa-solid fa-file-lines nav-icon"></i><span class="nav-label-text">Proposals</span></a>
+    <a href="campaigns.html" class="nav-button" data-nav-page="campaigns"><i class="fa-solid fa-bullhorn nav-icon"></i><span class="nav-label-text">Campaigns</span></a>
+    <a href="sequences.html" class="nav-button" data-nav-page="sequences"><i class="fa-solid fa-arrows-rotate nav-icon"></i><span class="nav-label-text">Sequences</span></a>
+    <a href="social_hub.html" class="nav-button" data-nav-page="social_hub"><i class="fa-solid fa-share-nodes nav-icon"></i><span class="nav-label-text">Social Hub</span> <i class="fa-solid fa-bell nav-notification-dot hidden" id="social_hub-notification"></i></a>
+    <div class="nav-bottom-section">
+        <div class="nav-cognito-wrap">
+            <a href="cognito.html" class="nav-button cognito-nav-link" data-nav-page="cognito" title="Cognito">
+                <span class="cognito-icon-collapsed"><i class="fa-solid fa-magnifying-glass nav-icon"></i></span>
+                <span class="nav-label-text cognito-text"><h1>C<svg class="cognito-logo-magnifying-glass" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="glassGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#d6ad81;"></stop><stop offset="100%" style="stop-color:#b38c62;"></stop></linearGradient></defs><g fill="none" stroke="url(#glassGradient)" stroke-width="5" stroke-linecap="round"><path d="M32.2,32.2 L45,45"></path><circle cx="20" cy="20" r="15"></circle></g></svg>gnito</h1></span>
+            </a>
+            <i class="fa-solid fa-bell nav-notification-dot hidden" id="cognito-notification"></i>
+        </div>
+        <div class="user-menu">
+            <button type="button" id="nav-menu-toggle" class="nav-button nav-menu-toggle" title="Menu" aria-label="Menu" aria-expanded="false">
+                <i class="fa-solid fa-bars nav-icon"></i>
+                <span class="nav-label-text">Menu</span>
+                <i class="fa-solid fa-chevron-down nav-menu-chevron"></i>
+            </button>
+            <div id="user-menu-popup" class="user-menu-content user-menu-popup user-menu-collapsed">
+                <div class="user-menu-user-name" id="user-name-display">Loading...</div>
+                <div class="user-menu-downloads">
+                    <span class="user-menu-downloads-label">CSV Templates</span>
+                    <a href="contacts_template.csv" class="user-menu-download-link" download>Contacts</a>
+                    <a href="accounts_template.csv" class="user-menu-download-link" download>Accounts</a>
+                    <a href="sequence_steps_template.csv" class="user-menu-download-link" download>Sequence Steps</a>
+                </div>
+                <a href="ai-admin.html" class="nav-button" title="AI Admin"><span class="nav-label-text">AI Admin</span></a>
+                <button type="button" id="logout-btn" class="nav-button nav-button-logout"><i class="fa-solid fa-right-from-bracket nav-icon"></i><span class="nav-label-text">Logout</span></button>
+            </div>
         </div>
     </div>
 </div>

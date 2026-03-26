@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, addDays, showToast, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, runWhenNavReady } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatSimpleDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, addDays, showToast, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, runWhenNavReady, hideGlobalLoader } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -30,16 +30,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     const addContactBtn = document.getElementById("add-contact-btn");
     const deleteContactBtn = document.getElementById("delete-contact-btn");
     const logActivityBtn = document.getElementById("log-activity-btn");
-    const assignSequenceBtn = document.getElementById("assign-sequence-btn");
+    const assignSequenceSelect = document.getElementById("assign-sequence-select");
     const addTaskContactBtn = document.getElementById("add-task-contact-btn");
     const contactActivitiesList = document.getElementById("contact-activities-list");
-    const contactSequenceInfoText = document.getElementById("contact-sequence-info-text");
     const removeFromSequenceBtn = document.getElementById("remove-from-sequence-btn");
     const completeSequenceBtn = document.getElementById("complete-sequence-btn");
-    const noSequenceText = document.getElementById("no-sequence-text");
-    const sequenceStatusContent = document.getElementById("sequence-status-content");
+    const sequenceEnrollmentText = document.getElementById("sequence-enrollment-text");
+    const sequenceNextStepWrapper = document.getElementById("sequence-next-step-wrapper");
+    const ringChartContainer = document.getElementById("ring-chart");
     const ringChartText = document.getElementById("ring-chart-text");
     const contactPendingTaskReminder = document.getElementById("contact-pending-task-reminder");
+    const contactFormPlaceholder = document.getElementById("contact-form-placeholder");
     const importContactScreenshotBtn = document.getElementById("import-contact-screenshot-btn");
     const takePictureBtn = document.getElementById("take-picture-btn");
     const cameraInput = document.getElementById("camera-input");
@@ -48,7 +49,191 @@ document.addEventListener("DOMContentLoaded", async () => {
     const writeEmailAIButton = document.getElementById("ai-write-email-btn");
     const sortFirstLastBtn = document.getElementById("sort-first-last-btn");
     const sortLastFirstBtn = document.getElementById("sort-last-first-btn");
-    
+
+    let tomSelectAccount = null;
+    let tomSelectSequence = null;
+
+    function initTomSelect(el, opts = {}) {
+        if (!el || typeof window.TomSelect === "undefined") return null;
+        try {
+            return new window.TomSelect(el, { create: false, ...opts });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function replacePlaceholders(template, contact, account) {
+        if (!template) return '';
+        let result = String(template);
+        if (contact) {
+            const fullName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim();
+            result = result.replace(/\[FirstName\]/gi, contact.first_name || '');
+            result = result.replace(/\[LastName\]/gi, contact.last_name || '');
+            result = result.replace(/\[FullName\]/gi, fullName);
+            result = result.replace(/\[Name\]/gi, fullName);
+        }
+        if (account) {
+            result = result.replace(/\[AccountName\]/gi, account.name || '');
+            result = result.replace(/\[Account\]/gi, account.name || '');
+        }
+        return result;
+    }
+
+    function renderContactNextStep(contact, activeSequence, sequence) {
+        const currentStep = state.sequence_steps.find(s => s.sequence_id === activeSequence.sequence_id && s.step_number === activeSequence.current_step_number);
+        if (!currentStep) return '';
+        const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
+        const description = replacePlaceholders(currentStep.subject || currentStep.message || '', contact, account);
+        const stepType = (currentStep.type || '').toLowerCase();
+        const dueDate = new Date(activeSequence.next_step_due_date);
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const isDue = dueDate.setHours(0, 0, 0, 0) <= startOfToday.getTime();
+        const isPastDue = isDue && dueDate < startOfToday;
+
+        const getStepIcon = () => {
+            if (stepType.includes('linkedin')) return { icon: 'fa-paper-plane', title: 'Go to LinkedIn' };
+            if (stepType.includes('email')) return { icon: 'fa-envelope', title: 'Send Email' };
+            if (stepType.includes('call')) return { icon: 'fa-phone', title: 'Log a call' };
+            if (stepType.includes('gift')) return { icon: 'fa-gift', title: 'Complete' };
+            return { icon: 'fa-square-check', title: 'Complete' };
+        };
+        let btnHtml;
+        if (isDue) {
+            const { icon, title } = getStepIcon();
+            if (stepType.includes('linkedin')) {
+                btnHtml = `<button type="button" class="btn-primary send-linkedin-message-btn" data-cs-id="${activeSequence.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+            } else if (stepType.includes('email') && contact.email) {
+                btnHtml = `<button type="button" class="btn-primary send-email-btn" data-cs-id="${activeSequence.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+            } else if (stepType.includes('call')) {
+                btnHtml = `<button type="button" class="btn-primary log-call-btn" data-cs-id="${activeSequence.id}" title="Log a call"><i class="fa-solid ${icon}"></i></button>`;
+            } else {
+                btnHtml = `<button type="button" class="btn-primary complete-step-btn" data-cs-id="${activeSequence.id}" title="${title}"><i class="fa-solid ${icon}"></i></button>`;
+            }
+        } else {
+            btnHtml = `<div class="sequence-step-due-overlay" title="Due ${formatSimpleDate(activeSequence.next_step_due_date)}">Due ${formatSimpleDate(activeSequence.next_step_due_date)}</div>`;
+        }
+
+        const itemClass = `sequence-step-item ${isPastDue ? 'past-due' : ''}`;
+        const safeDesc = (description || '').replace(/</g, '&lt;');
+        return `
+            <div id="sequence-next-step-container" class="sequence-next-step-container">
+                <div id="sequence-next-step" class="sequence-steps-list">
+                    <div class="${itemClass}">
+                        <div class="sequence-step-left">
+                            <div class="sequence-step-due">${formatSimpleDate(activeSequence.next_step_due_date)}</div>
+                            <div class="sequence-step-actions">${btnHtml}</div>
+                        </div>
+                        <div class="sequence-step-content">
+                            <div class="sequence-step-description sequence-step-description-truncate">${safeDesc}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    async function completeStep(csId, processedDescription = null) {
+        const cs = state.contact_sequences.find((c) => c.id === csId);
+        if (!cs) return;
+        const contact = state.contacts.find((c) => c.id === cs.contact_id);
+        const currentStepInfo = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
+        if (contact && currentStepInfo) {
+            const { error: updateStepError } = await supabase
+                .from('contact_sequence_steps')
+                .update({ status: 'completed', completed_at: new Date().toISOString() })
+                .eq('contact_sequence_id', cs.id)
+                .eq('sequence_step_id', currentStepInfo.id);
+            if (updateStepError) {
+                console.error("Error updating contact_sequence_step:", updateStepError);
+                return;
+            }
+            const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
+            const rawDescription = currentStepInfo.subject || currentStepInfo.message || "Completed step";
+            const finalDescription = replacePlaceholders(rawDescription, contact, account);
+            const descriptionForLog = processedDescription || finalDescription;
+            await supabase.from("activities").insert([{
+                contact_id: contact.id,
+                account_id: contact.account_id,
+                date: new Date().toISOString(),
+                type: `Sequence: ${currentStepInfo.type}`,
+                description: descriptionForLog,
+                user_id: globalState.effectiveUserId
+            }]);
+        }
+        const allStepsInSequence = state.sequence_steps
+            .filter(s => s.sequence_id === cs.sequence_id)
+            .sort((a, b) => a.step_number - b.step_number);
+        const nextStep = allStepsInSequence.find(s => s.step_number > cs.current_step_number);
+        if (nextStep) {
+            await supabase.from("contact_sequences").update({
+                current_step_number: nextStep.step_number,
+                last_completed_date: new Date().toISOString(),
+                next_step_due_date: addDays(new Date(), nextStep.delay_days).toISOString()
+            }).eq("id", cs.id);
+        } else {
+            await supabase.from("contact_sequences").update({ status: "Completed" }).eq("id", cs.id);
+        }
+        await loadAllData();
+    }
+
+    function renderRingChartSegments(container, totalSteps, currentStepNum) {
+        if (!totalSteps || totalSteps < 1) {
+            container.innerHTML = '';
+            return;
+        }
+        const cx = 50, cy = 50, outerR = 48, innerR = 35;
+        const gapDeg = 2;
+        const stepDeg = (360 - totalSteps * gapDeg) / totalSteps;
+        const paths = [];
+        for (let i = 0; i < totalSteps; i++) {
+            const startDeg = -90 + i * (stepDeg + gapDeg) + gapDeg / 2;
+            const endDeg = startDeg + stepDeg;
+            const startRad = (startDeg * Math.PI) / 180;
+            const endRad = (endDeg * Math.PI) / 180;
+            const x1 = cx + outerR * Math.cos(startRad);
+            const y1 = cy + outerR * Math.sin(startRad);
+            const x2 = cx + outerR * Math.cos(endRad);
+            const y2 = cy + outerR * Math.sin(endRad);
+            const x3 = cx + innerR * Math.cos(endRad);
+            const y3 = cy + innerR * Math.sin(endRad);
+            const x4 = cx + innerR * Math.cos(startRad);
+            const y4 = cy + innerR * Math.sin(startRad);
+            const pathD = `M ${x1} ${y1} A ${outerR} ${outerR} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${innerR} ${innerR} 0 0 0 ${x4} ${y4} Z`;
+            const stepNumber = i + 1;
+            const fill = stepNumber < currentStepNum || stepNumber === currentStepNum
+                ? 'var(--primary-gold)'
+                : 'var(--bg-medium)';
+            paths.push(`<path d="${pathD}" fill="${fill}" stroke="var(--card-bg)" stroke-width="0.8" stroke-linejoin="round" class="ring-chart-segment"/>`);
+        }
+        container.innerHTML = `<svg class="ring-chart-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${paths.join('')}</svg>`;
+    }
+
+    function openLogCallModal(csId) {
+        const cs = state.contact_sequences.find(c => c.id === csId);
+        if (!cs) return;
+        const contact = state.contacts.find(c => c.id === cs.contact_id);
+        if (!contact) return;
+        const currentStep = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
+        if (!currentStep) return;
+        const contactName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unknown';
+        const phone = (contact.phone || '').trim();
+        const telHref = phone ? `tel:${phone.replace(/\D/g, '')}` : '';
+        const phoneDisplay = phone || 'No phone number';
+        const phoneHtml = telHref ? `<a href="${telHref}" class="log-call-phone-link">${phoneDisplay}</a>` : `<span class="text-[var(--text-medium)]">${phoneDisplay}</span>`;
+        const contactActivities = state.activities.filter(a => a.contact_id === contact.id).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15);
+        let activitiesHtml = contactActivities.map(act => {
+            const account = act.account_id ? state.accounts.find(a => a.id === act.account_id) : null;
+            const meta = account ? account.name : 'N/A';
+            return `<div class="recent-activity-item"><div class="activity-icon-wrap"><i class="fas fa-phone"></i></div><div class="activity-body"><div class="activity-meta">${meta}</div><div class="activity-description">${act.type}: ${(act.description || '').replace(/</g, '&lt;')}</div><div class="activity-date">${formatDate(act.date)}</div></div></div>`;
+        }).join('');
+        if (!activitiesHtml) activitiesHtml = '<p class="text-sm text-[var(--text-medium)] py-2">No recent activities for this contact.</p>';
+        const bodyHtml = `<div class="log-call-modal-body"><p class="mb-3"><strong>${contactName.replace(/</g, '&lt;')}</strong></p><p class="mb-3">${phoneHtml}</p><label class="block text-sm font-medium mb-1">Call notes (optional)</label><textarea id="modal-call-notes" class="w-full border border-[var(--border-color)] px-3 py-2 text-sm bg-[var(--bg-light)] min-h-[80px] mb-3" placeholder="Notes from the call..."></textarea><div class="log-call-recent-activities"><div class="text-xs font-semibold text-[var(--text-medium)] mb-2">Recent activities</div><div class="log-call-activities-list max-h-[200px] overflow-y-auto">${activitiesHtml}</div></div></div>`;
+        showModal('Log a call', bodyHtml, async () => {
+            const notes = (document.getElementById('modal-call-notes')?.value || '').trim();
+            await completeStep(csId, notes || 'Call completed');
+        }, true, `<button id="modal-confirm-btn" class="btn-primary">Log</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+    }
+
     // --- Dirty Check and Navigation ---
     const handleNavigation = (url) => {
         if (state.isFormDirty) {
@@ -78,8 +263,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // --- Data Fetching ---
+    const LIST_LOADING_HTML = '<div class="list-loading-state"><div class="list-loading-spinner" aria-hidden="true"></div><p class="list-loading-title">Loading</p><p class="list-loading-subtitle">Fetching data…</p></div>';
+
     async function loadAllData() {
-        if (!globalState.currentUser) return;
+        if (!globalState.currentUser) {
+            hideGlobalLoader();
+            return;
+        }
+        if (contactList) contactList.innerHTML = LIST_LOADING_HTML;
         try {
             const [
                 contactsRes,
@@ -121,26 +312,37 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (error) {
             console.error("Critical error in loadAllData:", error);
         } finally {
+            hideGlobalLoader();
             renderContactList();
             if (state.selectedContactId) {
                 const updatedContact = state.contacts.find(c => c.id === state.selectedContactId);
                 if (updatedContact) {
                     renderContactDetails();
                 } else {
-                    hideContactDetails(false, true);
+                    state.selectedContactId = null;
+                    renderContactDetails();
                 }
             } else {
-                hideContactDetails(false, true);
+                renderContactDetails();
             }
         }
     }
+    function getActivityIconInfo(act) {
+        const typeLower = (act.type || '').toLowerCase();
+        if (typeLower.includes("cognito") || typeLower.includes("intelligence")) return { iconClass: "icon-default", icon: "fa-magnifying-glass", iconPrefix: "fas" };
+        if (typeLower.includes("email")) return { iconClass: "icon-email", icon: "fa-envelope", iconPrefix: "fas" };
+        if (typeLower.includes("call")) return { iconClass: "icon-call", icon: "fa-phone", iconPrefix: "fas" };
+        if (typeLower.includes("meeting")) return { iconClass: "icon-meeting", icon: "fa-video", iconPrefix: "fas" };
+        if (typeLower.includes("linkedin")) return { iconClass: "icon-linkedin", icon: "fa-linkedin-in", iconPrefix: "fa-brands" };
+        return { iconClass: "icon-default", icon: "fa-circle-info", iconPrefix: "fas" };
+    }
     function updateSortToggleUI() {
         if (state.nameDisplayFormat === 'firstLast') {
-            sortFirstLastBtn.classList.add('active');
-            sortLastFirstBtn.classList.remove('active');
+            sortFirstLastBtn?.classList.add('active');
+            sortLastFirstBtn?.classList.remove('active');
         } else {
-            sortFirstLastBtn.classList.remove('active');
-            sortLastFirstBtn.classList.add('active');
+            sortFirstLastBtn?.classList.remove('active');
+            sortLastFirstBtn?.classList.add('active');
         }
     }
     
@@ -177,10 +379,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 ? `${contact.first_name} ${contact.last_name}`
                 : `${contact.last_name}, ${contact.first_name}`;
 
+            const accountName = state.accounts.find(a => a.id === contact.account_id)?.name || 'No Account';
             item.innerHTML = `
                 <div class="contact-info">
-                    <div class="contact-name">${organicIcon}${displayName}${sequenceIcon}${hotIcon}</div>
-                    <small class="account-name">${state.accounts.find(a => a.id === contact.account_id)?.name || 'No Account'}</small>
+                    <div class="contact-picker-item-icons${!contact.is_organic ? ' contact-picker-item-icons-empty' : ''}">${organicIcon}</div>
+                    <div class="contact-name">${displayName}</div>
+                    <div class="contact-picker-row-icons">${sequenceIcon}${hotIcon}</div>
+                    <small class="account-name">${accountName}</small>
                 </div>
             `;
             item.dataset.id = contact.id;
@@ -192,7 +397,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const populateAccountDropdown = () => {
         const contactAccountNameSelect = contactForm.querySelector("#contact-account-name");
         if (!contactAccountNameSelect) return;
-        
+        if (tomSelectAccount) {
+            tomSelectAccount.destroy();
+            tomSelectAccount = null;
+        }
         contactAccountNameSelect.innerHTML = '<option value="">-- No Account --</option>';
         state.accounts
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
@@ -202,6 +410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 o.textContent = acc.name;
                 contactAccountNameSelect.appendChild(o);
             });
+        tomSelectAccount = initTomSelect(contactAccountNameSelect, { placeholder: "-- No Account --" });
     };
 
     const renderContactDetails = () => {
@@ -225,6 +434,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (contact) {
             contactForm.classList.remove('hidden');
+            if (contactFormPlaceholder) contactFormPlaceholder.classList.add('hidden');
 
             if (organicStarIndicator) {
                 organicStarIndicator.classList.toggle('is-organic', !!contact.is_organic);
@@ -238,60 +448,135 @@ document.addEventListener("DOMContentLoaded", async () => {
             contactForm.querySelector("#contact-title").value = contact.title || "";
             contactForm.querySelector("#contact-notes").value = contact.notes || "";
             contactForm.querySelector("#contact-last-saved").textContent = contact.last_saved ? `Last Saved: ${formatDate(contact.last_saved)}` : "Not yet saved.";
-            contactForm.querySelector("#contact-account-name").value = contact.account_id || "";
+            if (tomSelectAccount) tomSelectAccount.setValue(contact.account_id || "");
+            else contactForm.querySelector("#contact-account-name").value = contact.account_id || "";
 
             state.isFormDirty = false;
 
             contactActivitiesList.innerHTML = "";
-            state.activities
+            const activities = state.activities
                 .filter((act) => act.contact_id === contact.id)
-                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .forEach((act) => {
-                    const li = document.createElement("li");
-                    li.textContent = `[${formatDate(act.date)}] ${act.type}: ${act.description}`;
-                    let borderColor = "var(--primary-blue)";
-                    const activityTypeLower = act.type.toLowerCase();
-                    if (activityTypeLower.includes("email")) borderColor = "var(--warning-yellow)";
-                    else if (activityTypeLower.includes("call")) borderColor = "var(--completed-color)";
-                    else if (activityTypeLower.includes("meeting")) borderColor = "var(--meeting-purple)";
-                    li.style.borderLeftColor = borderColor;
-                    contactActivitiesList.appendChild(li);
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            if (activities.length === 0) {
+                contactActivitiesList.innerHTML = '<p class="recent-activities-empty text-sm px-4 py-6">No activities yet.</p>';
+            } else {
+                activities.forEach((act) => {
+                    const { iconClass, icon, iconPrefix } = getActivityIconInfo(act);
+                    const account = act.account_id ? state.accounts.find(a => a.id === act.account_id) : null;
+                    const meta = account ? account.name : act.type;
+                    const item = document.createElement("div");
+                    item.className = "recent-activity-item";
+                    item.innerHTML = `
+                        <div class="activity-icon-wrap ${iconClass}"><i class="${iconPrefix || "fas"} ${icon}"></i></div>
+                        <div class="activity-body">
+                            <div class="activity-meta">${meta}</div>
+                            <div class="activity-description">${(act.type || '')}: ${(act.description || '').replace(/</g, '&lt;')}</div>
+                            <div class="activity-date">${formatDate(act.date)}</div>
+                        </div>
+                    `;
+                    contactActivitiesList.appendChild(item);
                 });
+            }
             
             const activeSequence = state.contact_sequences.find(cs => cs.contact_id === contact.id && cs.status === "Active");
-            if (sequenceStatusContent && noSequenceText && contactSequenceInfoText) {
+            if (sequenceEnrollmentText && ringChartText) {
                 if (activeSequence) {
                     const sequence = state.sequences.find((s) => s.id === activeSequence.sequence_id);
                     const allSequenceSteps = state.sequence_steps.filter((s) => s.sequence_id === activeSequence.sequence_id);
                     const totalSteps = allSequenceSteps.length;
                     const currentStep = activeSequence.current_step_number;
                     const lastCompleted = currentStep - 1;
-                    const percentage = totalSteps > 0 ? Math.round((lastCompleted / totalSteps) * 100) : 0;
                     const ringProgress = document.getElementById('ring-chart-progress');
                     if (ringProgress) {
-                        ringProgress.style.setProperty('--p', percentage);
+                        if (totalSteps > 0) {
+                            renderRingChartSegments(ringProgress, totalSteps, currentStep);
+                        } else {
+                            ringProgress.innerHTML = '';
+                            ringProgress.style.setProperty('--p', 0);
+                        }
                     }
-                    if(ringChartText) ringChartText.textContent = `${lastCompleted}/${totalSteps}`;
-                    contactSequenceInfoText.textContent = `Enrolled in "${sequence ? sequence.name : 'Unknown'}" (On Step ${currentStep} of ${totalSteps}).`;
-                    sequenceStatusContent.classList.remove("hidden");
-                    noSequenceText.classList.add("hidden");
-                    removeFromSequenceBtn.classList.remove('hidden');
-                    completeSequenceBtn.classList.remove('hidden');
+                    if (ringChartContainer) ringChartContainer.classList.remove('ring-chart-inactive');
+                    if (ringChartText) ringChartText.textContent = `${lastCompleted}/${totalSteps}`;
+                    const sequenceName = sequence ? sequence.name : 'Unknown';
+                    const seqId = sequence ? sequence.id : activeSequence.sequence_id;
+                    sequenceEnrollmentText.innerHTML = `<a href="sequences.html?sequenceId=${seqId}" class="sequence-name-link">${sequenceName.replace(/</g, '&lt;')}</a>`;
+                    sequenceEnrollmentText.classList.remove('sequence-enrollment-empty');
+                    if (removeFromSequenceBtn) removeFromSequenceBtn.classList.remove('hidden');
+                    if (completeSequenceBtn) completeSequenceBtn.classList.remove('hidden');
+                    if (sequenceNextStepWrapper) {
+                        sequenceNextStepWrapper.innerHTML = renderContactNextStep(contact, activeSequence, sequence);
+                    }
                 } else {
-                    sequenceStatusContent.classList.add("hidden");
-                    noSequenceText.textContent = "Not in a sequence.";
-                    noSequenceText.classList.remove("hidden");
-                    removeFromSequenceBtn.classList.add('hidden');
-                    completeSequenceBtn.classList.add('hidden');
+                    if (ringChartContainer) ringChartContainer.classList.add('ring-chart-inactive');
+                    const ringProgressEl = document.getElementById('ring-chart-progress');
+                    if (ringProgressEl) {
+                        ringProgressEl.innerHTML = '';
+                        ringProgressEl.style.setProperty('--p', 0);
+                    }
+                    sequenceEnrollmentText.textContent = 'Not in a sequence.';
+                    sequenceEnrollmentText.classList.add('sequence-enrollment-empty');
+                    if (sequenceNextStepWrapper) sequenceNextStepWrapper.innerHTML = '';
+                    if (removeFromSequenceBtn) removeFromSequenceBtn.classList.add('hidden');
+                    if (completeSequenceBtn) completeSequenceBtn.classList.add('hidden');
                 }
             }
+            populateAssignSequenceDropdown();
         } else {
-            hideContactDetails(true, true);
+            // No contact selected: show form with empty fields (load on page load, don't wait for select)
+            contactForm.classList.remove('hidden');
+            if (contactFormPlaceholder) contactFormPlaceholder.classList.add('hidden');
+            if (contactForm) {
+                contactForm.reset();
+                contactForm.querySelector("#contact-id").value = "";
+                contactForm.querySelector("#contact-first-name").value = "";
+                contactForm.querySelector("#contact-last-name").value = "";
+                contactForm.querySelector("#contact-email").value = "";
+                contactForm.querySelector("#contact-phone").value = "";
+                contactForm.querySelector("#contact-title").value = "";
+                contactForm.querySelector("#contact-notes").value = "";
+                contactForm.querySelector("#contact-last-saved").textContent = "Not yet saved.";
+                const contactAccountNameSelect = contactForm.querySelector("#contact-account-name");
+                if (contactAccountNameSelect) contactAccountNameSelect.innerHTML = '<option value="">-- No Account --</option>';
+                populateAccountDropdown();
+            }
+            if (organicStarIndicator) organicStarIndicator.classList.remove('is-organic');
+            if (contactPendingTaskReminder) contactPendingTaskReminder.classList.add('hidden');
+            if (contactActivitiesList) contactActivitiesList.innerHTML = "";
+            if (sequenceNextStepWrapper) sequenceNextStepWrapper.innerHTML = '';
+            if (ringChartContainer) ringChartContainer.classList.add('ring-chart-inactive');
+            const ringProgressNoContact = document.getElementById('ring-chart-progress');
+            if (ringProgressNoContact) {
+                ringProgressNoContact.innerHTML = '';
+                ringProgressNoContact.style.setProperty('--p', 0);
+            }
+            if (sequenceEnrollmentText) {
+                sequenceEnrollmentText.textContent = "Select a contact to see details.";
+                sequenceEnrollmentText.classList.add('sequence-enrollment-empty');
+            }
+            if (removeFromSequenceBtn) removeFromSequenceBtn.classList.add('hidden');
+            if (completeSequenceBtn) completeSequenceBtn.classList.add('hidden');
+            if (assignSequenceSelect) {
+                if (tomSelectSequence) {
+                    tomSelectSequence.destroy();
+                    tomSelectSequence = null;
+                }
+                assignSequenceSelect.classList.add('hidden');
+                assignSequenceSelect.value = '';
+            }
         }
     };
     
     const hideContactDetails = (hideForm = true, clearSelection = false) => {
         if (contactForm && hideForm) contactForm.classList.add('hidden');
+        if (contactFormPlaceholder) contactFormPlaceholder.classList.remove('hidden');
+        if (tomSelectAccount) {
+            tomSelectAccount.destroy();
+            tomSelectAccount = null;
+        }
+        if (tomSelectSequence) {
+            tomSelectSequence.destroy();
+            tomSelectSequence = null;
+        }
         if (contactForm) {
             contactForm.reset();
             contactForm.querySelector("#contact-id").value = "";
@@ -300,13 +585,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (contactAccountNameSelect) contactAccountNameSelect.innerHTML = '<option value="">-- No Account --</option>';
         }
         if(contactActivitiesList) contactActivitiesList.innerHTML = "";
-        if(sequenceStatusContent) sequenceStatusContent.classList.add('hidden');
-        if(noSequenceText) {
-            noSequenceText.textContent = "Select a contact to see details.";
-            noSequenceText.classList.remove("hidden");
+        if (sequenceNextStepWrapper) sequenceNextStepWrapper.innerHTML = '';
+        if (ringChartContainer) ringChartContainer.classList.add('ring-chart-inactive');
+        const ringProgressHide = document.getElementById('ring-chart-progress');
+        if (ringProgressHide) {
+            ringProgressHide.innerHTML = '';
+            ringProgressHide.style.setProperty('--p', 0);
+        }
+        if (sequenceEnrollmentText) {
+            sequenceEnrollmentText.textContent = "Select a contact to see details.";
+            sequenceEnrollmentText.classList.add('sequence-enrollment-empty');
         }
         if(removeFromSequenceBtn) removeFromSequenceBtn.classList.add('hidden');
         if(completeSequenceBtn) completeSequenceBtn.classList.add('hidden');
+        if(assignSequenceSelect) {
+            assignSequenceSelect.classList.add('hidden');
+            assignSequenceSelect.value = '';
+        }
         if(contactPendingTaskReminder) contactPendingTaskReminder.classList.add('hidden');
 
         if (clearSelection) {
@@ -314,6 +609,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             document.querySelectorAll(".list-item").forEach(item => item.classList.remove("selected"));
             state.isFormDirty = false;
         }
+        document.getElementById('contact-details')?.classList.remove('active');
+        document.getElementById('contact-details-scrim')?.classList.remove('visible');
+        document.getElementById('contact-details-scrim')?.setAttribute('aria-hidden', 'true');
     };
     
     async function processAndImportImage(base64Image) {
@@ -645,6 +943,40 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         return true; // Indicate success
     }
+
+    function populateAssignSequenceDropdown() {
+        if (!assignSequenceSelect) return;
+        if (tomSelectSequence) {
+            tomSelectSequence.destroy();
+            tomSelectSequence = null;
+        }
+        const currentContactSequence = state.selectedContactId
+            ? state.contact_sequences.find(cs => cs.contact_id === state.selectedContactId && cs.status === 'Active')
+            : null;
+        const showDropdown = state.selectedContactId && !currentContactSequence;
+
+        assignSequenceSelect.innerHTML = '<option value="">Assign Sequence</option>' +
+            state.sequences.map(s => `<option value="${s.id}">${s.is_abm ? '[ABM] ' : ''}${s.name}</option>`).join('');
+        assignSequenceSelect.value = '';
+        if (showDropdown) {
+            assignSequenceSelect.classList.remove('hidden');
+            tomSelectSequence = initTomSelect(assignSequenceSelect, {
+                placeholder: 'Assign Sequence',
+                searchField: [],
+                dropdownParent: 'body',
+                render: {
+                    dropdown: function () {
+                        const d = document.createElement('div');
+                        d.className = 'ts-dropdown tom-select-no-search';
+                        return d;
+                    }
+                }
+            });
+        } else {
+            assignSequenceSelect.classList.add('hidden');
+        }
+    }
+
     function setupPageEventListeners() {
         setupModalListeners();
         
@@ -770,8 +1102,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (contactId !== state.selectedContactId) {
                     confirmAndSwitchContact(contactId);
                 }
+                document.getElementById('contact-details')?.classList.add('active');
+                document.getElementById('contact-details-scrim')?.classList.add('visible');
+                document.getElementById('contact-details-scrim')?.setAttribute('aria-hidden', 'false');
             }
         });
+        const contactDetailsCloseBtn = document.getElementById('contact-details-close-btn');
+        const contactDetailsScrim = document.getElementById('contact-details-scrim');
+        if (contactDetailsCloseBtn) contactDetailsCloseBtn.addEventListener('click', () => hideContactDetails(true));
+        if (contactDetailsScrim) contactDetailsScrim.addEventListener('click', () => hideContactDetails(true));
 
         contactForm.addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -966,7 +1305,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         const action = row.dataset.action;
                         const index = parseInt(row.dataset.index);
                         const accountSelect = row.querySelector('.account-select');
-                        const accountId = accountSelect ? accountSelect.value : null;
+                        const accountId = accountSelect ? (accountSelect.tomselect ? accountSelect.tomselect.getValue() : accountSelect.value) : null;
                         selectedRowsData.push({ action, index, accountId });
                     });
                     
@@ -1028,13 +1367,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return false;
                 }, true, `<button id="modal-confirm-btn" class="btn-primary">Confirm & Import</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
                 
+                const modalBody = document.getElementById('modal-body');
+                if (modalBody && typeof window.TomSelect !== 'undefined') {
+                    modalBody.querySelectorAll('.account-select').forEach(sel => {
+                        if (!sel.tomselect) try { new window.TomSelect(sel, { create: false, render: { dropdown: () => { const d = document.createElement('div'); d.className = 'ts-dropdown tom-select-no-search'; return d; } } }); } catch (e) {}
+                    });
+                }
                 document.querySelectorAll('.import-row').forEach(row => {
                     const action = row.dataset.action;
                     const index = parseInt(row.dataset.index);
                     const record = action === 'insert' ? recordsToInsert[index] : recordsToUpdate[index];
                     if (record.suggested_account_id) {
                         const accountSelect = row.querySelector('.account-select');
-                        if (accountSelect) accountSelect.value = record.suggested_account_id;
+                        if (accountSelect) {
+                            if (accountSelect.tomselect) accountSelect.tomselect.setValue(record.suggested_account_id);
+                            else accountSelect.value = record.suggested_account_id;
+                        }
                     }
                 });
                 
@@ -1094,7 +1442,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <label>Activity Type:</label><select id="modal-activity-type" required>${typeOptions || '<option value="">No types found</option>'}</select>
                 <label>Description:</label><textarea id="modal-activity-description" rows="4" required></textarea>
             `, async () => {
-                const type = document.getElementById('modal-activity-type').value;
+                const typeEl = document.getElementById('modal-activity-type');
+                const type = typeEl?.tomselect ? typeEl.tomselect.getValue() : (typeEl?.value || '');
                 const description = document.getElementById('modal-activity-description').value.trim();
                 if (!type || !description) {
                     showModal("Error", "Activity type and description are required.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
@@ -1119,74 +1468,113 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
                 return true;
             }, true, `<button id="modal-confirm-btn" class="btn-primary">Add Activity</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+            const activityTypeSelect = document.getElementById("modal-activity-type");
+            if (activityTypeSelect && typeof window.TomSelect !== "undefined") {
+                try {
+                    new window.TomSelect(activityTypeSelect, {
+                        create: false,
+                        render: { dropdown: () => { const d = document.createElement("div"); d.className = "ts-dropdown tom-select-no-search"; return d; } }
+                    });
+                } catch (e) {}
+            }
         });
         
-        assignSequenceBtn.addEventListener("click", () => {
-            if (!state.selectedContactId) return showModal("Error", "Please select a contact to assign a sequence to.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-            
-            const currentContactSequence = state.contact_sequences.find(cs => cs.contact_id === state.selectedContactId && cs.status === 'Active');
-            if (currentContactSequence) {
-                const sequenceName = state.sequences.find(s => s.id === currentContactSequence.sequence_id)?.name || 'Unknown';
-                showModal("Error", `Contact is already in an active sequence: "${sequenceName}". Remove them first.`, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
+        assignSequenceSelect?.addEventListener("change", async () => {
+            const sequenceId = tomSelectSequence ? tomSelectSequence.getValue() : assignSequenceSelect.value;
+            if (!sequenceId || !state.selectedContactId) return;
+
+            const selectedSequence = state.sequences.find(s => s.id === Number(sequenceId));
+            if (!selectedSequence) {
+                showToast("Selected sequence not found.", "error");
+                if (tomSelectSequence) tomSelectSequence.setValue('');
+                else assignSequenceSelect.value = '';
                 return;
             }
 
-            // Show ALL sequences, marking ABM ones
-            const sequenceOptions = state.sequences.map(s => `<option value="${s.id}">${s.is_abm ? '[ABM] ' : ''}${s.name}</option>`).join('');
-
-            showModal("Assign Sequence", `
-                <label>Select Sequence:</label>
-                <select id="modal-sequence-select" required><option value="">-- Select --</option>${sequenceOptions}</select>
-            `, async () => {
-                const sequenceId = document.getElementById('modal-sequence-select').value;
-                if (!sequenceId) {
-                    showModal("Error", "Please select a sequence.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                    return false;
+            let success = false;
+            globalState = getState();
+            if (selectedSequence.is_abm) {
+                success = await handleAssignSequenceToContact(state.selectedContactId, Number(sequenceId), globalState.effectiveUserId);
+            } else {
+                const firstStep = state.sequence_steps.find(s => s.sequence_id === selectedSequence.id && s.step_number === 1);
+                if (!firstStep) {
+                    showToast("Selected sequence has no steps.", "error");
+                    if (tomSelectSequence) tomSelectSequence.setValue('');
+                    else assignSequenceSelect.value = '';
+                    return;
                 }
-
-                const selectedSequence = state.sequences.find(s => s.id === Number(sequenceId));
-                if (!selectedSequence) {
-                    showModal("Error", "Selected sequence not found.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                    return false;
+                const { error } = await supabase.from('contact_sequences').insert({
+                    contact_id: state.selectedContactId,
+                    sequence_id: Number(sequenceId),
+                    current_step_number: 1,
+                    status: 'Active',
+                    next_step_due_date: addDays(new Date(), firstStep.delay_days).toISOString(),
+                    user_id: globalState.effectiveUserId,
+                });
+                if (error) {
+                    showToast("Error assigning sequence: " + error.message, "error");
+                    if (tomSelectSequence) tomSelectSequence.setValue('');
+                    else assignSequenceSelect.value = '';
+                    return;
                 }
+                success = true;
+            }
 
-                let success = false;
-                // Check if it's an ABM sequence and use the correct logic
-                if (selectedSequence.is_abm) {
-                    globalState = getState();
-                    success = await handleAssignSequenceToContact(state.selectedContactId, Number(sequenceId), globalState.effectiveUserId);
-                } else {
-                    // Use the ORIGINAL, simple logic for regular sales sequences
-                    const firstStep = state.sequence_steps.find(s => s.sequence_id === selectedSequence.id && s.step_number === 1);
-                    if (!firstStep) {
-                        showModal("Error", "Selected sequence has no steps.", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                        return false;
-                    }
-                    globalState = getState();
-                    const { error } = await supabase.from('contact_sequences').insert({
-                        contact_id: state.selectedContactId,
-                        sequence_id: Number(sequenceId),
-                        current_step_number: 1,
-                        status: 'Active',
-                        next_step_due_date: addDays(new Date(), firstStep.delay_days).toISOString(),
-                        
-                        user_id: globalState.effectiveUserId,
-                    });
-                    if (error) {
-                        showModal("Error", "Error assigning sequence: " + error.message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                    } else {
-                        success = true;
-                    }
-                }
+            if (success) {
+                if (tomSelectSequence) tomSelectSequence.setValue('');
+                else assignSequenceSelect.value = '';
+                await loadAllData();
+                renderContactDetails();
+                showToast("Sequence assigned successfully!", "success");
+            }
+        });
 
-                if (success) {
-                    await loadAllData();
-                    hideModal();
-                    showModal("Success", "Sequence assigned successfully!", null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
-                }
-                return success;
+        document.body.addEventListener('click', async (e) => {
+            const btn = e.target.closest('button');
+            const stepWrapperEl = document.getElementById('sequence-next-step-wrapper');
+            if (!btn || !stepWrapperEl?.contains(btn)) return;
+            const csId = Number(btn.dataset?.csId);
+            if (!csId) return;
+            const cs = state.contact_sequences.find(c => c.id === csId);
+            const contact = cs ? state.contacts.find(c => c.id === cs.contact_id) : null;
+            const sequence = cs ? state.sequences.find(s => s.id === cs.sequence_id) : null;
+            const step = cs ? state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number) : null;
+            if (!cs || !contact || !sequence || !step) return;
 
-            }, true, `<button id="modal-confirm-btn" class="btn-primary">Assign</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+            if (btn.matches('.log-call-btn')) {
+                openLogCallModal(csId);
+            } else if (btn.matches('.complete-step-btn')) {
+                showModal('Confirm', 'Mark this step as complete?', async () => await completeStep(csId), true, `<button id="modal-confirm-btn" class="btn-primary">Complete</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+            } else if (btn.matches('.send-email-btn')) {
+                const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
+                const subject = replacePlaceholders(step.subject, contact, account);
+                const message = replacePlaceholders(step.message, contact, account);
+                showModal('Compose Email', `
+                    <div class="form-group"><label for="modal-email-subject">Subject:</label><input type="text" id="modal-email-subject" class="form-control" value="${(subject || '').replace(/"/g, '&quot;')}"></div>
+                    <div class="form-group"><label for="modal-email-body">Message:</label><textarea id="modal-email-body" class="form-control" rows="10">${(message || '')}</textarea></div>
+                `, async () => {
+                    const finalSubject = document.getElementById('modal-email-subject').value;
+                    const finalMessage = document.getElementById('modal-email-body').value;
+                    window.open(`mailto:${contact.email}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalMessage)}`, '_blank');
+                    await completeStep(csId, `Email Sent: ${finalSubject}`);
+                }, true, `<button id="modal-confirm-btn" class="btn-primary">Send with Email Client</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+            } else if (btn.matches('.send-linkedin-message-btn')) {
+                const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
+                const message = replacePlaceholders(step.message, contact, account);
+                const linkedinUrl = contact.linkedin_profile_url || 'https://www.linkedin.com/feed/';
+                showModal('Compose LinkedIn Message', `
+                    <div class="form-group"><p><strong>To:</strong> ${contact.first_name} ${contact.last_name}</p><p class="modal-sub-text">The message will be copied. Paste it into LinkedIn.</p></div>
+                    <div class="form-group"><label for="modal-linkedin-body">Message:</label><textarea id="modal-linkedin-body" class="form-control" rows="10">${(message || '')}</textarea></div>
+                `, async () => {
+                    const text = document.getElementById('modal-linkedin-body').value;
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        showToast('Message copied to clipboard.', 'success');
+                    } catch (_) {}
+                    window.open(linkedinUrl, '_blank');
+                    await completeStep(csId, 'LinkedIn message sent');
+                }, true, `<button id="modal-confirm-btn" class="btn-primary">Copy & Open LinkedIn</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+            }
         });
 
         if (completeSequenceBtn) {
@@ -1363,10 +1751,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         globalState = await initializeAppState(supabase);
         if (!globalState.currentUser) {
-            // initializeAppState handles the redirect, but we stop execution
-           return; 
+            hideGlobalLoader();
+            return;
         }
-
+        try {
         // Add the listener for the impersonation event
         window.addEventListener('effectiveUserChanged', async () => {
             // When the user is changed in the menu, get the new state
@@ -1382,12 +1770,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         await setupUserMenuAndAuth(supabase, globalState);
         
         const urlParams = new URLSearchParams(window.location.search);
-        const contactIdFromUrl = urlParams.get('contactId');
+const contactIdFromUrl = urlParams.get('contactId');
         if (contactIdFromUrl) state.selectedContactId = Number(contactIdFromUrl);
-        
+
         await setupGlobalSearch(supabase);
         await checkAndSetNotifications(supabase);
         await loadAllData();
+
+        if (contactIdFromUrl) {
+            document.getElementById('contact-details')?.classList.add('active');
+            document.getElementById('contact-details-scrim')?.classList.add('visible');
+            document.getElementById('contact-details-scrim')?.setAttribute('aria-hidden', 'false');
+        }
+        } finally {
+            hideGlobalLoader();
+        }
     }
 
     // --- HELPER: Merge Field Scrubber ---

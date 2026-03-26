@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Accounts</title>
     <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -18,112 +19,125 @@
 </head>
 
 <body data-nav="crm">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
     <div class="crm-container">
-        <nav class="nav-sidebar" id="nav-container"><!-- CRM nav loaded by nav-loader.js --></nav>
+        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- CRM nav loaded by nav-loader.js --></nav>
 
         <main class="content-area">
-            <div id="accounts" class="content-view active-view">
-                <h2>Accounts</h2>
-                <div class="split-view">
-                    <div class="item-list-container glass-panel">
-                        <button id="add-account-btn" class="btn-primary full-width">Add New Account</button>
-                        <button id="bulk-import-accounts-btn" class="btn-secondary full-width">Bulk Import from CSV</button>
-                        <button id="bulk-export-accounts-btn" class="btn-secondary full-width">Download Accounts CSV</button>
-                        <input type="file" id="account-csv-input" accept=".csv" class="hidden">
-                        
-                        <input type="text" id="account-search" placeholder="Search accounts by name or industry...">
-                        
-                        <div class="filter-bar">
-                            <select id="account-status-filter">
-                                <option value="all">All Accounts</option>
-                                <option value="hot">🔥 Hot Accounts</option>
-                                <option value="with_deals">💰 With Open Deals</option>
-                                <option value="customer">Customers</option>
-                                <option value="prospect">Prospects</option>
-                            </select>
+            <div id="accounts" class="content-view active-view accounts-layout">
+                <div class="account-picker-panel">
+                    <div class="account-picker-header">
+                        <h2 class="section-title">Accounts</h2>
+                    </div>
+                    <input type="file" id="account-csv-input" accept=".csv" class="hidden">
+                    <div class="account-picker-body">
+                        <input type="text" id="account-search" placeholder="Search Accounts..." class="item-search-input">
+                        <div id="account-filter-icons" class="account-filter-icons" role="group" aria-label="Filter accounts">
+                            <button type="button" class="account-filter-icon active" data-filter="all" title="All Accounts"><i class="fas fa-layer-group"></i></button>
+                            <button type="button" class="account-filter-icon" data-filter="hot" title="Hot Accounts"><i class="fas fa-fire"></i></button>
+                            <button type="button" class="account-filter-icon" data-filter="with_deals" title="With Open Deals"><i class="fas fa-dollar-sign"></i></button>
+                            <button type="button" class="account-filter-icon" data-filter="customer" title="Customers"><i class="fas fa-building"></i></button>
+                            <button type="button" class="account-filter-icon" data-filter="prospect" title="Prospects"><i class="fas fa-user-plus"></i></button>
                         </div>
-                        
                         <div id="account-list" class="item-list"></div>
                     </div>
+                    <div class="account-picker-actions">
+                        <button id="add-account-btn" class="btn-icon account-picker-icon" title="Add New Account"><i class="fas fa-plus"></i></button>
+                        <button id="bulk-import-accounts-btn" class="btn-icon account-picker-icon" title="Bulk Import from CSV"><i class="fas fa-file-import"></i></button>
+                        <button id="bulk-export-accounts-btn" class="btn-icon account-picker-icon" title="Bulk Export to CSV"><i class="fas fa-file-export"></i></button>
+                    </div>
+                </div>
 
-                    <div id="account-details" class="details-panel glass-panel">
-                        <div id="account-pending-task-reminder" class="pending-task-reminder hidden"></div>
-                        <h3>Account Details</h3>
-                        <form id="account-form">
-                            <input type="hidden" id="account-id">
-                            <div class="form-grid">
-                                <div><label for="account-name">Account Name</label><input type="text" id="account-name" required></div>
-                                <div>
-                                    <label for="account-website">Website</label>
-                                    <div class="input-with-icon">
-                                        <input type="text" id="account-website">
-                                        <a href="#" id="account-website-link" target="_blank" class="external-link-icon hidden" title="Open website in new tab">
-                                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                        </a>
+                <div class="details-panel-scrim" id="account-details-scrim" aria-hidden="true"></div>
+                <div id="account-details" class="details-panel glass-panel account-details-content">
+                    <button type="button" class="details-panel-close-btn" id="account-details-close-btn" aria-label="Close details"><i class="fas fa-times"></i></button>
+                    <div class="account-details-top-row">
+                        <div class="account-details-form-card">
+                            <div class="account-details-form-header">
+                                <div class="account-details-form-header-row">
+                                    <h3 class="details-panel-title">Account Details</h3>
+                                    <div class="flex items-center gap-2">
+                                        <button id="ai-briefing-btn" class="btn-icon-header" title="Generate AI Briefing"><i class="fas fa-bolt-lightning"></i></button>
                                     </div>
                                 </div>
-                                <div><label for="account-industry">Industry</label><input type="text" id="account-industry"></div>
-                                <div><label for="account-phone">Phone</label><input type="tel" id="account-phone"></div>
-                                <div><label for="account-sites">Quantity of Sites</label><input type="number" id="account-sites" min="0"></div>
-                                <div><label for="account-employees">Employee Count</label><input type="number" id="account-employees" min="0"></div>
-                                <div class="full-span-grid-item"><label for="account-address">Address</label><textarea id="account-address"></textarea></div>
                             </div>
-                            <div class="form-checkbox-group">
-                                <label for="account-is-customer">Is this a Customer?</label>
-                                <input type="checkbox" id="account-is-customer">
-                            </div>
-                            <div class="notes-section">
-                                <label for="account-notes">Notes</label>
-                                <textarea id="account-notes"></textarea>
-                                <small id="account-last-saved" class="last-saved-text"></small>
-                            </div>
-                            <div class="form-buttons">
-                                <button type="submit" class="btn-primary">Save Changes</button>
-                                <button type="button" id="delete-account-btn" class="btn-danger">Delete Account</button>
-                            </div>
-                        </form>
-                        <hr>
-                        <div class="action-buttons">
-                            <button id="add-deal-btn" class="btn-secondary">New Deal</button>
-                            <button id="add-task-account-btn" class="btn-secondary">Add Task</button>
-                            <button id="ai-briefing-btn" class="btn-primary cognito-style-btn"><i class="fas fa-bolt-lightning"></i> &nbsp;Generate AI Briefing</button>
+                            <form id="account-form">
+                                <input type="hidden" id="account-id">
+                                <div class="form-grid form-grid-account">
+                                    <div><label for="account-name">Account Name</label><input type="text" id="account-name" required></div>
+                                    <div>
+                                        <label for="account-website">Website</label>
+                                        <div class="input-with-icon">
+                                            <input type="text" id="account-website">
+                                            <a href="#" id="account-website-link" target="_blank" class="external-link-icon hidden" title="Open website in new tab">
+                                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="form-address-cell"><label for="account-address">Address</label><textarea id="account-address"></textarea></div>
+                                    <div class="form-account-social-cell"><label for="account-social">Social Media</label><input type="text" id="account-social" placeholder="e.g. LinkedIn, Twitter URL"></div>
+                                    <div class="form-account-phone-cell"><label for="account-phone">Phone</label><input type="tel" id="account-phone"></div>
+                                </div>
+                                <div class="notes-section"><label for="account-notes">Notes</label><textarea id="account-notes"></textarea><small id="account-last-saved" class="last-saved-text"></small></div>
+                                <div class="form-buttons">
+                                    <button type="submit" class="btn-icon btn-icon-save" title="Save Changes"><i class="fas fa-floppy-disk"></i></button>
+                                    <button type="button" id="delete-account-btn" class="btn-icon btn-icon-danger" title="Delete Account"><i class="fas fa-trash"></i></button>
+                                    <div id="account-pending-task-reminder" class="pending-task-reminder pending-task-reminder-banner hidden" role="alert"></div>
+                                    <label class="customer-toggle" for="account-is-customer">
+                                        <input type="checkbox" id="account-is-customer" class="customer-toggle-input">
+                                        <span class="customer-toggle-slider"></span>
+                                        <span class="customer-toggle-label">Customer</span>
+                                    </label>
+                                </div>
+                            </form>
                         </div>
-
-                        <div class="related-info">
-                            <h4>Current Deals</h4>
-                            <div class="table-container">
-                                <table id="account-deals-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Committed</th>
-                                            <th>Deal Name</th>
-                                            <th>Stage</th>
-                                            <th>Project Value</th> <th>Est. Close Month</th> <th>Job Details</th> <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="related-info">
-                            <div class="contact-view-header">
-                                <h4>Associated Contacts</h4>
-                                <div class="view-mode-toggle">
-                                    <button id="contact-list-btn" class="view-mode-btn active" title="List View"><i class="fas fa-list"></i></button>
-                                    <button id="contact-org-chart-btn" class="view-mode-btn" title="Org Chart View"><i class="fas fa-sitemap"></i></button>
+                        <div class="section-card account-deals-card">
+                            <div class="section-card-header flex justify-between items-center gap-3">
+                                <h2 class="section-title">Current Deals</h2>
+                                <div class="account-deals-header-actions">
+                                    <button id="add-deal-btn" class="btn-icon-header" title="New Deal"><i class="fas fa-plus"></i></button>
                                 </div>
                             </div>
-                            <div id="contact-list-view">
-                                <ul id="account-contacts-list"></ul>
+                            <div class="account-deals-body">
+                                <div id="account-deals-cards" class="account-deals-cards"></div>
                             </div>
-                            <div id="contact-org-chart-view" class="kanban-board-container hidden"></div>
-                            <div id="unassigned-contacts-container" class="hidden"></div>
                         </div>
-
-                        <div class="related-info">
-                            <h4>Related Activities</h4>
-                            <ul id="account-activities-list"></ul>
+                    </div>
+                    <div class="account-cards-row">
+                        <div class="section-card account-contacts-card">
+                            <div class="section-card-header flex justify-between items-center gap-3">
+                                <h2 class="section-title">Associated Contacts</h2>
+                                <div class="flex items-center gap-2">
+                                    <div class="view-mode-toggle">
+                                        <button id="contact-list-btn" class="view-mode-btn active" title="List View"><i class="fas fa-list"></i></button>
+                                        <button id="contact-org-chart-btn" class="view-mode-btn" title="Org Chart View"><i class="fas fa-sitemap"></i></button>
+                                    </div>
+                                    <button id="org-chart-maximize-btn" class="btn-icon-header hidden" title="Expand Org Chart"><i class="fas fa-expand"></i></button>
+                                </div>
+                            </div>
+                            <div class="account-contacts-body">
+                                <div id="contact-list-view">
+                                    <ul id="account-contacts-list"></ul>
+                                </div>
+                                <div id="contact-org-chart-view" class="hidden"><!-- Filled by JS: org-chart-render-target + zoom controls --></div>
+                                <div id="unassigned-contacts-container" class="hidden"></div>
+                            </div>
+                        </div>
+                        <div class="section-card account-activities-card">
+                            <div class="section-card-header flex justify-between items-center gap-3">
+                                <h2 class="section-title">Related Activities</h2>
+                                <button id="add-task-account-btn" class="btn-icon-header" title="Add Task"><i class="fas fa-plus"></i></button>
+                            </div>
+                            <div class="account-activities-body">
+                                <div id="account-activities-list" class="recent-activities-list"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -156,6 +170,16 @@
         </div>
     </div>
 
+    <div id="org-chart-modal-backdrop" class="modal-backdrop hidden">
+        <div class="org-chart-modal">
+            <div class="org-chart-modal-header">
+                <h3 class="org-chart-modal-title">Organization Chart</h3>
+                <button id="org-chart-modal-close-btn" class="org-chart-modal-close" title="Close">&times;</button>
+            </div>
+            <div id="org-chart-modal-content" class="org-chart-modal-content"></div>
+        </div>
+    </div>
+
     <script>
         (function() {
             const savedTheme = localStorage.getItem('crm-theme') || 'dark';
@@ -163,6 +187,7 @@
         })();
     </script>
     <script src="js/nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
     <script type="module" src="js/accounts.js"></script>
 </body>
 

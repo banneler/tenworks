@@ -1,7 +1,8 @@
 import { 
     SUPABASE_URL, 
     SUPABASE_ANON_KEY, 
-    loadSVGs
+    loadSVGs,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -25,12 +26,15 @@ let state = {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
+    try {
     await loadSVGs();
     updateClock();
-    setInterval(updateClock, 1000); 
-    
-    await fetchData(); 
-    
+    setInterval(updateClock, 1000);
+
+    await fetchData();
+    } finally {
+        hideGlobalLoader();
+    }
     // Auto-Refresh
     setInterval(async () => {
         const icon = document.getElementById('refresh-icon');

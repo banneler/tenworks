@@ -1,0 +1,351 @@
+--- /Users/ba/Constellation-V/js/social_hub.js	2026-02-27 00:15:43
++++ /Users/ba/tenworks/js/social_hub.js	2026-02-27 19:11:41
+@@ -3,21 +3,19 @@
+     SUPABASE_URL,
+     SUPABASE_ANON_KEY,
+     formatDate,
++    showModal,
++    hideModal,
+     updateActiveNavLink,
+     setupUserMenuAndAuth,
+-    initializeAppState,
+-    getState,
+     loadSVGs,
+-    showGlobalLoader,
+-    hideGlobalLoader,
+     setupGlobalSearch,
++    runWhenNavReady,
+     updateLastVisited,
+     checkAndSetNotifications,
+-    injectGlobalNavigation
++    hideGlobalLoader
+ } from './shared_constants.js';
+ 
+ document.addEventListener("DOMContentLoaded", async () => {
+-    injectGlobalNavigation();
+     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ 
+     let state = {
+@@ -28,7 +26,6 @@
+     
+     // --- DOM SELECTORS ---
+     const aiContainer = document.getElementById('ai-articles-container');
+-    const marketingContainer = document.getElementById('marketing-posts-container');
+     const modalBackdrop = document.getElementById('modal-backdrop');
+     const modalTitle = document.getElementById('modal-title');
+     const modalArticleLink = document.getElementById('modal-article-link');
+@@ -42,76 +39,53 @@
+     // --- DATA FETCHING ---
+     async function loadSocialContent() {
+         if (!state.currentUser) return;
+-        showGlobalLoader();
+         try {
+-            const { data: posts, error: postsError } = await supabase.from('social_hub_posts').select('*').order('created_at', { ascending: false });
++            // Only fetching posts and user interactions now. Product knowledge fetch removed.
++            const { data: posts, error: postsError } = await supabase
++                .from('social_hub_posts_tw')
++                .select('*')
++                .eq('type', 'ai_article') // Optimization: Only fetch AI articles since marketing is removed
++                .order('created_at', { ascending: false });
++
+             if (postsError) throw postsError;
+             state.allPosts = posts || [];
+ 
+-            const { data: interactions, error: interactionsError } = await supabase.from('user_post_interactions').select('post_id').eq('user_id', getState().effectiveUserId);
++            const { data: interactions, error: interactionsError } = await supabase
++                .from('user_post_interactions')
++                .select('post_id')
++                .eq('user_id', state.currentUser.id);
++
+             if (interactionsError) throw interactionsError;
+-            
+             state.userInteractions = new Set(interactions.map(i => i.post_id));
++
+             renderSocialContent();
+         } catch (error) {
+             console.error("Error fetching Social Hub content:", error);
+-        } finally {
+-            hideGlobalLoader();
+         }
+     }
+ 
+     // --- RENDER FUNCTIONS ---
+     function renderSocialContent() {
+         aiContainer.innerHTML = '';
+-        marketingContainer.innerHTML = '';
++        
++        // Filter out dismissed posts and only show AI articles
+         const visiblePosts = state.allPosts.filter(post => !state.userInteractions.has(post.id));
+         const aiArticles = visiblePosts.filter(p => p.type === 'ai_article');
+-        const marketingPosts = visiblePosts.filter(p => p.type === 'marketing_post');
+         
+-        if (aiArticles.length === 0) { aiContainer.innerHTML = `<p class="placeholder-text">Cognito is searching for relevant articles. Check back soon!</p>`; } 
+-        else { aiArticles.forEach(item => aiContainer.appendChild(createSocialCard(item))); }
+-
+-        if (marketingPosts.length === 0) { marketingContainer.innerHTML = `<p class="placeholder-text">The marketing team is busy creating content. Stay tuned for new posts!</p>`; }
+-        else { marketingPosts.forEach(item => marketingContainer.appendChild(createSocialCard(item))); }
+-    }
+-
+-    async function fetchSuggestedPost(item) {
+-        if (item.type === 'marketing_post') return item.approved_copy || '';
+-        const { data, error } = await supabase.functions.invoke('generate-social-post', { body: { article: item } });
+-        if (error) {
+-            console.error("Edge function error:", error);
+-            return "Error generating suggestion. Please write your own or try again.";
++        if (aiArticles.length === 0) { 
++            aiContainer.innerHTML = `<p class="placeholder-text">Cognito is searching for relevant articles. Check back soon!</p>`; 
++        } else { 
++            aiArticles.forEach(item => aiContainer.appendChild(createSocialCard(item))); 
+         }
+-        return data?.suggestion || "No suggestion returned. Please write your own.";
+     }
+ 
+-    function setCardLoadingState(card, isLoading, message = 'Generating AI post suggestion...') {
+-        if (!card) return;
+-        if (isLoading) {
+-            card.dataset.originalHtml = card.innerHTML;
+-            card.classList.add('social-card-loading');
+-            card.innerHTML = `
+-                <div class="social-card-loading-state">
+-                    <div class="social-card-loading-spinner" aria-hidden="true"></div>
+-                    <p class="social-card-loading-title">Preparing Post</p>
+-                    <p class="social-card-loading-subtitle">${message}</p>
+-                </div>
+-            `;
+-            return;
+-        }
+-        if (card.dataset.originalHtml) {
+-            card.innerHTML = card.dataset.originalHtml;
+-            delete card.dataset.originalHtml;
+-        }
+-        card.classList.remove('social-card-loading');
+-    }
+-
+     function createSocialCard(item) {
+         const headline = item.title;
+         const link = item.link;
+-        const summary = item.summary || item.approved_copy;
+-        const sourceName = item.source_name || 'Marketing Team';
+-        const triggerType = item.type === 'marketing_post' ? 'Campaign Asset' : 'News Article';
++        // Logic: Use pre-generated copy for summary if available
++        const summary = item.summary || item.approved_copy || "No summary available.";
++        const sourceName = item.source_name || 'Industry News';
++        const triggerType = 'News Article';
+         const dynamicLinkIndicator = item.is_dynamic_link ? `<span class="dynamic-link-indicator" title="This link will generate a rich preview on LinkedIn">✨</span>` : '';
+ 
+         const card = document.createElement('div');
+@@ -121,61 +95,86 @@
+         card.innerHTML = `
+             <div class="alert-header"><span class="alert-trigger-type">${triggerType}</span></div>
+             <h5 class="alert-headline">${headline} ${dynamicLinkIndicator}</h5>
+-            <p class="alert-summary"></p>
++            <p class="alert-summary"></p> 
+             <div class="alert-footer">
+                 <span class="alert-source">Source: <a href="${link}" target="_blank">${sourceName}</a></span>
+                 <span class="alert-date">${formatDate(item.created_at)}</span>
+             </div>
+             <div class="alert-actions">
+-                <button class="btn-primary prepare-post-btn" data-post-id="${item.id}"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Prepare Post</span></button>
+-                <button class="btn-secondary dismiss-post-btn" data-post-id="${item.id}"><i class="fa-solid fa-xmark"></i><span>Dismiss</span></button>
++                <button class="btn-primary prepare-post-btn" data-post-id="${item.id}">Prepare Post</button>
++                <button class="btn-secondary dismiss-post-btn" data-post-id="${item.id}">Dismiss</button>
+             </div>
+         `;
+ 
+         const summaryP = card.querySelector('.alert-summary');
+-        const formattedSummary = summary.replace(/\n/g, '<br>');
+-        summaryP.innerHTML = formattedSummary;
++        summaryP.innerHTML = summary.replace(/\n/g, '<br>');
+ 
+-        const prepareBtn = card.querySelector('.prepare-post-btn');
+-        const dismissBtn = card.querySelector('.dismiss-post-btn');
+-
+-        prepareBtn.addEventListener('click', async () => {
+-            setCardLoadingState(card, true);
+-            const suggestion = await fetchSuggestedPost(item);
+-            setCardLoadingState(card, false);
+-            openPostModal(item, suggestion, '');
+-        });
+-
+-        dismissBtn.addEventListener('click', () => handleDismissPost(item.id));
++        card.querySelector('.prepare-post-btn').addEventListener('click', () => openPostModal(item, card));
++        card.querySelector('.dismiss-post-btn').addEventListener('click', () => handleDismissPost(item.id));
+         return card;
+     }
+ 
++    function setCardLoadingState(card, isLoading, message = 'Generating AI post suggestion...') {
++        if (!card) return;
++        if (isLoading) {
++            card.dataset.originalHtml = card.innerHTML;
++            card.classList.add('social-card-loading');
++            card.innerHTML = `
++                <div class="social-card-loading-state">
++                    <div class="social-card-loading-spinner" aria-hidden="true"></div>
++                    <p class="social-card-loading-title">Preparing Post</p>
++                    <p class="social-card-loading-subtitle">${message}</p>
++                </div>
++            `;
++            return;
++        }
++        if (card.dataset.originalHtml) {
++            card.innerHTML = card.dataset.originalHtml;
++            delete card.dataset.originalHtml;
++        }
++        card.classList.remove('social-card-loading');
++    }
++
+     // --- MODAL & ACTION LOGIC ---
+-    async function openPostModal(item, prefetchedText = null, prefetchedPrompt = '') {
++    // On-card loading: card shows spinner, then reimagined modal opens with content (no loader in modal).
++    async function openPostModal(item, sourceCard = null) {
+         modalTitle.textContent = item.title;
+         modalArticleLink.href = item.link;
+         modalArticleLink.textContent = item.link;
+         postToLinkedInBtn.dataset.url = item.link;
+-        customPromptInput.value = prefetchedPrompt || '';
+ 
+-        postTextArea.value = prefetchedText || "Generating AI suggestion...";
+-        modalBackdrop.classList.remove('hidden');
++        if (item.approved_copy && item.approved_copy.trim() !== "") {
++            postTextArea.value = item.approved_copy;
++            modalBackdrop.classList.remove('hidden');
++            return;
++        }
+ 
+-        if (item.type === 'marketing_post') {
+-            postTextArea.value = prefetchedText || item.approved_copy; // Use pre-approved copy directly
+-        } else {
+-            if (!prefetchedText || prefetchedText === 'Generating AI suggestion...') {
+-                const suggestion = await fetchSuggestedPost(item);
+-                postTextArea.value = suggestion;
++        setCardLoadingState(sourceCard, true, 'Generating AI post suggestion...');
++        let suggestion = '';
++        try {
++            const { data, error } = await supabase.functions.invoke('generate-social-post', { body: { article: item } });
++            if (error) {
++                console.error("Edge function error:", error);
++                suggestion = "Error generating suggestion. Please write your own or try again.";
++            } else {
++                suggestion = data?.suggestion || "No suggestion returned. Please write your own.";
+             }
++        } finally {
++            setCardLoadingState(sourceCard, false);
+         }
++
++        postTextArea.value = suggestion;
++        modalBackdrop.classList.remove('hidden');
+     }
+ 
+-    function hideModal() { modalBackdrop.classList.add('hidden'); }
++    function hideModal() { 
++        modalBackdrop.classList.add('hidden'); 
++        customPromptInput.value = ''; // Reset input on close
++    }
+ 
+     async function handleDismissPost(postId) {
+         try {
+-            await supabase.from('user_post_interactions').insert({ user_id: getState().effectiveUserId, post_id: postId, status: 'dismissed' });
++            await supabase.from('user_post_interactions').insert({ user_id: state.currentUser.id, post_id: postId, status: 'dismissed' });
+             const cardToRemove = document.getElementById(`post-card-${postId}`);
+             if (cardToRemove) {
+                 cardToRemove.style.transition = 'opacity 0.5s';
+@@ -185,7 +184,6 @@
+             state.userInteractions.add(postId);
+         } catch (error) {
+             console.error("Error dismissing post:", error);
+-            alert("Could not dismiss the post. Please try again.");
+         }
+     }
+ 
+@@ -195,12 +193,8 @@
+     
+         copyTextBtn.addEventListener('click', () => {
+             navigator.clipboard.writeText(postTextArea.value).then(() => {
+-                copyTextBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+-                copyTextBtn.title = 'Copied';
+-                setTimeout(() => {
+-                    copyTextBtn.innerHTML = '<i class="fa-regular fa-copy"></i>';
+-                    copyTextBtn.title = 'Copy Text';
+-                }, 2000);
++                copyTextBtn.textContent = 'Copied!';
++                setTimeout(() => { copyTextBtn.textContent = 'Copy Text'; }, 2000);
+             });
+         });
+ 
+@@ -210,7 +204,6 @@
+             window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
+         });
+ 
+-        // Event listener for the "Refine" button
+         generateCustomBtn.addEventListener('click', async () => {
+             const originalText = postTextArea.value;
+             const customPrompt = customPromptInput.value.trim();
+@@ -219,40 +212,46 @@
+                 return;
+             }
+ 
+-            generateCustomBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Regenerating...</span>';
++            generateCustomBtn.textContent = 'Regenerating...';
+             generateCustomBtn.disabled = true;
+ 
+             const { data, error } = await supabase.functions.invoke('refine-social-post', { body: { originalText, customPrompt } });
+             
+             if (error) {
+-                alert("Error refining post. Please check the console.");
++                alert("Error refining post.");
++                console.error(error);
+             } else {
+                 postTextArea.value = data.suggestion;
+-                customPromptInput.value = ''; // Clear prompt input
++                customPromptInput.value = ''; 
+             }
+ 
+-            generateCustomBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i><span>Regenerate</span>';
++            generateCustomBtn.textContent = 'Regenerate';
+             generateCustomBtn.disabled = false;
+         });
+     }
+ 
+-     // --- INITIALIZATION ---
+-async function initializePage() {
+-    await loadSVGs();
+-    const appState = await initializeAppState(supabase);
+-    if (!appState.currentUser) {
+-        hideGlobalLoader();
+-        return;
++    // --- INITIALIZATION ---
++    async function initializePage() {
++        try {
++        await loadSVGs();
++        const { data: { session } } = await supabase.auth.getSession();
++        if (session) {
++            state.currentUser = session.user;
++            await setupUserMenuAndAuth(supabase, state);
++            updateActiveNavLink();
++            setupPageEventListeners();
++            await setupGlobalSearch(supabase, state.currentUser);
++            await loadSocialContent();
++            await checkAndSetNotifications(supabase);
++            updateLastVisited(supabase, 'social_hub');
++        } else {
++            hideGlobalLoader();
++            window.location.href = "index.html";
++        }
++        } finally {
++            hideGlobalLoader();
++        }
+     }
+-    state.currentUser = appState.currentUser;
+-    await setupUserMenuAndAuth(supabase, getState());
+-    updateActiveNavLink();
+-    setupPageEventListeners();
+-    await setupGlobalSearch(supabase, state.currentUser);
+-    await loadSocialContent();
+-    window.addEventListener('effectiveUserChanged', loadSocialContent);
+-    await checkAndSetNotifications(supabase);
+-    updateLastVisited(supabase, 'social_hub');
+-}
+-initializePage();
++
++    runWhenNavReady(function () { initializePage(); });
+ });
