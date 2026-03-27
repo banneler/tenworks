@@ -144,6 +144,17 @@ function getTaskDetails(taskId) {
     return { task, project };
 }
 
+function idsMatch(a, b) {
+    return String(a ?? '') === String(b ?? '');
+}
+
+function isSameDayValue(dateValue, targetYmd) {
+    if (!dateValue) return false;
+    const raw = String(dateValue);
+    const normalized = raw.length >= 10 ? raw.slice(0, 10) : raw;
+    return normalized === targetYmd;
+}
+
 // --- LABORER VIEW ---
 function renderLaborerView() {
     const list = document.getElementById('laborer-tasks-list');
@@ -153,7 +164,9 @@ function renderLaborerView() {
     }
 
     const todayStr = dayjs().format('YYYY-MM-DD');
-    const myAssignments = state.assignments.filter(a => a.talent_id === state.talentRecord.id && a.assigned_date === todayStr);
+    const myAssignments = state.assignments.filter(
+        a => idsMatch(a.talent_id, state.talentRecord.id) && isSameDayValue(a.assigned_date, todayStr)
+    );
 
     if (myAssignments.length === 0) {
         list.innerHTML = '<p style="color:var(--text-dim);">No tasks assigned for today.</p>';
@@ -191,7 +204,7 @@ function renderLeaderView() {
     const teamList = document.getElementById('leader-team-list');
 
     const todayStr = dayjs().format('YYYY-MM-DD');
-    const todayAssignments = state.assignments.filter(a => a.assigned_date === todayStr);
+    const todayAssignments = state.assignments.filter(a => isSameDayValue(a.assigned_date, todayStr));
 
     // Render Tasks
     if (todayAssignments.length === 0) {
@@ -201,7 +214,7 @@ function renderLeaderView() {
             const details = getTaskDetails(a.task_id);
             if (!details) return '';
             const { task, project } = details;
-            const person = state.team.find(t => t.id === a.talent_id);
+            const person = state.team.find(t => idsMatch(t.id, a.talent_id));
             
             return `
                 <div class="mobile-card">
@@ -222,10 +235,10 @@ function renderLeaderView() {
 
     // Render Team
     const todayStrTeam = dayjs().format('YYYY-MM-DD');
-    const todayAssignmentsTeam = state.assignments.filter(a => a.assigned_date === todayStrTeam);
+    const todayAssignmentsTeam = state.assignments.filter(a => isSameDayValue(a.assigned_date, todayStrTeam));
 
     teamList.innerHTML = state.team.map(t => {
-        const personAssignments = todayAssignmentsTeam.filter(a => a.talent_id === t.id);
+        const personAssignments = todayAssignmentsTeam.filter(a => idsMatch(a.talent_id, t.id));
         
         // Ensure we parse hours correctly, treating null/undefined as 0
         const totalHours = personAssignments.reduce((sum, a) => {
@@ -233,28 +246,37 @@ function renderLeaderView() {
             return sum + (isNaN(h) ? 0 : h);
         }, 0);
         
-        let statusHtml = '<span style="color:var(--text-dim);">Idle</span>';
-        if (totalHours > 0) {
+        let statusLine = '<span style="color:var(--text-dim);">Idle</span>';
+        let detailLine = '<span style="color:var(--text-dim);">No assignments today</span>';
+
+        if (personAssignments.length > 0) {
             // Check if any of their tasks are "In Progress"
             const activeTask = personAssignments.find(a => {
                 const task = state.tasks.find(tsk => tsk.id === a.task_id);
                 return task && task.status === 'In Progress';
             });
 
+            const taskCount = personAssignments.length;
+            const taskLabel = taskCount === 1 ? 'task' : 'tasks';
+            const hourSuffix = totalHours > 0 ? ` • ${totalHours}h` : '';
+
             if (activeTask) {
                 const task = state.tasks.find(tsk => tsk.id === activeTask.task_id);
                 const project = state.projects.find(p => p.id === task.project_id);
                 const projName = project ? project.name : 'Unknown';
-                statusHtml = `<span style="color:var(--primary-blue); font-weight:600;"><i class="fas fa-cog fa-spin"></i> ${projName} - ${task.name}</span>`;
+                statusLine = '<span style="color:var(--primary-blue); font-weight:600;">In Progress</span>';
+                detailLine = `<span style="color:var(--text-bright);"><i class="fas fa-cog fa-spin"></i> ${projName} - ${task.name}</span>`;
             } else {
-                statusHtml = `<span style="color:var(--text-bright);">${totalHours}h Assigned</span>`;
+                statusLine = '<span style="color:var(--warning-yellow); font-weight:600;">Assigned</span>';
+                detailLine = `<span style="color:var(--text-bright);">${taskCount} ${taskLabel}${hourSuffix}</span>`;
             }
         }
         
         return `
             <div class="mobile-team-member" style="display:flex; flex-direction:column; align-items:flex-start; gap:4px;">
                 <div class="mobile-team-name">${t.name}</div>
-                <div class="mobile-team-status" style="font-size:0.85rem;">${statusHtml}</div>
+                <div class="mobile-team-status" style="font-size:0.85rem;">${statusLine}</div>
+                <div class="mobile-team-status" style="font-size:0.82rem; color:var(--text-dim);">${detailLine}</div>
             </div>
         `;
     }).join('');
