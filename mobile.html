@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TenWorks Mobile</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script>
+        // Catch unhandled errors before mobile.js even runs
+        window.onerror = function(msg, url, line, col, error) {
+            const loader = document.getElementById('loader');
+            if (loader) loader.style.display = 'none';
+            alert("Global Error: " + msg + "\nLine: " + line);
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            const loader = document.getElementById('loader');
+            if (loader) loader.style.display = 'none';
+            alert("Unhandled Promise Rejection: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
+        });
+    </script>
+    <style>
+        /* Ensure hidden class actually hides things */
+        .hidden { display: none !important; }
+        
+        .mobile-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            background: var(--bg-dark);
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 999; /* Lowered so native alerts show over it */
+        }
+    </style>
+</head>
+<body class="theme-dark mobile-app">
+    <!-- App Header -->
+    <header class="mobile-header">
+        <div class="mobile-logo"><img src="assets/logo.svg" alt="TenWorks"></div>
+        <div class="mobile-user" id="mobile-user-menu"><i class="fas fa-user-circle"></i></div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mobile-main" class="mobile-main" style="position: relative;">
+        <div id="loader" class="mobile-loader">
+            <i class="fas fa-spinner fa-spin fa-2x"></i><br>Loading...
+        </div>
+        
+        <!-- Laborer View -->
+        <div id="view-laborer" class="mobile-view hidden">
+            <h2 class="mobile-section-title">My Tasks Today</h2>
+            <div id="laborer-tasks-list"></div>
+        </div>
+
+        <!-- Leader View -->
+        <div id="view-leader" class="mobile-view hidden">
+            <div id="leader-tab-tasks">
+                <h2 class="mobile-section-title">Shop Floor Tasks</h2>
+                <div id="leader-tasks-list"></div>
+            </div>
+            <div id="leader-tab-team" class="hidden">
+                <h2 class="mobile-section-title">Team Status</h2>
+                <div id="leader-team-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Nav (Leader Only) -->
+    <nav id="mobile-bottom-nav" class="mobile-bottom-nav hidden">
+        <button class="nav-item active" data-target="leader-tab-tasks"><i class="fas fa-tasks"></i> Tasks</button>
+        <button class="nav-item" data-target="leader-tab-team"><i class="fas fa-users"></i> Team</button>
+    </nav>
+
+    <!-- Modals -->
+    <div id="mobile-modal-backdrop" class="mobile-modal-backdrop hidden">
+        <div class="mobile-modal">
+            <h3 id="mobile-modal-title"></h3>
+            <div id="mobile-modal-body"></div>
+            <div class="mobile-modal-actions" id="mobile-modal-actions"></div>
+        </div>
+    </div>
+
+    <script type="module" src="js/mobile.js"></script>
+</body>
+</html>

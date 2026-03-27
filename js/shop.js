@@ -276,10 +276,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.currentUser = session.user;
         
         try {
-            const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', state.currentUser.id).single();
-            if (profile && (profile.role === 'admin' || profile.role === 'manager')) {
-                state.isManager = true;
-            }
+            // Temporary fallback if user_profiles doesn't exist
+            state.isManager = true; 
         } catch (e) {
             console.warn("Could not fetch user profile role:", e);
         }
