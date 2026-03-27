@@ -4,12 +4,15 @@ import {
     formatCurrency, 
     showModal, 
     hideModal, 
+    showToast,
+    showActionSuccess,
     setupUserMenuAndAuth, 
     loadSVGs,
     setupGlobalSearch,
     runWhenNavReady,
     hideGlobalLoader
 } from './shared_constants.js';
+import { openSharedProjectLaunchModal } from './project_launch_shared.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
@@ -164,16 +167,19 @@ function renderProjectList() {
     filtered.forEach(p => {
         const isOverdue = state.overdueProjectIds.has(p.id);
         const isAtRisk = state.atRiskProjectIds.has(p.id);
-        const badge = isOverdue ? '<span style="font-size:0.7rem; background:#c62828; color:fff; padding:2px 6px; border-radius:4px; margin-left:6px;">Overdue</span>' : (isAtRisk ? '<span style="font-size:0.7rem; background:var(--warning-yellow); color:#000; padding:2px 6px; border-radius:4px; margin-left:6px;">At risk</span>' : '');
+        const badge = isOverdue
+            ? '<span class="project-list-badge project-list-badge-overdue">Overdue</span>'
+            : (isAtRisk ? '<span class="project-list-badge project-list-badge-risk">At risk</span>' : '');
+        const statusClass = getProjectStatusClass(p.status);
         const el = document.createElement('div');
         el.className = 'list-item';
         if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
 
         el.innerHTML = `
-            <div class="contact-info" style="padding-left:0;">
+            <div class="contact-info project-list-contact-info">
                 <div class="contact-name">${p.name}${badge}</div>
                 <div class="account-name">
-                    <span style="color:${getStatusColor(p.status)}">${p.status}</span> • ${formatCurrency(p.project_value)}
+                    <span class="project-list-status ${statusClass}">${p.status}</span> • ${formatCurrency(p.project_value)}
                 </div>
             </div>
         `;
@@ -213,7 +219,7 @@ function renderDetailView() {
     if (viewProposalBtn) {
         if (state.linkedProposal) {
             viewProposalBtn.style.display = 'inline-flex';
-            viewProposalBtn.href = `proposals.html?id=${state.linkedProposal.id}`;
+            viewProposalBtn.href = `proposals.html?proposal_id=${state.linkedProposal.id}`;
             viewProposalBtn.title = state.linkedProposal.title || 'View linked proposal';
             viewProposalBtn.innerHTML = `<i class="fas fa-file-alt"></i> ${state.linkedProposal.title ? 'View: ' + state.linkedProposal.title : 'View proposal'}`;
         } else {
@@ -256,11 +262,11 @@ function renderDetailView() {
     const widget = document.getElementById('countdown-widget');
     if(p.end_date) {
         const diff = dayjs(p.end_date).diff(dayjs(), 'day');
-        let color = '#4CAF50'; 
-        if(diff < 0) color = '#F44336'; 
-        else if(diff <= 7) color = '#FFC107'; 
+        let countdownClass = 'countdown-badge-good';
+        if (diff < 0) countdownClass = 'countdown-badge-overdue';
+        else if (diff <= 7) countdownClass = 'countdown-badge-soon';
         
-        widget.innerHTML = `<span class="countdown-badge" style="background:${color}20; color:${color}; border:1px solid ${color}40;">
+        widget.innerHTML = `<span class="countdown-badge ${countdownClass}">
             ${diff < 0 ? Math.abs(diff) + ' Days Overdue' : diff + ' Days Left'}
         </span>`;
     } else {
@@ -299,8 +305,8 @@ function renderDetailView() {
     if (revContractEl) revContractEl.textContent = `Revised total: ${formatCurrency(revisedValue)}`;
     if (coListEl) {
         coListEl.innerHTML = (state.changeOrders || []).map(co =>
-            `<li style="margin-bottom:6px;">${(co.description || '—').replace(/</g, '&lt;')} · ${formatCurrency(co.amount)} <span style="font-size:0.8em; color:var(--text-dim);">(${co.status || 'pending'})</span> <button type="button" class="btn-secondary" style="padding:2px 6px; margin-left:6px; font-size:0.75rem;" onclick="window.deleteChangeOrder('${co.id}')">Remove</button></li>`
-        ).join('') || '<li style="color:var(--text-dim);">No change orders yet.</li>';
+            `<li class="project-co-item">${(co.description || '—').replace(/</g, '&lt;')} · ${formatCurrency(co.amount)} <span class="project-co-status">(${co.status || 'pending'})</span> <button type="button" class="btn-secondary project-co-remove-btn" onclick="window.deleteChangeOrder('${co.id}')">Remove</button></li>`
+        ).join('') || '<li class="project-co-empty">No change orders yet.</li>';
     }
     document.getElementById('btn-add-change-order').onclick = () => openAddChangeOrderModal();
 
@@ -320,11 +326,11 @@ function renderTaskList() {
         const tr = document.createElement('tr');
         const actualVal = t.actual_hours != null && t.actual_hours !== '' ? Number(t.actual_hours) : '';
         tr.innerHTML = `
-            <td style="font-weight:600; color:var(--text-bright);">${t.name}</td>
+            <td class="project-task-name">${t.name}</td>
             <td>${t.estimated_hours ?? '-'}</td>
-            <td><input type="number" min="0" step="0.25" data-task-id="${t.id}" class="task-actual-input form-control" style="width:80px; padding:6px; background:var(--bg-dark); color:var(--text-bright); border:1px solid var(--border-color);" value="${actualVal}"></td>
-            <td><span style="font-size:0.8rem; color:var(--text-dim);">${t.status || 'Pending'}</span></td>
-            <td><button type="button" class="btn-secondary task-save-actual" data-task-id="${t.id}" style="padding:4px 10px;"><i class="fas fa-save"></i></button></td>
+            <td><input type="number" min="0" step="0.25" data-task-id="${t.id}" class="task-actual-input form-control project-task-actual-input" value="${actualVal}"></td>
+            <td><span class="project-task-status">${t.status || 'Pending'}</span></td>
+            <td><button type="button" class="btn-secondary task-save-actual project-task-save-btn" data-task-id="${t.id}"><i class="fas fa-save"></i></button></td>
         `;
         tbody.appendChild(tr);
     });
@@ -334,7 +340,7 @@ function renderTaskList() {
             const input = tbody.querySelector(`.task-actual-input[data-task-id="${taskId}"]`);
             const val = parseFloat(input?.value) || 0;
             const { error } = await supabase.from('project_tasks').update({ actual_hours: val }).eq('id', taskId);
-            if (error) alert('Update failed: ' + error.message);
+            if (error) showToast('Update failed: ' + error.message, 'error');
             else if (state.currentProject) await loadProjectDetails(state.currentProject.id);
         });
     });
@@ -354,19 +360,19 @@ function renderBOM() {
         return `
             <tr>
                 <td>
-                    <div style="font-weight:600; color:var(--text-bright);">${inv.name}</div>
-                    <div style="font-size:0.75rem; color:var(--text-dim); font-family:'Rajdhani';">${inv.sku}</div>
+                    <div class="project-bom-item-name">${inv.name}</div>
+                    <div class="project-bom-item-sku">${inv.sku}</div>
                 </td>
-                <td><span style="font-size:0.75rem; background:rgba(255,255,255,0.05); padding:2px 5px; border-radius:3px;">${inv.category}</span></td>
+                <td><span class="project-bom-category-pill">${inv.category}</span></td>
                 <td>${item.qty_required} ${inv.uom}</td>
                 <td>${item.qty_allocated} ${inv.uom}</td>
-                <td><span class="bom-status-pill" style="color:${statusColor}; border:1px solid ${statusColor};">${item.status}</span></td>
+                <td><span class="bom-status-pill" style="--project-bom-status-color:${statusColor};">${item.status}</span></td>
                 <td>
-                    <button class="btn-secondary" style="padding:4px 8px;" onclick="window.deleteBOM(${item.id})"><i class="fas fa-trash"></i></button>
+                    <button class="btn-secondary project-bom-delete-btn" onclick="window.deleteBOM(${item.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim);">No materials added.</td></tr>';
+    }).join('') || '<tr><td colspan="6" class="project-bom-empty">No materials added.</td></tr>';
 }
 
 function renderTeam() {
@@ -375,33 +381,33 @@ function renderTeam() {
         const contact = c.contacts;
         if(!contact) return '';
         return `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:10px; border-bottom:1px solid var(--border-color); background:rgba(255,255,255,0.02); margin-bottom:5px;">
+            <div class="project-team-card">
                 <div>
-                    <a href="contacts.html?id=${contact.id}" style="font-weight:600; text-decoration:none; color:var(--text-bright);">${contact.first_name} ${contact.last_name}</a>
-                    <div style="font-size:0.75rem; color:var(--primary-gold);">${c.role || 'Stakeholder'}</div>
+                    <a href="contacts.html?contactId=${contact.id}" class="project-team-contact-link">${contact.first_name} ${contact.last_name}</a>
+                    <div class="project-team-role">${c.role || 'Stakeholder'}</div>
                 </div>
-                <div style="text-align:right; font-size:0.8rem; color:var(--text-dim); display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                <div class="project-team-meta">
                     <div>${contact.email || ''}</div>
                     <div>${contact.phone || ''}</div>
-                    <button type="button" class="btn-secondary copy-portal-btn" style="padding:4px 10px; font-size:0.75rem; margin-top:4px;" data-contact-id="${contact.id}" title="Copy customer portal link (all projects for this contact)">Portal link</button>
+                    <button type="button" class="btn-secondary copy-portal-btn project-team-portal-btn" data-contact-id="${contact.id}" title="Copy customer portal link (all projects for this contact)">Portal link</button>
                 </div>
             </div>
         `;
-    }).join('') || '<div style="color:var(--text-dim); padding:10px; font-style:italic;">No contacts assigned.</div>';
+    }).join('') || '<div class="project-team-empty">No contacts assigned.</div>';
 
     teamEl.querySelectorAll('.copy-portal-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const contactId = btn.dataset.contactId;
             if (!contactId) return;
             const id = Number(contactId);
-            if (Number.isNaN(id)) { alert('Invalid contact id.'); return; }
+            if (Number.isNaN(id)) { showToast('Invalid contact id.', 'error'); return; }
             const { data: token, error } = await supabase.rpc('get_or_create_contact_portal_token', { p_contact_id: id });
-            if (error) { alert('Could not get portal link: ' + error.message); return; }
+            if (error) { showToast('Could not get portal link: ' + error.message, 'error'); return; }
             const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html?portal=${token}`;
             try {
                 await navigator.clipboard.writeText(url);
                 if (window.showToast) window.showToast('Customer portal link copied.');
-                else alert('Portal link copied. Customer will see all their projects in one page.');
+                else showToast('Portal link copied. Customer will see all their projects in one page.', 'success');
             } catch (_) {
                 prompt('Copy this customer portal link:', url);
             }
@@ -415,7 +421,7 @@ function renderMiniGantt() {
     const project = state.currentProject;
     
     if(!state.tasks.length && !project.end_date) {
-        body.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-dim);">No tasks scheduled.</div>';
+        body.innerHTML = '<div class="project-gantt-empty">No tasks scheduled.</div>';
         return;
     }
 
@@ -524,16 +530,16 @@ function renderFiles() {
     list.innerHTML = state.files.map(f => `
         <div class="file-row">
             <div class="file-icon"><i class="fas fa-file-alt"></i></div>
-            <div style="flex:1;">
-                <div style="color:var(--text-bright); font-weight:600;">${f.name}</div>
-                <div style="font-size:0.7rem; color:var(--text-dim);">${(f.metadata.size / 1024).toFixed(1)} KB</div>
+            <div class="project-file-meta">
+                <div class="project-file-name">${f.name}</div>
+                <div class="project-file-size">${(f.metadata.size / 1024).toFixed(1)} KB</div>
             </div>
             <div class="file-actions">
                 <button class="btn-file-action btn-view" onclick="window.previewFile('${f.name}')">View</button>
                 <button class="btn-file-action btn-dl" onclick="window.downloadFile('${f.name}')">Download</button>
             </div>
         </div>
-    `).join('') || '<div style="color:var(--text-dim); padding:10px;">No files uploaded.</div>';
+    `).join('') || '<div class="project-files-empty">No files uploaded.</div>';
 }
 
 function renderLogs() {
@@ -552,13 +558,13 @@ function renderLogs() {
         return `
         <div class="log-card">
             <div class="log-meta">
-                <div style="display:flex; align-items:center;">
+                <div class="project-log-author-row">
                     <span class="log-avatar">${initials}</span>
-                    <span style="font-weight:600; color:var(--text-bright);">${n.author_name || 'System'}</span>
+                    <span class="project-log-author-name">${n.author_name || 'System'}</span>
                 </div>
                 <span>${dayjs(n.created_at).format('MMM D, h:mm A')}</span>
             </div>
-            <div style="color:var(--text-bright); margin-left:34px;">${n.content}</div>
+            <div class="project-log-content">${n.content}</div>
         </div>
     `}).join('');
 }
@@ -589,7 +595,7 @@ function setupEventListeners() {
         if (!token) {
             const newToken = crypto.randomUUID();
             const { error } = await supabase.from('projects').update({ status_token: newToken }).eq('id', state.currentProject.id);
-            if (error) { alert('Could not create share link: ' + error.message); return; }
+            if (error) { showToast('Could not create share link: ' + error.message, 'error'); return; }
             state.currentProject.status_token = newToken;
             token = newToken;
         }
@@ -597,7 +603,7 @@ function setupEventListeners() {
         try {
             await navigator.clipboard.writeText(url);
             if (window.showToast) window.showToast('Status link copied to clipboard.');
-            else alert('Link copied to clipboard.');
+            else showToast('Link copied to clipboard.', 'success');
         } catch (_) {
             prompt('Copy this status link for your client:', url);
         }
@@ -651,7 +657,7 @@ function setupEventListeners() {
 
         if(error) { 
             console.error("Save Error:", error);
-            alert('Save failed (Check console). Note: Scope saved to logs as backup.'); 
+            showToast('Save failed (Check console). Note: Scope saved to logs as backup.', 'error'); 
         }
 
         if(newScope !== (state.currentProject.description || '')) {
@@ -662,7 +668,7 @@ function setupEventListeners() {
             await createSystemNote(`Changed Due Date from ${oldDate || 'N/A'} to ${newDueDate || 'N/A'}`);
         }
 
-        alert('Project saved.');
+        showActionSuccess('Project saved');
         loadProjectsList();
         loadProjectDetails(state.currentProject.id);
     });
@@ -671,20 +677,20 @@ function setupEventListeners() {
         if (!state.currentProject) return;
         
         const confirmMsg = `Are you sure you want to delete project "${state.currentProject.name}"?\n\nThis will permanently remove the project and all associated tasks. This action cannot be undone.`;
-        if (!confirm(confirmMsg)) return;
+        showModal('Delete Project', confirmMsg, async () => {
+            const { error } = await supabase.from('projects').delete().eq('id', state.currentProject.id);
 
-        const { error } = await supabase.from('projects').delete().eq('id', state.currentProject.id);
+            if (error) {
+                showToast('Error deleting project: ' + error.message, 'error');
+                return;
+            }
 
-        if (error) {
-            alert('Error deleting project: ' + error.message);
-            return;
-        }
-
-        alert('Project deleted.');
-        state.currentProject = null;
-        document.getElementById('detail-content').classList.add('hidden');
-        document.getElementById('empty-state').classList.remove('hidden');
-        await loadProjectsList();
+            showActionSuccess('Project deleted');
+            state.currentProject = null;
+            document.getElementById('detail-content').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+            await loadProjectsList();
+        });
     });
 
     const btnUpload = document.getElementById('btn-upload-file');
@@ -700,7 +706,7 @@ function setupEventListeners() {
         for(let file of e.target.files) {
             const path = `${state.currentProject.id}/${file.name}`;
             const { error } = await supabase.storage.from('project_files').upload(path, file);
-            if(error && !error.message.includes('already exists')) alert(`Error uploading ${file.name}: ${error.message}`);
+            if(error && !error.message.includes('already exists')) showToast(`Error uploading ${file.name}: ${error.message}`, 'error');
         }
         
         statusSpan.style.display = 'none';
@@ -762,7 +768,7 @@ window.previewFile = async (fileName) => {
         wrapper.style.display = 'block';
         frame.src = data.signedUrl;
     } else {
-        alert("Could not load preview.");
+        showToast("Could not load preview.", 'error');
     }
 };
 
@@ -780,9 +786,10 @@ window.downloadFile = async (fileName) => {
 
 // --- BOM LOGIC ---
 window.deleteBOM = async (id) => {
-    if(!confirm("Remove this material allocation?")) return;
-    await supabase.from('project_bom').delete().eq('id', id);
-    loadProjectDetails(state.currentProject.id);
+    showModal('Remove Material Allocation', 'Remove this material allocation?', async () => {
+        await supabase.from('project_bom').delete().eq('id', id);
+        loadProjectDetails(state.currentProject.id);
+    });
 }
 
 async function openAddBOMModal() {
@@ -793,29 +800,29 @@ async function openAddBOMModal() {
     const options = safeItems.map(i => `<option value="${i.id}">${i.sku} - ${i.name} (${i.qty_on_hand} in stock)</option>`).join('');
 
     showModal('Add Material to BOM', `
-        <div style="margin-bottom:15px;">
+        <div class="project-modal-field">
             <label>Select Item</label>
-            <select id="bom-item-select" class="form-control" style="background:var(--bg-dark); color:white;">
+            <select id="bom-item-select" class="form-control project-modal-dark-input">
                 <option value="">-- Choose Material --</option>
                 ${options}
             </select>
-            ${safeItems.length === 0 ? '<div style="color:var(--text-dim); font-size:0.8rem; margin-top:5px;">No inventory found. Add items in Inventory module first.</div>' : ''}
+            ${safeItems.length === 0 ? '<div class="project-modal-help">No inventory found. Add items in Inventory module first.</div>' : ''}
         </div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="project-modal-grid-two">
             <div>
                 <label>Qty Required</label>
                 <input type="number" id="bom-req-qty" class="form-control" value="1">
             </div>
             <div>
                 <label>Status</label>
-                <select id="bom-status" class="form-control" style="background:var(--bg-dark); color:white;">
+                <select id="bom-status" class="form-control project-modal-dark-input">
                     <option value="Pending">Pending</option>
                     <option value="Pulled">Pulled</option>
                     <option value="Ordered">Ordered</option>
                 </select>
             </div>
         </div>
-        <button id="btn-save-bom" class="btn-primary" style="width:100%; margin-top:15px;">Add Allocation</button>
+        <button id="btn-save-bom" class="btn-primary project-modal-submit">Add Allocation</button>
     `, async () => {});
 
     setTimeout(() => {
@@ -825,7 +832,7 @@ async function openAddBOMModal() {
             const qty = document.getElementById('bom-req-qty').value;
             const status = document.getElementById('bom-status').value;
 
-            if(!itemId) return alert("Select an item.");
+            if(!itemId) { showToast("Select an item.", 'error'); return; }
 
             await supabase.from('project_bom').insert({
                 project_id: state.currentProject.id,
@@ -843,17 +850,17 @@ async function openAddBOMModal() {
 function openAddChangeOrderModal() {
     if (!state.currentProject) return;
     showModal('Add Change Order', `
-        <div style="margin-bottom:12px;">
+        <div class="project-modal-field-sm">
             <label>Description</label>
-            <input type="text" id="co-description" class="form-control" placeholder="e.g. Additional scope – Phase 2" style="background:var(--bg-dark); color:white; width:100%;">
+            <input type="text" id="co-description" class="form-control project-modal-dark-input" placeholder="e.g. Additional scope – Phase 2">
         </div>
-        <div style="margin-bottom:12px;">
+        <div class="project-modal-field-sm">
             <label>Amount ($)</label>
-            <input type="number" id="co-amount" class="form-control" step="0.01" min="0" value="0" style="background:var(--bg-dark); color:white; width:100%;">
+            <input type="number" id="co-amount" class="form-control project-modal-dark-input" step="0.01" min="0" value="0">
         </div>
         <div>
             <label>Status</label>
-            <select id="co-status" class="form-control" style="background:var(--bg-dark); color:white; width:100%;">
+            <select id="co-status" class="form-control project-modal-dark-input">
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
             </select>
@@ -862,143 +869,45 @@ function openAddChangeOrderModal() {
         const desc = (modalBody.querySelector('#co-description')?.value || '').trim();
         const amount = parseFloat(modalBody.querySelector('#co-amount')?.value, 10);
         const status = modalBody.querySelector('#co-status')?.value || 'pending';
-        if (!desc) { alert('Enter a description.'); return false; }
-        if (isNaN(amount) || amount < 0) { alert('Enter a valid amount.'); return false; }
+        if (!desc) { showToast('Enter a description.', 'error'); return false; }
+        if (isNaN(amount) || amount < 0) { showToast('Enter a valid amount.', 'error'); return false; }
         const { error } = await supabase.from('project_change_orders').insert({
             project_id: state.currentProject.id,
             description: desc,
             amount: amount,
             status: status
         });
-        if (error) { alert('Error adding change order: ' + error.message); return false; }
+        if (error) { showToast('Error adding change order: ' + error.message, 'error'); return false; }
         await loadProjectDetails(state.currentProject.id);
     });
 }
 
 window.deleteChangeOrder = async (id) => {
-    if (!confirm('Remove this change order?')) return;
-    await supabase.from('project_change_orders').delete().eq('id', id);
-    if (state.currentProject) loadProjectDetails(state.currentProject.id);
+    showModal('Remove Change Order', 'Remove this change order?', async () => {
+        await supabase.from('project_change_orders').delete().eq('id', id);
+        if (state.currentProject) loadProjectDetails(state.currentProject.id);
+    });
 };
 
 // --- LAUNCH MODAL ---
 async function openLaunchProjectModal(preSelectDealId) {
-    const { data: deals, error } = await supabase.from('deals_tw').select('*').order('created_at', { ascending: false });
-    if (error) { alert("Error fetching deals: " + error.message); return; }
-    if (!deals || deals.length === 0) { alert("No deals found in 'deals_tw' table."); return; }
-
-    const options = deals.map(d => {
-        const name = d.deal_name || d.name || 'Unnamed';
-        const amt = d.amount || 0;
-        return `<option value="${d.id}" data-name="${name}" data-amt="${amt}">${name} (${formatCurrency(amt)})</option>`;
-    }).join('');
-
-    const today = dayjs();
-    const start = today; 
-    const p1End = addBusinessDays(start, 2);  
-    const p2Start = addBusinessDays(p1End, 1);
-    const p2End = addBusinessDays(p2Start, 7); 
-    const p3Start = addBusinessDays(p2End, 1);
-    const p3End = addBusinessDays(p3Start, 14); 
-    const p4Start = addBusinessDays(p3End, 1);
-    const p4End = addBusinessDays(p4Start, 4); 
-    const defTarget = p4End.format('YYYY-MM-DD');
-
-    showModal('Launch Project Plan', `
-        <div class="form-group"><label>Select Deal</label><select id="launch-deal" class="form-control" style="background:var(--bg-dark); color:white; padding:10px; width:100%; box-sizing:border-box;">${options}</select></div>
-        <div style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:15px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h4 style="color:var(--text-bright); margin:0;">Phase Scheduling</h4>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; width:350px;">
-                    <div><label style="margin:0; font-size:0.7rem; color:var(--text-dim);">Project Start:</label><input type="date" id="master-start-date" class="form-control" style="width:100%;" value="${start.format('YYYY-MM-DD')}"></div>
-                    <div><label style="margin:0; font-size:0.7rem; color:var(--primary-gold);">Target Completion:</label><input type="date" id="master-end-date" class="form-control" style="width:100%; border:1px solid var(--primary-gold);" value="${defTarget}"></div>
-                </div>
-            </div>
-            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; align-items:center; margin-bottom:5px; font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;"><span>Phase</span><span>Start</span><span>End</span><span>Est. Hrs</span></div>
-            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Kickoff</span><input type="date" id="p1-start" class="form-control" value="${start.format('YYYY-MM-DD')}"><input type="date" id="p1-end" class="form-control" value="${p1End.format('YYYY-MM-DD')}"><input type="number" id="p1-hrs" class="form-control" value="5"></div>
-            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Design</span><input type="date" id="p2-start" class="form-control" value="${p2Start.format('YYYY-MM-DD')}"><input type="date" id="p2-end" class="form-control" value="${p2End.format('YYYY-MM-DD')}"><input type="number" id="p2-hrs" class="form-control" value="20"></div>
-            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Fabrication</span><input type="date" id="p3-start" class="form-control" value="${p3Start.format('YYYY-MM-DD')}"><input type="date" id="p3-end" class="form-control" value="${p3End.format('YYYY-MM-DD')}"><input type="number" id="p3-hrs" class="form-control" value="80"></div>
-            <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Installation</span><input type="date" id="p4-start" class="form-control" value="${p4Start.format('YYYY-MM-DD')}"><input type="date" id="p4-end" class="form-control" value="${p4End.format('YYYY-MM-DD')}"><input type="number" id="p4-hrs" class="form-control" value="24"></div>
-        </div>
-    `, async () => {
-        const sel = document.getElementById('launch-deal');
-        if(!sel.value) return;
-        const name = sel.options[sel.selectedIndex].dataset.name;
-        const amt = sel.options[sel.selectedIndex].dataset.amt;
-        const crdd = document.getElementById('master-end-date').value; 
-        const startD = document.getElementById('master-start-date').value;
-
-        const dates = {
-            p1s: document.getElementById('p1-start').value, p1e: document.getElementById('p1-end').value, p1h: document.getElementById('p1-hrs').value,
-            p2s: document.getElementById('p2-start').value, p2e: document.getElementById('p2-end').value, p2h: document.getElementById('p2-hrs').value,
-            p3s: document.getElementById('p3-start').value, p3e: document.getElementById('p3-end').value, p3h: document.getElementById('p3-hrs').value,
-            p4s: document.getElementById('p4-start').value, p4e: document.getElementById('p4-end').value, p4h: document.getElementById('p4-hrs').value,
-        };
-
-        const dealId = sel.value;
-        const { data: proj, error: projError } = await supabase.from('projects').insert([{
-            deal_id: dealId,
-            name,
-            start_date: startD,
-            end_date: crdd,
-            project_value: amt,
-            status: 'Pre-Production'
-        }]).select();
-
-        if (projError) { alert(projError.message); return; }
-        const pid = proj[0].id;
-
-        const { data: proposalRow } = await supabase.from('proposals_tw').select('id').eq('deal_id', dealId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
-        if (proposalRow?.id) {
-            await supabase.from('projects').update({ proposal_id: proposalRow.id }).eq('id', pid);
+    await openSharedProjectLaunchModal({
+        supabase,
+        dayjs,
+        addBusinessDays,
+        showModal,
+        showToast,
+        formatCurrency,
+        trades: state.trades,
+        preSelectDealId,
+        onSuccess: async () => {
+            await loadProjectsList();
         }
-
-        const { data: deal } = await supabase.from('deals_tw').select('account_id').eq('id', dealId).single();
-        if (deal?.account_id) {
-            const { data: accountContacts } = await supabase.from('contacts').select('id').eq('account_id', deal.account_id);
-            if (accountContacts?.length) {
-                await supabase.from('project_contacts').insert(accountContacts.map(c => ({ project_id: pid, contact_id: c.id, role: 'Client' })));
-            }
-        }
-
-        const { data: t1 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff & Plan', start_date: dates.p1s, end_date: dates.p1e, estimated_hours: dates.p1h }).select();
-        const { data: t2 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[1]?.id||2, name: 'CAD Drawings', start_date: dates.p2s, end_date: dates.p2e, estimated_hours: dates.p2h, dependency_task_id: t1[0].id }).select();
-        const { data: t3 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[2]?.id||3, name: 'Fabrication', start_date: dates.p3s, end_date: dates.p3e, estimated_hours: dates.p3h, dependency_task_id: t2[0].id }).select();
-        await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[4]?.id||5, name: 'Installation', start_date: dates.p4s, end_date: dates.p4e, estimated_hours: dates.p4h, dependency_task_id: t3[0].id });
-
-        loadProjectsList();
     });
-    
-    setTimeout(() => {
-        const launchDealSel = document.getElementById('launch-deal');
-        if (preSelectDealId && launchDealSel && launchDealSel.querySelector(`option[value="${preSelectDealId}"]`)) {
-            launchDealSel.value = preSelectDealId;
-        }
-        document.getElementById('master-start-date').addEventListener('change', (e) => {
-            const s = dayjs(e.target.value);
-            const d1e = addBusinessDays(s, 2);
-            const d2s = addBusinessDays(d1e, 1);
-            const d2e = addBusinessDays(d2s, 7);
-            const d3s = addBusinessDays(d2e, 1);
-            const d3e = addBusinessDays(d3s, 14);
-            const d4s = addBusinessDays(d3e, 1);
-            const d4e = addBusinessDays(d4s, 4);
-
-            document.getElementById('p1-start').value = s.format('YYYY-MM-DD');
-            document.getElementById('p1-end').value = d1e.format('YYYY-MM-DD');
-            document.getElementById('p2-start').value = d2s.format('YYYY-MM-DD');
-            document.getElementById('p2-end').value = d2e.format('YYYY-MM-DD');
-            document.getElementById('p3-start').value = d3s.format('YYYY-MM-DD');
-            document.getElementById('p3-end').value = d3e.format('YYYY-MM-DD');
-            document.getElementById('p4-start').value = d4s.format('YYYY-MM-DD');
-            document.getElementById('p4-end').value = d4e.format('YYYY-MM-DD');
-            document.getElementById('master-end-date').value = d4e.format('YYYY-MM-DD');
-        });
-    }, 100);
 }
 
-function getStatusColor(status) {
-    if(status === 'In Progress') return 'var(--primary-blue)';
-    if(status === 'Completed') return '#4CAF50';
-    return 'var(--text-dim)';
+function getProjectStatusClass(status) {
+    if (status === 'In Progress') return 'project-list-status-inprogress';
+    if (status === 'Completed') return 'project-list-status-completed';
+    return 'project-list-status-default';
 }

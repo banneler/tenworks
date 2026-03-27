@@ -13,7 +13,8 @@ import {
     runWhenNavReady,
     updateLastVisited,
     checkAndSetNotifications,
-    hideGlobalLoader
+    hideGlobalLoader,
+    showToast
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -311,7 +312,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const account = state.accounts.find(acc => acc.id === state.selectedAlert.account_id);
         if (!account) {
-            alert(`Error: Could not find account ID ${state.selectedAlert.account_id}.`);
+            showToast(`Could not find account ID ${state.selectedAlert.account_id}.`, 'error');
             return;
         }
 
@@ -459,7 +460,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     
         generateCustomBtn.addEventListener('click', async () => {
             const customPrompt = customPromptInput.value.trim();
-            if (!customPrompt) return alert("Please enter a prompt.");
+            if (!customPrompt) {
+                showToast("Please enter a prompt.", 'error');
+                return;
+            }
     
             generateCustomBtn.disabled = true;
             generateCustomBtn.textContent = 'Generating...';
@@ -570,9 +574,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function handleEmailAction(isCustom = false) { 
         const contactId = contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value;
-        if (!contactId) return alert('Please select a contact.');
+        if (!contactId) { showToast('Please select a contact.', 'error'); return; }
         const contact = state.contacts.find(c => c.id === Number(contactId));
-        if (!contact || !contact.email) return alert('Selected contact does not have an email address.');
+        if (!contact || !contact.email) { showToast('Selected contact does not have an email address.', 'error'); return; }
 
         const subject = isCustom ? customOutreachSubjectInput.value : outreachSubjectInput.value;
         const body = isCustom ? customOutreachBodyTextarea.value : outreachBodyTextarea.value;
@@ -581,7 +585,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function handleCopyAction(isCustom = false) { 
         const body = isCustom ? customOutreachBodyTextarea.value : outreachBodyTextarea.value;
-        navigator.clipboard.writeText(body).then(() => alert('Email body copied!'));
+        navigator.clipboard.writeText(body)
+            .then(() => showToast('Email body copied!', 'success'))
+            .catch(() => showToast('Could not copy email body.', 'error'));
     }
     
     async function handleMarkCompleted() {
@@ -592,9 +598,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function handleLogInteraction() {
         const selectedContactId = contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value;
-        if (!selectedContactId) return alert('Please select a contact.');
+        if (!selectedContactId) { showToast('Please select a contact.', 'error'); return; }
         const notes = logInteractionNotes.value.trim();
-        if (!notes) return alert('Please enter notes.');
+        if (!notes) { showToast('Please enter notes.', 'error'); return; }
 
         const { error } = await supabase.from('activities').insert({
             account_id: state.selectedAlert.account_id,
@@ -605,16 +611,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             date: new Date().toISOString()
         });
 
-        if (error) alert('Error: ' + error.message);
-        else { alert('Logged!'); logInteractionNotes.value = ''; }
+        if (error) showToast('Error: ' + error.message, 'error');
+        else { showToast('Logged!', 'success'); logInteractionNotes.value = ''; }
     }
 
     async function handleCreateTask() {
         const selectedContactId = contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value;
-        if (!selectedContactId) return alert('Please select a contact.');
+        if (!selectedContactId) { showToast('Please select a contact.', 'error'); return; }
         const description = createTaskDesc.value.trim();
         const dueDate = createTaskDueDate.value;
-        if (!description) return alert('Please enter a description.');
+        if (!description) { showToast('Please enter a description.', 'error'); return; }
 
         const { error } = await supabase.from('tasks').insert({
             account_id: state.selectedAlert.account_id,
@@ -625,13 +631,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             user_id: state.currentUser.id
         });
 
-        if (error) alert('Error: ' + error.message);
-        else { alert('Task created!'); createTaskDesc.value = ''; createTaskDueDate.value = ''; }
+        if (error) showToast('Error: ' + error.message, 'error');
+        else { showToast('Task created!', 'success'); createTaskDesc.value = ''; createTaskDueDate.value = ''; }
     }
 
     async function updateAlertStatus(id, newStatus, table) {
         const { error } = await supabase.from(table).update({ status: newStatus }).eq('id', id);
-        if (error) alert('Error: ' + error.message);
+        if (error) showToast('Error: ' + error.message, 'error');
         await loadAllData();
     }
 
@@ -679,7 +685,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (action === 'action') showActionCenter(id, card);
             if (action === 'dismiss') {
-                if(confirm("Dismiss this alert?")) updateAlertStatus(id, 'Dismissed', 'cognito_alerts');
+                showModal(
+                    "Dismiss Alert",
+                    "Dismiss this alert?",
+                    async () => await updateAlertStatus(id, 'Dismissed', 'cognito_alerts'),
+                    true,
+                    `<button id="modal-confirm-btn" class="btn-primary">Dismiss</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`
+                );
             }
             if (action === 'dismiss-lead') updateAlertStatus(id, 'dismissed', 'cognito_discovery_tw');
             if (action === 'reactivate-lead') updateAlertStatus(id, 'new', 'cognito_discovery_tw');

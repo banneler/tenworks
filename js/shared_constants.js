@@ -677,8 +677,15 @@ export function showToast(message, type = 'success') {
     }, 4000);
 }
 
+export function showActionSuccess(actionLabel, detail = '') {
+    const label = (actionLabel || 'Action completed').trim();
+    const suffix = (detail || '').trim();
+    showToast(suffix ? `${label}: ${suffix}` : label, 'success');
+}
+
 if (typeof window !== 'undefined') {
     window.showToast = showToast;
+    window.showActionSuccess = showActionSuccess;
 }
 
 

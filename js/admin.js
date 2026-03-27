@@ -7,6 +7,8 @@ import {
     setupModalListeners,
     showModal,
     hideModal,
+    showToast,
+    showActionSuccess,
     loadSVGs,
     setupUserMenuAndAuth,
     hideGlobalLoader
@@ -53,7 +55,7 @@ async function loadSettingsData() {
     ]);
 
     if (stagesError || typesError) {
-        alert('Error loading settings: ' + (stagesError?.message || typesError?.message));
+        showToast('Error loading settings: ' + (stagesError?.message || typesError?.message), 'error');
         return;
     }
 
@@ -98,9 +100,10 @@ async function handleAddSetting(type) {
         });
 
         if (error) {
-            alert('Error adding deal stage: ' + error.message);
+            showToast('Error adding deal stage: ' + error.message, 'error');
         } else {
             input.value = '';
+            showActionSuccess('Deal stage added');
             await loadSettingsData();
         }
     } else if (type === 'activity_type') {
@@ -114,9 +117,10 @@ async function handleAddSetting(type) {
         });
 
         if (error) {
-            alert('Error adding activity type: ' + error.message);
+            showToast('Error adding activity type: ' + error.message, 'error');
         } else {
             input.value = '';
+            showActionSuccess('Activity type added');
             await loadSettingsData();
         }
     }
@@ -132,8 +136,9 @@ async function handleDeleteSetting(e) {
     showModal('Confirm Deletion', `Are you sure you want to delete "${itemName}"? This cannot be undone.`, async () => {
         const { error } = await supabase.from(tableName).delete().eq('id', id);
         if (error) {
-            alert('Error deleting item: ' + error.message);
+            showToast('Error deleting item: ' + error.message, 'error');
         } else {
+            showActionSuccess('Item deleted');
             await loadSettingsData();
         }
         hideModal();
@@ -143,7 +148,7 @@ async function handleDeleteSetting(e) {
 
 async function loadUserData() {
     const { data, error } = await supabase.from('admin_users_view').select('*');
-    if (error) { alert(`Could not load user data: ${error.message}`); return; }
+    if (error) { showToast(`Could not load user data: ${error.message}`, 'error'); return; }
     state.allUsers = data || [];
     renderUserTable();
     renderReassignmentTool();
@@ -172,12 +177,12 @@ async function handleReassignment() {
     const toUserId = document.getElementById('reassign-to-user').value;
 
     if (!fromUserId || !toUserId) {
-        alert('Please select both a "from" and a "to" user.');
+        showToast('Please select both a "from" and a "to" user.', 'error');
         return;
     }
 
     if (fromUserId === toUserId) {
-        alert('Cannot reassign records to the same user.');
+        showToast('Cannot reassign records to the same user.', 'error');
         return;
     }
 
@@ -194,9 +199,9 @@ async function handleReassignment() {
                     to_user_id: toUserId
                 });
                 if (error) throw error;
-                alert('Records reassigned successfully!');
+                showActionSuccess('Records reassigned successfully');
             } catch (error) {
-                alert('Error during reassignment: ' + error.message);
+                showToast('Error during reassignment: ' + error.message, 'error');
             }
             hideModal();
         }
@@ -209,25 +214,25 @@ async function loadContentData() {
         supabase.from('email_templates').select('*, user_quotas(full_name)'),
         supabase.from('marketing_sequences').select('*, user_quotas(full_name)')
     ]);
-    if (tE || sE) { alert('Error loading content.'); console.error(tE || sE); }
+    if (tE || sE) { showToast('Error loading content.', 'error'); console.error(tE || sE); }
     state.allTemplates = t || [];
     state.allSequences = s || [];
     renderContentTable();
 }
 
 async function loadAnalyticsData() {
-    const tablesToFetch = ['activities', 'contact_sequences', 'campaigns', 'tasks', 'deals'];
+    const tablesToFetch = ['activities', 'contact_sequences', 'campaigns', 'tasks', 'deals_tw'];
     
     const { data: users, error: userError } = await supabase.from('admin_users_view').select('*');
     if(userError) {
-        alert('Could not load user data for analytics.');
+        showToast('Could not load user data for analytics.', 'error');
         return;
     }
     state.allUsers = users || [];
 
     const { data: log, error: logError } = await supabase.from('admin_activity_log_view').select('*').order('activity_date', { ascending: false }).limit(200);
     if(logError) {
-         alert('Could not load system activity log: ' + logError.message);
+         showToast('Could not load system activity log: ' + logError.message, 'error');
          state.activityLog = [];
     } else {
         state.activityLog = log || [];
@@ -259,7 +264,7 @@ async function loadScriptLogs() {
         .order('last_completed_at', { ascending: false });
 
     if (error) {
-        alert(`Could not load script logs: ${error.message}`);
+        showToast(`Could not load script logs: ${error.message}`, 'error');
         return;
     }
     state.scriptLogs = data || [];
@@ -536,10 +541,10 @@ async function handleSaveUser(e) {
         if (error) throw error;
 
         console.log('Function response:', data);
-        alert(`User updated successfully!`);
+        showActionSuccess('User updated successfully');
 
     } catch (error) {
-        alert(`Failed to save user: ${error.message}`);
+        showToast(`Failed to save user: ${error.message}`, 'error');
     } finally {
         e.target.disabled = false;
         e.target.textContent = 'Save';
@@ -557,7 +562,7 @@ async function handleContentToggle(e) {
 
     const { error } = await supabase.from(tableName).update({ is_shared: isShared }).eq('id', id);
     if (error) {
-        alert(`Error updating status: ${error.message}`);
+        showToast(`Error updating status: ${error.message}`, 'error');
         e.target.checked = !isShared;
     } else {
         console.log(`${type} ${id} shared status set to ${isShared}`);
@@ -574,9 +579,9 @@ async function handleDeleteContent(e) {
     showModal(`Confirm Deletion`, `Are you sure you want to delete "${itemName}"? This cannot be undone.`, async () => {
         const { error } = await supabase.from(tableName).delete().eq('id', id);
         if (error) {
-            alert(`Error deleting ${type}: ${error.message}`);
+            showToast(`Error deleting ${type}: ${error.message}`, 'error');
         } else {
-            alert(`${type} deleted successfully.`);
+            showActionSuccess(`${type} deleted successfully`);
             loadContentData();
         }
         hideModal();
@@ -702,8 +707,13 @@ async function initializePage() {
     state.currentUser = session.user;
     if (state.currentUser.user_metadata?.is_admin !== true) {
         hideGlobalLoader();
-        alert("Access Denied: You must be an admin to view this page.");
-        window.location.href = "command-center.html";
+        showModal(
+            "Access Denied",
+            "You must be an admin to view this page.",
+            () => { window.location.href = "command-center.html"; },
+            false,
+            `<button id="modal-confirm-btn" class="btn-primary">Return to Command Center</button>`
+        );
         return;
     }
     await setupUserMenuAndAuth(supabase, state);

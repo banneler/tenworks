@@ -8,8 +8,10 @@ import {
     loadSVGs, 
     setupGlobalSearch,
     runWhenNavReady,
-    hideGlobalLoader
+    hideGlobalLoader,
+    showToast
 } from './shared_constants.js';
+import { openSharedProjectLaunchModal } from './project_launch_shared.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
@@ -249,12 +251,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             const current = startDate.add(i, 'day');
             const isWeekend = current.day() === 0 || current.day() === 6;
             const isToday = current.isSame(dayjs(), 'day');
-            
-            const bgStyle = isWeekend ? 'background:rgba(255,255,255,0.05);' : '';
 
             dateHtml += `
-                <div class="date-cell ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}" style="${bgStyle}">
-                    <span style="font-weight:700;">${current.format('DD')}</span>
+                <div class="date-cell ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}">
+                    <span class="schedule-date-day">${current.format('DD')}</span>
                     <span>${current.format('ddd')}</span>
                 </div>
             `;
@@ -331,8 +331,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>`;
             } else if (state.currentView === 'machine') {
                 // Machine Sidebar
-                const statusColor = rowItem.status === 'Operational' ? '#4CAF50' : '#F44336';
-                rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>`;
+                const statusClass = rowItem.status === 'Operational' ? 'schedule-status-operational' : 'schedule-status-down';
+                rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role ${statusClass}">${rowItem.status}</div>`;
             } else {
                 // Project Sidebar
                 const today = dayjs().format('YYYY-MM-DD');
@@ -340,17 +340,19 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const endPlus14 = dayjs().add(14, 'day').format('YYYY-MM-DD');
                 const projectOverdue = rowItem.end_date && rowItem.end_date < today;
                 const projectAtRisk = !projectOverdue && rowItem.end_date && rowItem.end_date >= today && rowItem.end_date <= endPlus14 && overdueTaskProjectIds.has(rowItem.id);
-                const badge = projectOverdue ? ' <span style="font-size:0.65rem; background:#c62828; color:#fff; padding:1px 4px; border-radius:3px; margin-left:4px;">Overdue</span>' : (projectAtRisk ? ' <span style="font-size:0.65rem; background:var(--warning-yellow); color:#000; padding:1px 4px; border-radius:3px; margin-left:4px;">At risk</span>' : '');
+                const badge = projectOverdue
+                    ? ' <span class="schedule-project-badge schedule-project-badge-overdue">Overdue</span>'
+                    : (projectAtRisk ? ' <span class="schedule-project-badge schedule-project-badge-risk">At risk</span>' : '');
                 rowEl.id = 'project-row-' + rowItem.id;
-                let statusColor = '#888';
-                if (rowItem.status === 'In Progress') statusColor = 'var(--primary-blue)';
-                if (rowItem.status === 'Completed') statusColor = '#4CAF50';
+                let statusClass = 'schedule-status-default';
+                if (rowItem.status === 'In Progress') statusClass = 'schedule-status-inprogress';
+                if (rowItem.status === 'Completed') statusClass = 'schedule-status-operational';
 
                 rowEl.innerHTML = `
-                    <div class="resource-name" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:4px;" title="Manage Project">
-                        ${rowItem.name}${badge} <i class="fas fa-pencil-alt" style="font-size:0.7rem; margin-left:5px; opacity:0.5;"></i>
+                    <div class="resource-name schedule-project-link" title="Manage Project">
+                        ${rowItem.name}${badge} <i class="fas fa-pencil-alt schedule-project-edit-icon"></i>
                     </div>
-                    <div class="resource-role" style="color:${statusColor}">${rowItem.status}</div>
+                    <div class="resource-role ${statusClass}">${rowItem.status}</div>
                 `;
                 rowEl.querySelector('.resource-name').addEventListener('click', () => openProjectModal(rowItem));
             }
@@ -449,7 +451,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const label = (state.currentView === 'resource' || state.currentView === 'machine') ? task.projects?.name : task.shop_trades?.name;
 
                 bar.innerHTML = `
-                    <span class="gantt-task-info" style="pointer-events:none; line-height:${barHeight}px; text-shadow:0 1px 3px black; padding-left:8px;">${label || task.name}</span>
+                    <span class="gantt-task-info schedule-task-label">${label || task.name}</span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
@@ -565,20 +567,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
         
         showModal(`Manage: ${project.name}`, `
-            <div style="margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:15px;">
-                <label style="color:var(--text-dim); font-size:0.8rem;">Customer Requested Due Date (CRDD)</label>
-                <div style="display:flex; gap:10px; margin-top:5px;">
-                    <input type="date" id="edit-proj-target" class="form-control" value="${project.end_date || ''}" style="flex:1;">
-                    <button id="btn-update-target" class="btn-primary" style="background:var(--bg-medium); border:1px solid var(--border-color);">Update Date</button>
+            <div class="schedule-modal-section">
+                <label class="schedule-modal-sub-label">Customer Requested Due Date (CRDD)</label>
+                <div class="schedule-modal-inline-row">
+                    <input type="date" id="edit-proj-target" class="form-control schedule-modal-flex-input" value="${project.end_date || ''}">
+                    <button id="btn-update-target" class="btn-primary schedule-modal-secondary-btn">Update Date</button>
                 </div>
             </div>
 
             <div>
-                <h4 style="color:var(--text-bright); margin-bottom:10px;"><i class="fas fa-plus-circle" style="color:var(--primary-gold);"></i> Add New Step</h4>
-                <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <h4 class="schedule-modal-title"><i class="fas fa-plus-circle schedule-modal-title-icon"></i> Add New Step</h4>
+                <div class="form-grid schedule-modal-grid-tight">
                     <div>
                         <label>Trade Function</label>
-                        <select id="new-task-trade" class="form-control" style="background:var(--bg-dark); color:white; padding:8px;">${tradeOptions}</select>
+                        <select id="new-task-trade" class="form-control schedule-modal-dark-select">${tradeOptions}</select>
                     </div>
                     <div>
                         <label>Task Name</label>
@@ -593,7 +595,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <input type="number" id="new-task-days" class="form-control" value="3">
                     </div>
                 </div>
-                <button id="btn-add-step" class="btn-primary" style="width:100%; margin-top:15px;">Insert Step</button>
+                <button id="btn-add-step" class="btn-primary schedule-modal-full-btn">Insert Step</button>
             </div>
         `, async () => {});
 
@@ -643,10 +645,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         showModal(`Edit Task: ${task.name}`, `
-            <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+            <div class="form-grid schedule-modal-grid-wide">
                 <div>
                     <label>Status</label>
-                    <select id="edit-status" class="form-control" style="background:var(--bg-dark); color:white; padding:8px;">
+                    <select id="edit-status" class="form-control schedule-modal-dark-select">
                         <option value="Pending" ${task.status === 'Pending' ? 'selected' : ''}>Pending</option>
                         <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                         <option value="Completed" ${task.status === 'Completed' ? 'selected' : ''}>Completed</option>
@@ -664,19 +666,19 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <label>Duration (Days)</label>
                     <input type="number" id="edit-duration" class="form-control" value="${dur}">
                 </div>
-                <div style="grid-column: span 2;">
-                    <label style="color:var(--primary-gold);">Assign Machine</label>
-                    <select id="edit-machine" class="form-control" style="background:var(--bg-dark); color:white; padding:8px;">
+                <div class="schedule-modal-grid-span">
+                    <label class="schedule-modal-highlight-label">Assign Machine</label>
+                    <select id="edit-machine" class="form-control schedule-modal-dark-select">
                         ${machineOptions}
                     </select>
                 </div>
-                <div style="grid-column: span 2;">
-                    <label style="color:var(--text-dim); font-size:0.8rem;">Calculated End Date: <span id="calc-end-date" style="color:var(--text-bright);">${task.end_date}</span></label>
+                <div class="schedule-modal-grid-span">
+                    <label class="schedule-modal-sub-label">Calculated End Date: <span id="calc-end-date" class="schedule-modal-end-date">${task.end_date}</span></label>
                     <input type="hidden" id="edit-end" value="${task.end_date}"> 
                 </div>
             </div>
-            <div style="margin-top:20px; text-align:right; border-top:1px solid var(--border-color); padding-top:15px;">
-                <button id="delete-task-btn" style="background:#773030; color:white; border:none; padding:8px 12px; border-radius:4px; float:left;">Delete Task</button>
+            <div class="schedule-modal-actions">
+                <button id="delete-task-btn" class="schedule-delete-btn">Delete Task</button>
                 <button id="save-task-btn" class="btn-primary">Save Changes</button>
             </div>
         `, async () => {});
@@ -750,7 +752,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const totalCapacity = (state.talent || []).reduce((sum, t) => sum + (Number(t.hours_per_week) || DEFAULT_HOURS_PER_WEEK), 0);
         const weekAssignments = (state.assignments || []).filter(a => a.assigned_date >= weekStartStr && a.assigned_date <= weekEndStr);
-        const totalLoad = weekAssignments.reduce((sum, a) => sum + (typeof a.hours === 'number' && a.hours >= 0 ? a.hours : 8), 0);
+        const totalLoad = weekAssignments.reduce((sum, a) => {
+            const hours = Number(a.hours);
+            return sum + (Number.isFinite(hours) && hours >= 0 ? hours : 0);
+        }, 0);
 
         const pct = totalCapacity > 0 ? Math.round((totalLoad / totalCapacity) * 100) : 0;
         const barPct = totalCapacity > 0 ? Math.min((totalLoad / totalCapacity) * 100, 150) : 0;
@@ -786,122 +791,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     const launchBtn = document.getElementById('launch-new-project-btn');
     if (launchBtn) {
         launchBtn.addEventListener('click', async () => {
-            const { data: deals, error } = await supabase.from('deals_tw').select('*').order('created_at', { ascending: false });
-            if (error) { alert("Error fetching deals: " + error.message); return; }
-            if (!deals || deals.length === 0) { alert("No deals found in 'deals_tw' table."); return; }
-
-            const options = deals.map(d => {
-                const name = d.deal_name || d.name || 'Unnamed';
-                const amt = d.amount || 0;
-                return `<option value="${d.id}" data-name="${name}" data-amt="${amt}">${name} (${formatCurrency(amt)})</option>`;
-            }).join('');
-
-            const today = dayjs();
-            const start = today; 
-            
-            const p1End = addBusinessDays(start, 2);  
-            const p2Start = addBusinessDays(p1End, 1);
-            const p2End = addBusinessDays(p2Start, 7); 
-            const p3Start = addBusinessDays(p2End, 1);
-            const p3End = addBusinessDays(p3Start, 14); 
-            const p4Start = addBusinessDays(p3End, 1);
-            const p4End = addBusinessDays(p4Start, 4); 
-
-            // Default Requested Completion (CRDD)
-            const defTarget = p4End.format('YYYY-MM-DD');
-
-            showModal('Launch Project Plan', `
-                <div class="form-group"><label>Select Deal</label><select id="launch-deal" class="form-control" style="background:var(--bg-dark); color:white; padding:10px; width:100%; box-sizing:border-box;">${options}</select></div>
-                <div style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:15px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h4 style="color:var(--text-bright); margin:0;">Phase Scheduling</h4>
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; width:350px;">
-                            <div>
-                                <label style="margin:0; font-size:0.7rem; color:var(--text-dim);">Project Start:</label>
-                                <input type="date" id="master-start-date" class="form-control" style="width:100%;" value="${start.format('YYYY-MM-DD')}">
-                            </div>
-                            <div>
-                                <label style="margin:0; font-size:0.7rem; color:var(--primary-gold);">Target Completion:</label>
-                                <input type="date" id="master-end-date" class="form-control" style="width:100%; border:1px solid var(--primary-gold);" value="${defTarget}">
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; align-items:center; margin-bottom:5px; font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;"><span>Phase</span><span>Start</span><span>End</span><span>Est. Hrs</span></div>
-                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Kickoff</span><input type="date" id="p1-start" class="form-control" value="${start.format('YYYY-MM-DD')}"><input type="date" id="p1-end" class="form-control" value="${p1End.format('YYYY-MM-DD')}"><input type="number" id="p1-hrs" class="form-control" value="5"></div>
-                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Design</span><input type="date" id="p2-start" class="form-control" value="${p2Start.format('YYYY-MM-DD')}"><input type="date" id="p2-end" class="form-control" value="${p2End.format('YYYY-MM-DD')}"><input type="number" id="p2-hrs" class="form-control" value="20"></div>
-                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Fabrication</span><input type="date" id="p3-start" class="form-control" value="${p3Start.format('YYYY-MM-DD')}"><input type="date" id="p3-end" class="form-control" value="${p3End.format('YYYY-MM-DD')}"><input type="number" id="p3-hrs" class="form-control" value="80"></div>
-                    <div style="display:grid; grid-template-columns: 100px 1fr 1fr 80px; gap:8px; margin-bottom:8px;"><span style="align-self:center; color:var(--text-bright);">Installation</span><input type="date" id="p4-start" class="form-control" value="${p4Start.format('YYYY-MM-DD')}"><input type="date" id="p4-end" class="form-control" value="${p4End.format('YYYY-MM-DD')}"><input type="number" id="p4-hrs" class="form-control" value="24"></div>
-                </div>
-            `, async () => {
-                const sel = document.getElementById('launch-deal');
-                if(!sel.value) return;
-                const name = sel.options[sel.selectedIndex].dataset.name;
-                const amt = sel.options[sel.selectedIndex].dataset.amt;
-                const crdd = document.getElementById('master-end-date').value; 
-
-                const dates = {
-                    p1s: document.getElementById('p1-start').value, p1e: document.getElementById('p1-end').value, p1h: document.getElementById('p1-hrs').value,
-                    p2s: document.getElementById('p2-start').value, p2e: document.getElementById('p2-end').value, p2h: document.getElementById('p2-hrs').value,
-                    p3s: document.getElementById('p3-start').value, p3e: document.getElementById('p3-end').value, p3h: document.getElementById('p3-hrs').value,
-                    p4s: document.getElementById('p4-start').value, p4e: document.getElementById('p4-end').value, p4h: document.getElementById('p4-hrs').value,
-                };
-
-                const dealId = sel.value;
-                const { data: proj, error: projError } = await supabase.from('projects').insert([{
-                    deal_id: dealId,
-                    name,
-                    start_date: dates.p1s,
-                    end_date: crdd,
-                    project_value: amt,
-                    status: 'Pre-Production'
-                }]).select();
-
-                if (projError) { alert(projError.message); return; }
-                const pid = proj[0].id;
-
-                const { data: proposalRow } = await supabase.from('proposals_tw').select('id').eq('deal_id', dealId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
-                if (proposalRow?.id) {
-                    await supabase.from('projects').update({ proposal_id: proposalRow.id }).eq('id', pid);
+            await openSharedProjectLaunchModal({
+                supabase,
+                dayjs,
+                addBusinessDays,
+                showModal,
+                showToast,
+                formatCurrency,
+                trades: state.trades,
+                onSuccess: async () => {
+                    await loadShopData();
                 }
-
-                const { data: deal } = await supabase.from('deals_tw').select('account_id').eq('id', dealId).single();
-                if (deal?.account_id) {
-                    const { data: accountContacts } = await supabase.from('contacts').select('id').eq('account_id', deal.account_id);
-                    if (accountContacts?.length) {
-                        await supabase.from('project_contacts').insert(accountContacts.map(c => ({ project_id: pid, contact_id: c.id, role: 'Client' })));
-                    }
-                }
-
-                const { data: t1 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[0]?.id||1, name: 'Kickoff & Plan', start_date: dates.p1s, end_date: dates.p1e, estimated_hours: dates.p1h }).select();
-                const { data: t2 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[1]?.id||2, name: 'CAD Drawings', start_date: dates.p2s, end_date: dates.p2e, estimated_hours: dates.p2h, dependency_task_id: t1[0].id }).select();
-                const { data: t3 } = await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[2]?.id||3, name: 'Fabrication', start_date: dates.p3s, end_date: dates.p3e, estimated_hours: dates.p3h, dependency_task_id: t2[0].id }).select();
-                await supabase.from('project_tasks').insert({ project_id: pid, trade_id: state.trades[4]?.id||5, name: 'Installation', start_date: dates.p4s, end_date: dates.p4e, estimated_hours: dates.p4h, dependency_task_id: t3[0].id });
-
-                loadShopData();
-            });
-            
-            document.getElementById('master-start-date').addEventListener('change', (e) => {
-                const s = dayjs(e.target.value);
-                
-                // Recalculate Business Days
-                const d1e = addBusinessDays(s, 2);
-                const d2s = addBusinessDays(d1e, 1);
-                const d2e = addBusinessDays(d2s, 7);
-                const d3s = addBusinessDays(d2e, 1);
-                const d3e = addBusinessDays(d3s, 14);
-                const d4s = addBusinessDays(d3e, 1);
-                const d4e = addBusinessDays(d4s, 4);
-
-                document.getElementById('p1-start').value = s.format('YYYY-MM-DD');
-                document.getElementById('p1-end').value = d1e.format('YYYY-MM-DD');
-                document.getElementById('p2-start').value = d2s.format('YYYY-MM-DD');
-                document.getElementById('p2-end').value = d2e.format('YYYY-MM-DD');
-                document.getElementById('p3-start').value = d3s.format('YYYY-MM-DD');
-                document.getElementById('p3-end').value = d3e.format('YYYY-MM-DD');
-                document.getElementById('p4-start').value = d4s.format('YYYY-MM-DD');
-                document.getElementById('p4-end').value = d4e.format('YYYY-MM-DD');
-                
-                document.getElementById('master-end-date').value = d4e.format('YYYY-MM-DD');
             });
         });
     }

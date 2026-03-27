@@ -8198,6 +8198,827 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     z-index: 2;
 }
 
+/* Schedule page style tokens (Sprint 3 style-debt reduction) */
+.schedule-date-day {
+    font-weight: 700;
+}
+
+.schedule-status-operational {
+    color: #4CAF50;
+}
+
+.schedule-status-down {
+    color: #F44336;
+}
+
+.schedule-status-inprogress {
+    color: var(--primary-blue);
+}
+
+.schedule-status-default {
+    color: #888;
+}
+
+.schedule-project-badge {
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    border-radius: 0;
+    margin-left: 4px;
+}
+
+.schedule-project-badge-overdue {
+    background: #c62828;
+    color: #fff;
+}
+
+.schedule-project-badge-risk {
+    background: var(--warning-yellow);
+    color: #000;
+}
+
+.schedule-project-link {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 4px;
+}
+
+.schedule-project-edit-icon {
+    font-size: 0.7rem;
+    margin-left: 5px;
+    opacity: 0.5;
+}
+
+.schedule-task-label {
+    pointer-events: none;
+    line-height: 26px;
+    text-shadow: 0 1px 3px #000;
+    padding-left: 8px;
+}
+
+.schedule-modal-section {
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px;
+}
+
+.schedule-modal-sub-label {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+}
+
+.schedule-modal-inline-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.schedule-modal-flex-input {
+    flex: 1;
+}
+
+.schedule-modal-secondary-btn {
+    background: var(--bg-medium);
+    border: 1px solid var(--border-color);
+}
+
+.schedule-modal-title {
+    color: var(--text-bright);
+    margin-bottom: 10px;
+}
+
+.schedule-modal-title-icon {
+    color: var(--primary-gold);
+}
+
+.schedule-modal-grid-tight {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.schedule-modal-grid-wide {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.schedule-modal-dark-select {
+    background: var(--bg-dark);
+    color: var(--text-bright);
+    padding: 8px;
+}
+
+.schedule-modal-full-btn {
+    width: 100%;
+    margin-top: 15px;
+}
+
+.schedule-modal-grid-span {
+    grid-column: span 2;
+}
+
+.schedule-modal-highlight-label {
+    color: var(--primary-gold);
+}
+
+.schedule-modal-end-date {
+    color: var(--text-bright);
+}
+
+.schedule-modal-actions {
+    margin-top: 20px;
+    text-align: right;
+    border-top: 1px solid var(--border-color);
+    padding-top: 15px;
+}
+
+.schedule-delete-btn {
+    background: #773030;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 0;
+    float: left;
+}
+
+/* Talent page style tokens (Sprint 3 style-debt reduction) */
+.talent-filter-label {
+    color: var(--text-dim);
+}
+
+.talent-filter-value {
+    font-weight: 600;
+    color: var(--primary-gold);
+}
+
+.talent-filter-clear-link {
+    margin-left: 8px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.talent-modal-intro {
+    margin-bottom: 15px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+.talent-modal-intro-lg {
+    margin-bottom: 20px;
+}
+
+.talent-modal-grid-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.talent-modal-dark-select {
+    background: var(--bg-dark);
+    color: var(--text-bright);
+    padding: 8px;
+}
+
+.talent-modal-full-btn {
+    width: 100%;
+    margin-top: 20px;
+}
+
+.talent-modal-flex-input {
+    flex: 1;
+}
+
+.talent-skill-item {
+    display: flex;
+    align-items: center;
+    background: var(--bg-medium);
+    padding: 10px;
+    border-radius: 0;
+    border: 1px solid var(--border-color);
+}
+
+.talent-skill-checkbox {
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.talent-skill-label {
+    color: var(--text-bright);
+    cursor: pointer;
+}
+
+.talent-skills-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.talent-schedule-modal-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.talent-schedule-modal-date {
+    color: var(--primary-gold);
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+}
+
+.talent-schedule-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+.talent-schedule-panel {
+    background: var(--bg-dark);
+    padding: 15px;
+    border-radius: 0;
+    border: 1px solid var(--border-color);
+}
+
+.talent-schedule-label {
+    display: block;
+    color: var(--text-bright);
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.talent-schedule-range-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.talent-schedule-select {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.talent-modal-empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 10px;
+}
+
+.talent-pool-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.talent-pool-trade {
+    font-size: 0.7rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.talent-pool-hours-pill {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 4px;
+    border-radius: 0;
+}
+
+.talent-pool-task-name {
+    font-weight: 700;
+    color: var(--text-bright);
+    line-height: 1.2;
+    font-size: 0.95rem;
+}
+
+.talent-pool-project-name {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 3px;
+}
+
+.talent-pool-footer {
+    margin-top: auto;
+}
+
+.talent-pool-progress-wrap {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.talent-pool-meta-row {
+    font-size: 0.7rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 5px;
+}
+
+.talent-pool-date {
+    color: var(--text-bright);
+}
+
+.talent-pool-remaining {
+    font-weight: bold;
+}
+
+.talent-pool-schedule-link {
+    color: var(--primary-gold);
+    text-decoration: none;
+}
+
+.talent-header-cell {
+    border-right: 1px solid var(--border-color);
+    padding: 10px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.talent-header-weekend {
+    background: rgba(255, 50, 50, 0.08);
+}
+
+.talent-header-today {
+    border-bottom: 2px solid var(--primary-gold);
+}
+
+.talent-header-day {
+    font-size: 1.4rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--text-bright);
+}
+
+.talent-header-day-today {
+    color: var(--primary-gold);
+}
+
+.talent-header-weekday {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+}
+
+.talent-header-metric {
+    font-size: 0.65rem;
+    font-weight: bold;
+    margin-top: 5px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 2px 6px;
+    border-radius: 0;
+    color: var(--text-dim);
+}
+
+.talent-header-metric-good {
+    color: #4CAF50;
+}
+
+.talent-header-metric-warn {
+    color: var(--warning-yellow);
+}
+
+.talent-header-metric-over {
+    color: #ff4444;
+}
+
+.talent-avatar-pill {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    background: var(--bg-medium);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-right: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.talent-person-meta {
+    overflow: hidden;
+    width: 100%;
+}
+
+.talent-name-strong {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-bright);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.talent-skills-summary {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.talent-pto-icon {
+    color: var(--text-dim);
+}
+
+.talent-chip-hours {
+    font-weight: 700;
+    font-size: 0.6rem;
+    line-height: 1;
+}
+
+.talent-chip-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.talent-schedule-toggle-row {
+    display: flex;
+    gap: 10px;
+}
+
+.talent-schedule-toggle-btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    color: var(--text-bright);
+    border-radius: 0;
+    background: transparent;
+}
+
+.talent-schedule-toggle-avail {
+    background: rgba(76, 175, 80, 0.2);
+}
+
+.talent-schedule-toggle-pto {
+    background: rgba(244, 67, 54, 0.2);
+}
+
+.talent-capacity-row-over {
+    background: rgba(231, 76, 60, 0.15);
+}
+
+.talent-capacity-pct-over {
+    color: var(--danger-red);
+    font-weight: bold;
+}
+
+.talent-capacity-over-text {
+    color: var(--danger-red);
+}
+
+.talent-capacity-intro {
+    color: var(--text-dim);
+    margin-bottom: 12px;
+}
+
+.talent-capacity-over-summary {
+    color: var(--danger-red);
+    font-weight: 600;
+}
+
+.talent-capacity-table-wrap {
+    max-height: 320px;
+    overflow: auto;
+}
+
+.talent-capacity-table {
+    font-size: 0.85rem;
+}
+
+/* Project page style tokens (Sprint 3 style-debt reduction) */
+.project-task-name {
+    font-weight: 600;
+    color: var(--text-bright);
+}
+
+.project-task-actual-input {
+    width: 80px;
+    padding: 6px;
+    background: var(--bg-dark);
+    color: var(--text-bright);
+    border: 1px solid var(--border-color);
+}
+
+.project-task-status {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.project-task-save-btn {
+    padding: 4px 10px;
+}
+
+.project-bom-item-name {
+    font-weight: 600;
+    color: var(--text-bright);
+}
+
+.project-bom-item-sku {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.project-bom-category-pill {
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 5px;
+    border-radius: 0;
+}
+
+.project-bom-delete-btn {
+    padding: 4px 8px;
+}
+
+.project-bom-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-dim);
+}
+
+.project-team-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.02);
+    margin-bottom: 5px;
+}
+
+.project-team-contact-link {
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-bright);
+}
+
+.project-team-role {
+    font-size: 0.75rem;
+    color: var(--primary-gold);
+}
+
+.project-team-meta {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.project-team-portal-btn {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    margin-top: 4px;
+}
+
+.project-team-empty {
+    color: var(--text-dim);
+    padding: 10px;
+    font-style: italic;
+}
+
+.project-co-item {
+    margin-bottom: 6px;
+}
+
+.project-co-status {
+    font-size: 0.8em;
+    color: var(--text-dim);
+}
+
+.project-co-remove-btn {
+    padding: 2px 6px;
+    margin-left: 6px;
+    font-size: 0.75rem;
+}
+
+.project-co-empty {
+    color: var(--text-dim);
+}
+
+.project-modal-field {
+    margin-bottom: 15px;
+}
+
+.project-modal-field-sm {
+    margin-bottom: 12px;
+}
+
+.project-modal-help {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+.project-modal-grid-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.project-modal-dark-input {
+    background: var(--bg-dark);
+    color: var(--text-bright);
+    width: 100%;
+}
+
+.project-modal-submit {
+    width: 100%;
+    margin-top: 15px;
+}
+
+.project-list-contact-info {
+    padding-left: 0;
+}
+
+.project-list-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 0;
+    margin-left: 6px;
+}
+
+.project-list-badge-overdue {
+    background: #c62828;
+    color: #fff;
+}
+
+.project-list-badge-risk {
+    background: var(--warning-yellow);
+    color: #000;
+}
+
+.project-list-status-inprogress {
+    color: var(--primary-blue);
+}
+
+.project-list-status-completed {
+    color: #4CAF50;
+}
+
+.project-list-status-default {
+    color: var(--text-dim);
+}
+
+.countdown-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 0;
+}
+
+.countdown-badge-good {
+    background: rgba(76, 175, 80, 0.12);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.25);
+}
+
+.countdown-badge-overdue {
+    background: rgba(244, 67, 54, 0.12);
+    color: #F44336;
+    border: 1px solid rgba(244, 67, 54, 0.25);
+}
+
+.countdown-badge-soon {
+    background: rgba(255, 193, 7, 0.12);
+    color: #FFC107;
+    border: 1px solid rgba(255, 193, 7, 0.25);
+}
+
+.bom-status-pill {
+    color: var(--project-bom-status-color, var(--text-dim));
+    border: 1px solid var(--project-bom-status-color, var(--border-color));
+}
+
+.project-gantt-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-dim);
+}
+
+.project-file-meta {
+    flex: 1;
+}
+
+.project-file-name {
+    color: var(--text-bright);
+    font-weight: 600;
+}
+
+.project-file-size {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+.project-files-empty {
+    color: var(--text-dim);
+    padding: 10px;
+}
+
+.project-log-author-row {
+    display: flex;
+    align-items: center;
+}
+
+.project-log-author-name {
+    font-weight: 600;
+    color: var(--text-bright);
+}
+
+.project-log-content {
+    color: var(--text-bright);
+    margin-left: 34px;
+}
+
+.launch-project-deal-select {
+    background: var(--bg-dark);
+    color: var(--text-bright);
+    padding: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.launch-project-shell {
+    margin-top: 20px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 15px;
+}
+
+.launch-project-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.launch-project-title {
+    color: var(--text-bright);
+    margin: 0;
+}
+
+.launch-project-date-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 350px;
+}
+
+.launch-project-date-label {
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+}
+
+.launch-project-target-label {
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--primary-gold);
+}
+
+.launch-project-target-input {
+    border: 1px solid var(--primary-gold);
+}
+
+.launch-project-phase-header {
+    display: grid;
+    grid-template-columns: 100px 1fr 1fr 80px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.launch-project-phase-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 1fr 80px;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.launch-project-phase-name {
+    align-self: center;
+    color: var(--text-bright);
+}
+
 /* The Burn Line */
 .burn-line {
     position: absolute;

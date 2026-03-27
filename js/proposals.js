@@ -1309,6 +1309,21 @@ async function loadProposal() {
     updateShareStatusLinkVisibility();
 }
 
+async function loadProposalById(id) {
+    if (!id) return false;
+    const { data, error } = await supabase.from('proposals_tw').select('*').eq('id', id).single();
+    if (error || !data) return false;
+    state.currentProposalId = data.id;
+    state.dealId = data.deal_id || null;
+    state.projectId = data.project_id || null;
+    setPayload(data.content_json || {});
+    await refreshLoadSelect();
+    const sel = document.getElementById('load-select');
+    if (sel) sel.value = String(data.id);
+    updateShareStatusLinkVisibility();
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     runWhenNavReady(async () => {
         try {
@@ -1322,11 +1337,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const params = new URLSearchParams(window.location.search);
         state.dealId = params.get('deal_id') || null;
         state.projectId = params.get('project_id') || null;
+        const proposalIdFromUrl = params.get('proposal_id') || params.get('id');
 
-        // Prefer project when both present (e.g. from Projects "Generate Proposal")
-        if (state.projectId) await prefillFromProject(state.projectId);
-        else if (state.dealId) await prefillFromDeal(state.dealId);
-        else if (state.locations.length === 0) addLocationBlock('');
+        // If a specific proposal is requested, load that first.
+        if (proposalIdFromUrl) {
+            const loaded = await loadProposalById(proposalIdFromUrl);
+            if (!loaded && state.projectId) await prefillFromProject(state.projectId);
+            else if (!loaded && state.dealId) await prefillFromDeal(state.dealId);
+            else if (!loaded && state.locations.length === 0) addLocationBlock('');
+        } else if (state.projectId) {
+            // Prefer project when both present (e.g. from Projects "Generate Proposal")
+            await prefillFromProject(state.projectId);
+        } else if (state.dealId) {
+            await prefillFromDeal(state.dealId);
+        } else if (state.locations.length === 0) {
+            addLocationBlock('');
+        }
 
     updateShareStatusLinkVisibility();
 

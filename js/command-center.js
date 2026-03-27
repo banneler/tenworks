@@ -15,7 +15,9 @@ import {
     setupGlobalSearch,
     checkAndSetNotifications,
     runWhenNavReady,
-    hideGlobalLoader
+    hideGlobalLoader,
+    showToast,
+    showActionSuccess
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -84,6 +86,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             result = result.replace(/\[Account\]/gi, account.name || '');
         }
         return result;
+    }
+
+    function showErrorModal(message) {
+        showModal("Error", message, null, false, `<button id="modal-ok-btn" class="btn-primary">OK</button>`);
     }
 
     // --- Data Fetching ---
@@ -185,7 +191,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (updateStepError) {
                 console.error("Error updating contact_sequence_step:", updateStepError);
-                alert("Could not update the specific task step. Please check the console for errors.");
+                showErrorModal("Could not update the specific task step. Please try again.");
                 return;
             }
             
@@ -508,14 +514,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const dueDate = document.getElementById('quick-add-due-date').value;
                 const contactId = document.getElementById('quick-add-contact').value;
                 const accountId = document.getElementById('quick-add-account').value;
-                if (!description) { alert('Description is required.'); return; }
+                if (!description) { showToast('Description is required.', 'error'); return; }
                 const taskData = { description, due_date: dueDate || null, user_id: state.currentUser.id, status: 'Pending' };
                 if (contactId) taskData.contact_id = Number(contactId);
                 if (accountId) taskData.account_id = Number(accountId);
                 const { error } = await supabase.from('tasks').insert(taskData);
-                if (error) { alert('Error adding task: ' + error.message); }
+                if (error) { showToast('Error adding task: ' + error.message, 'error'); }
                 else {
                     quickAddForm.reset();
+                    showActionSuccess('Task added');
                     await loadAllData();
                 }
             });
@@ -539,7 +546,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else if (button.matches('.edit-task-btn')) {
                 const taskId = button.dataset.taskId;
                 const task = state.tasks.find(t => t.id == taskId);
-                if (!task) { alert('Task not found.'); return; }
+                if (!task) { showToast('Task not found.', 'error'); return; }
                 const contactsOptions = state.contacts.map(c => `<option value="c-${c.id}" ${c.id === task.contact_id ? 'selected' : ''}>${c.first_name} ${c.last_name} (Contact)</option>`).join('');
                 const accountsOptions = state.accounts.map(a => `<option value="a-${a.id}" ${a.id === task.account_id ? 'selected' : ''}>${a.name} (Account)</option>`).join('');
                 showModal('Edit Task', `
@@ -555,7 +562,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const newDescription = document.getElementById('modal-task-description').value.trim();
                     const newDueDate = document.getElementById('modal-task-due-date').value;
                     const linkedEntityValue = document.getElementById('modal-task-linked-entity').value;
-                    if (!newDescription) { alert('Task description is required.'); return; }
+                    if (!newDescription) { showToast('Task description is required.', 'error'); return false; }
                     const updateData = { description: newDescription, due_date: newDueDate || null, contact_id: null, account_id: null };
                     if (linkedEntityValue.startsWith('c-')) { updateData.contact_id = Number(linkedEntityValue.substring(2)); }
                     else if (linkedEntityValue.startsWith('a-')) { updateData.account_id = Number(linkedEntityValue.substring(2)); }
@@ -565,12 +572,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else if (button.matches('.send-email-btn')) {
                 const csId = Number(button.dataset.csId);
                 const cs = state.contact_sequences.find(c => c.id === csId);
-                if (!cs) return alert("Contact sequence not found.");
+                if (!cs) { showToast("Contact sequence not found.", "error"); return; }
                 const contact = state.contacts.find(c => c.id === cs.contact_id);
-                if (!contact) return alert("Contact not found.");
+                if (!contact) { showToast("Contact not found.", "error"); return; }
                 const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
                 const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
-                if (!step) return alert("Sequence step not found.");
+                if (!step) { showToast("Sequence step not found.", "error"); return; }
                 const subject = replacePlaceholders(step.subject, contact, account);
                 const message = replacePlaceholders(step.message, contact, account);
                 showModal('Compose Email', `
@@ -596,14 +603,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else if (button.matches('.send-linkedin-message-btn')) {
                 const csId = Number(button.dataset.csId);
                 const cs = state.contact_sequences.find(c => c.id === csId);
-                if (!cs) return alert("Contact sequence not found.");
+                if (!cs) { showToast("Contact sequence not found.", "error"); return; }
 
                 const contact = state.contacts.find(c => c.id === cs.contact_id);
-                if (!contact) return alert("Contact not found.");
+                if (!contact) { showToast("Contact not found.", "error"); return; }
 
                 const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
                 const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
-                if (!step) return alert("Sequence step not found.");
+                if (!step) { showToast("Sequence step not found.", "error"); return; }
 
                 const message = replacePlaceholders(step.message, contact, account);
                 const linkedinUrl = contact.linkedin_profile_url || 'https://www.linkedin.com/feed/';
@@ -623,7 +630,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         await navigator.clipboard.writeText(finalMessage);
                     } catch (err) {
                         console.error('Failed to copy text: ', err);
-                        alert('Could not copy text to clipboard. Please copy it manually.');
+                        showToast('Could not copy text to clipboard. Please copy it manually.', 'error');
                     }
                     window.open(linkedinUrl, "_blank");
                     await completeStep(csId, "LinkedIn Message Sent");
@@ -635,13 +642,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else if (button.matches('.open-linkedin-btn')) {
                 const csId = Number(button.dataset.csId);
                 const cs = state.contact_sequences.find(c => c.id === csId);
-                if (!cs) return alert("Contact sequence not found.");
+                if (!cs) { showToast("Contact sequence not found.", "error"); return; }
 
                 const contact = state.contacts.find(c => c.id === cs.contact_id);
-                if (!contact) return alert("Contact not found.");
+                if (!contact) { showToast("Contact not found.", "error"); return; }
                 
                 const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
-                if (!step) return alert("Sequence step not found.");
+                if (!step) { showToast("Sequence step not found.", "error"); return; }
 
                 const linkedinUrl = contact.linkedin_profile_url || 'https://www.linkedin.com/feed/';
                 
@@ -652,14 +659,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else if (button.matches('.dial-call-btn')) {
                 const csId = Number(button.dataset.csId);
                 const cs = state.contact_sequences.find(c => c.id === csId);
-                if (!cs) return alert("Contact sequence not found.");
+                if (!cs) { showToast("Contact sequence not found.", "error"); return; }
                 
                 const contact = state.contacts.find(c => c.id === cs.contact_id);
-                if (!contact) return alert("Contact not found.");
+                if (!contact) { showToast("Contact not found.", "error"); return; }
 
                 const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
                 const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
-                if (!step) return alert("Sequence step not found.");
+                if (!step) { showToast("Sequence step not found.", "error"); return; }
 
                 const contactName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim();
                 const contactPhone = contact.phone || '';
@@ -692,7 +699,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } else if (button.matches('.complete-step-btn')) {
                 const csId = Number(button.dataset.csId);
                 const cs = state.contact_sequences.find(c => c.id === csId);
-                if (!cs) return alert("Contact sequence not found.");
+                if (!cs) { showToast("Contact sequence not found.", "error"); return; }
                 const step = state.sequence_steps.find(s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number);
                 const logMessage = `${step.type}: ${step.subject || 'Task'} Completed`;
                 completeStep(csId, logMessage);
@@ -714,7 +721,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         await loadAllData();
                     });
                 } else {
-                    alert("This is already the first step.");
+                    showToast("This is already the first step.", "error");
                 }
             }
         });
@@ -738,7 +745,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (error && error.code !== 'PGRST116') { //PGRST116 means no row found, which is fine.
                 console.error("Critical error fetching user manager status:", error);
-                alert("Could not verify user permissions. Please refresh the page.");
+                showErrorModal("Could not verify user permissions. Please refresh the page.");
                 return;
             }
             state.isManager = userProfile?.is_manager === true;

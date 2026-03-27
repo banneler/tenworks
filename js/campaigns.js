@@ -16,6 +16,8 @@ import {
     loadSVGs,
     showGlobalLoader,
     hideGlobalLoader,
+    showToast,
+    showActionSuccess,
     setupGlobalSearch,
     checkAndSetNotifications,
     runWhenNavReady,
@@ -625,7 +627,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const notesEl = document.getElementById('call-notes');
         const notes = notesEl ? notesEl.value.trim() : '';
         if (!notes) {
-            alert('Please enter call notes before logging.');
+            showToast('Please enter call notes before logging.', 'error');
             return;
         }
         
@@ -658,7 +660,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         if (activityError) {
             console.error("Error logging activity:", activityError);
-            alert("Failed to log call activity. Please try again.");
+            showToast("Failed to log call activity. Please try again.", 'error');
             return;
         }
 
@@ -671,7 +673,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }).eq('id', currentMember.id);
         if (memberUpdateError) {
             console.error("Error updating campaign member status:", memberUpdateError);
-            alert("Failed to update campaign member status. Please try again.");
+            showToast("Failed to update campaign member status. Please try again.", 'error');
             return;
         }
 
@@ -698,7 +700,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }).eq('id', currentMember.id);
         if (memberUpdateError) {
             console.error("Error updating campaign member status (skip):", memberUpdateError);
-            alert("Failed to skip call. Please try again.");
+            showToast("Failed to skip call. Please try again.", 'error');
             return;
         }
 
@@ -782,7 +784,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const body = document.getElementById('email-body-textarea')?.value;
 
         if (!to || to === 'No Email') {
-            alert("Cannot open email client: Contact has no email address.");
+            showToast("Cannot open email client: Contact has no email address.", 'error');
             return;
         }
 
@@ -854,7 +856,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }).eq('id', currentMember.id);
         if (memberUpdateError) {
             console.error("Error updating campaign member status (skip email):", memberUpdateError);
-            alert("Failed to skip email. Please try again.");
+            showToast("Failed to skip email. Please try again.", 'error');
             return;
         }
 
@@ -876,7 +878,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         let email_body = '';
 
         if (!name) {
-            alert('Campaign name is required.');
+            showToast('Campaign name is required.', 'error');
             return false;
         }
 
@@ -889,7 +891,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     email_subject = selectedTemplate.subject;
                     email_body = selectedTemplate.body;
                 } else {
-                    alert("Please select a valid template.");
+                    showToast("Please select a valid template.", 'error');
                     return false;
                 }
             } else {
@@ -910,7 +912,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         if (matchingContacts.length === 0) {
-            alert('No contacts match the selected filters. Please adjust filters or add contacts/accounts.');
+            showToast('No contacts match the selected filters. Please adjust filters or add contacts/accounts.', 'error');
             return false;
         }
 
@@ -930,7 +932,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             name, type, filter_criteria, email_subject, email_body, user_id: getState().effectiveUserId
         }).select().single();
         if (campaignError) {
-            alert('Error saving campaign: ' + campaignError.message);
+            showToast('Error saving campaign: ' + campaignError.message, 'error');
             return false;
         }
 
@@ -942,12 +944,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         }));
         const { error: membersError } = await supabase.from('campaign_members').insert(membersToInsert);
         if (membersError) {
-            alert('Error saving campaign members: ' + membersError.message);
+            showToast('Error saving campaign members: ' + membersError.message, 'error');
             await supabase.from('campaigns').delete().eq('id', newCampaign.id);
             return false;
         }
 
-        alert(`Campaign "${name}" created successfully with ${matchingContacts.length} members.`);
+        showActionSuccess(`Campaign "${name}" created successfully`, `${matchingContacts.length} members`);
         state.selectedCampaignId = newCampaign.id;
         await loadAllData();
         return true;
@@ -1231,7 +1233,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function handleExportCsv() {
         const campaign = state.campaigns.find(c => c.id === state.selectedCampaignId);
         if (!campaign) {
-            alert('No campaign selected for CSV export.');
+            showToast('No campaign selected for CSV export.', 'error');
             return;
         }
         let csvContent = "data:text/csv;charset=utf-8,";
@@ -1268,7 +1270,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function handleExportTxt() {
         const campaign = state.campaigns.find(c => c.id === state.selectedCampaignId);
         if (!campaign || !campaign.email_body) {
-            alert('No email body saved for this campaign to export as text.');
+            showToast('No email body saved for this campaign to export as text.', 'error');
             return;
         }
         const readme = `--- MAIL MERGE INSTRUCTIONS ---\n\n1. Open Microsoft Word and paste the email body below into a new document.\n2. Go to the "Mailings" tab and click "Start Mail Merge" -> "Step-by-Step Mail Merge Wizard".\n3. For "Select recipients", choose "Use an existing list" and browse to select the CSV file you downloaded.\n4. Edit the recipient list if needed, then click "Write your e-mail message".\n5. Use the "Insert Merge Field" button to place your fields like [FirstName].\n6. Preview your messages and complete the merge to send.\n\n--- YOUR EMAIL TEMPLATE ---\n\n`;
@@ -1382,7 +1384,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const originalTemplate = state.emailTemplates.find(t => t.id === templateId);
 
         if (!originalTemplate) {
-            alert("Could not find the original template to clone.");
+            showToast("Could not find the original template to clone.", 'error');
             return;
         }
 
@@ -1403,11 +1405,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         }).select().single();
 
         if (error) {
-            alert("Error cloning template: " + error.message);
+            showToast("Error cloning template: " + error.message, 'error');
             return;
         }
 
-        alert(`Template "${newName}" created successfully!`);
+        showActionSuccess(`Template "${newName}" created successfully`);
         await loadAllData();
         renderTemplateManager();
     }
@@ -1422,7 +1424,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (template) {
             openTemplateForm(template);
         } else {
-            alert("Could not find the template for editing.");
+            showToast("Could not find the template for editing.", 'error');
         }
     }
 
@@ -1467,7 +1469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const cancelBtn = document.getElementById('template-form-cancel-btn');
         const onSave = async () => {
             const name = document.getElementById('template-name')?.value.trim();
-            if (!name) { alert('Template name is required.'); return; }
+            if (!name) { showToast('Template name is required.', 'error'); return; }
             const templateData = {
                 name,
                 subject: document.getElementById('template-subject')?.value.trim(),
@@ -1483,10 +1485,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 error = insertError;
             }
             if (error) {
-                alert("Error saving template: " + error.message);
+                showToast("Error saving template: " + error.message, 'error');
                 return;
             }
-            alert(`Template "${name}" saved successfully!`);
+            showActionSuccess(`Template "${name}" saved successfully`);
             wrapper.classList.add('hidden');
             templateFormEditing = null;
             await loadAllData();
@@ -1518,10 +1520,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (wrapper) wrapper.classList.add('hidden');
         const { error } = await supabase.from('email_templates').delete().eq('id', id);
         if (error) {
-            alert("Error deleting template: " + error.message);
+            showToast("Error deleting template: " + error.message, 'error');
             return;
         }
-        alert("Template deleted successfully.");
+        showActionSuccess("Template deleted successfully");
         await loadAllData();
         renderTemplateManager();
     }
@@ -1535,13 +1537,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         const campaignId = state.selectedCampaignId;
 
         if (!campaignId) {
-            alert("Please select an active campaign to delete.");
+            showToast("Please select an active campaign to delete.", 'error');
             return;
         }
 
         const campaign = state.campaigns.find(c => c.id === campaignId);
         if (campaign && campaign.completed_at) {
-            alert("Cannot delete a past campaign. Please select an active campaign.");
+            showToast("Cannot delete a past campaign. Please select an active campaign.", 'error');
             return;
         }
 
@@ -1552,7 +1554,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         showModal("Confirm Deletion", "Are you sure you want to delete this campaign? This cannot be undone.", async () => {
             await supabase.from('campaign_members').delete().eq('campaign_id', campaignId);
             await supabase.from('campaigns').delete().eq('id', campaignId);
-            alert("Campaign and its members deleted successfully!");
+            showActionSuccess("Campaign and its members deleted successfully");
             state.selectedCampaignId = null;
             await loadAllData();
             return true;
@@ -1603,7 +1605,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             renderTemplateManager();
         } catch (error) {
             console.error("Error loading data:", error.message);
-            alert("Failed to load page data. Please try refreshing. Error: " + error.message);
+            showToast("Failed to load page data. Please try refreshing. Error: " + error.message, 'error');
         } finally {
             hideGlobalLoader();
         }

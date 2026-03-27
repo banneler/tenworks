@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (filterChip) {
             if (state.filterProjectId && state.filterProjectName) {
                 filterChip.style.display = 'flex';
-                filterChip.innerHTML = `<span style="color:var(--text-dim);">Showing:</span> <span style="font-weight:600; color:var(--primary-gold);">${state.filterProjectName}</span> <a href="talent.html" id="staging-clear-filter" style="margin-left:8px; font-size:0.75rem; color:var(--text-dim);">Clear</a>`;
+                filterChip.innerHTML = `<span class="talent-filter-label">Showing:</span> <span class="talent-filter-value">${state.filterProjectName}</span> <a href="talent.html" id="staging-clear-filter" class="talent-filter-clear-link">Clear</a>`;
                 const clearBtn = document.getElementById('staging-clear-filter');
                 if (clearBtn) clearBtn.addEventListener('click', (e) => { e.preventDefault(); state.filterProjectId = null; state.filterProjectName = null; history.replaceState({}, '', 'talent.html'); recalcStagingLane(); renderMatrix(); });
             } else {
@@ -213,25 +213,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             card.innerHTML = `
                 <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                        <span style="font-size:0.7rem; color:${color}; font-weight:bold; letter-spacing:1px; text-transform:uppercase;">
+                    <div class="talent-pool-card-header">
+                        <span class="talent-pool-trade" style="color:${color};">
                             ${task.shop_trades?.name || 'Task'}
                         </span>
-                        <span style="font-size:0.65rem; color:var(--text-dim); background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:3px;">
+                        <span class="talent-pool-hours-pill">
                             ${booked} / ${total} hrs
                         </span>
                     </div>
-                    <div style="font-weight:700; color:var(--text-bright); line-height:1.2; font-size:0.95rem;">${task.name}</div>
-                    <div style="font-size:0.75rem; color:var(--text-dim); margin-top:3px;">${task.projects?.name}</div>
+                    <div class="talent-pool-task-name">${task.name}</div>
+                    <div class="talent-pool-project-name">${task.projects?.name}</div>
                 </div>
-                <div style="margin-top:auto;">
-                    <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden; margin-bottom:6px;">
+                <div class="talent-pool-footer">
+                    <div class="talent-pool-progress-wrap">
                         <div style="width:${percent}%; height:100%; background:${color};"></div>
                     </div>
-                    <div style="font-size:0.7rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">
-                        <span style="color:var(--text-bright);"><i class="far fa-calendar"></i> ${s}</span>
-                        <span style="color:${color}; font-weight:bold;">${remaining}h left</span>
-                        <a href="${scheduleUrl}" class="staging-link" style="color:var(--primary-gold); text-decoration:none;" title="View on Schedule" onclick="event.stopPropagation();">Schedule</a>
+                    <div class="talent-pool-meta-row">
+                        <span class="talent-pool-date"><i class="far fa-calendar"></i> ${s}</span>
+                        <span class="talent-pool-remaining" style="color:${color};">${remaining}h left</span>
+                        <a href="${scheduleUrl}" class="staging-link talent-pool-schedule-link" title="View on Schedule" onclick="event.stopPropagation();">Schedule</a>
                     </div>
                 </div>
             `;
@@ -296,20 +296,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if(t) visibleLoadHours += Math.min(t.estimated_hours || 8, 8);
             });
 
-            let metricColor = 'var(--text-dim)';
-            if (visibleLoadHours > totalCapacityHours) metricColor = '#ff4444'; 
-            else if (visibleLoadHours > 0 && visibleLoadHours >= totalCapacityHours * 0.9) metricColor = 'var(--warning-yellow)'; 
-            else if (visibleLoadHours > 0) metricColor = '#4CAF50';
-
-            const bgStyle = isWeekend ? 'background:rgba(255, 50, 50, 0.08);' : '';
-            const borderStyle = isToday ? 'border-bottom: 2px solid var(--primary-gold);' : '';
-            const textColor = isToday ? 'color:var(--primary-gold);' : 'color:var(--text-bright);';
+            const metricClass = visibleLoadHours > totalCapacityHours
+                ? 'talent-header-metric-over'
+                : (visibleLoadHours > 0 && visibleLoadHours >= totalCapacityHours * 0.9 ? 'talent-header-metric-warn' : (visibleLoadHours > 0 ? 'talent-header-metric-good' : ''));
 
             headerHtml += `
-                <div style="min-width:${colWidth}px; width:${colWidth}px; border-right:1px solid var(--border-color); padding:10px; text-align:center; display:flex; flex-direction:column; justify-content:center; ${bgStyle} ${borderStyle}">
-                    <div style="font-size:1.4rem; font-family:'Rajdhani', sans-serif; font-weight:700; ${textColor}">${d.format('DD')}</div>
-                    <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">${d.format('ddd')}</div>
-                    <div style="font-size:0.65rem; color:${metricColor}; font-weight:bold; margin-top:5px; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:4px;">
+                <div class="talent-header-cell ${isWeekend ? 'talent-header-weekend' : ''} ${isToday ? 'talent-header-today' : ''}" style="min-width:${colWidth}px; width:${colWidth}px;">
+                    <div class="talent-header-day ${isToday ? 'talent-header-day-today' : ''}">${d.format('DD')}</div>
+                    <div class="talent-header-weekday">${d.format('ddd')}</div>
+                    <div class="talent-header-metric ${metricClass}">
                         ${visibleLoadHours}h / ${totalCapacityHours}h
                     </div>
                 </div>`;
@@ -339,10 +334,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             }).join(', ');
 
             sidebarItem.innerHTML = `
-                <div style="width:30px; height:30px; min-width:30px; background:var(--bg-medium); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold; margin-right:10px; border:1px solid var(--border-color);">${getInitials(person.name)}</div>
-                <div style="overflow:hidden; width:100%;">
-                    <div class="talent-name-clickable" style="font-weight:600; font-size:0.9rem; color:var(--text-bright); white-space:nowrap; cursor:pointer;">${person.name}</div>
-                    <div style="font-size:0.7rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${personSkills || 'No Skills'}</div>
+                <div class="talent-avatar-pill">${getInitials(person.name)}</div>
+                <div class="talent-person-meta">
+                    <div class="talent-name-clickable talent-name-strong">${person.name}</div>
+                    <div class="talent-skills-summary">${personSkills || 'No Skills'}</div>
                 </div>`;
             sidebarItem.querySelector('.talent-name-clickable').addEventListener('click', () => openSkillsModal(person));
             resList.appendChild(sidebarItem);
@@ -391,7 +386,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (avail && avail.status === 'PTO') {
                     cell.style.background = 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)';
                     cell.style.justifyContent = 'center';
-                    cell.innerHTML = '<i class="fas fa-plane" style="color:var(--text-dim);"></i>';
+                    cell.innerHTML = '<i class="fas fa-plane talent-pto-icon"></i>';
                 } else if (dailyAssignments.length > 0) {
                     
                     // Render Chips horizontally based on hours
@@ -420,8 +415,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         
                         // Inner Content
                         chip.innerHTML = `
-                            <div style="font-weight:700; font-size:0.6rem; color:${tradeColor}; line-height:1;">${hours}h</div>
-                            <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${task.name}</div>
+                            <div class="talent-chip-hours" style="color:${tradeColor};">${hours}h</div>
+                            <div class="talent-chip-name">${task.name}</div>
                         `;
                         chip.title = `${task.projects?.name} - ${task.name} (${hours} hrs)`;
                         
@@ -525,16 +520,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     function openInternalTaskModal() {
         const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
         showModal('Create Internal Task', `
-            <div style="margin-bottom:15px; color:var(--text-dim); font-size:0.9rem;">
+            <div class="talent-modal-intro">
                 Schedule maintenance, shop cleanup, or internal projects.
             </div>
-            <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
-                <div><label>Category</label><select id="int-task-trade" class="form-control" style="background:var(--bg-dark); color:white; padding:8px;">${tradeOptions}</select></div>
+            <div class="form-grid talent-modal-grid-two">
+                <div><label>Category</label><select id="int-task-trade" class="form-control talent-modal-dark-select">${tradeOptions}</select></div>
                 <div><label>Name</label><input type="text" id="int-task-name" class="form-control" placeholder="e.g. Machine Maintenance"></div>
                 <div><label>Start Date</label><input type="date" id="int-task-start" class="form-control" value="${dayjs().format('YYYY-MM-DD')}"></div>
                 <div><label>Duration (Hours)</label><input type="number" id="int-task-hours" class="form-control" value="8"></div>
             </div>
-            <button id="btn-save-internal" class="btn-primary" style="width:100%; margin-top:20px;">Add to Schedule</button>
+            <button id="btn-save-internal" class="btn-primary talent-modal-full-btn">Add to Schedule</button>
         `, async () => {});
 
         setTimeout(() => {
@@ -568,9 +563,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const currentSkillIds = state.skills.filter(s => s.talent_id === person.id).map(s => s.trade_id);
         const checkboxes = state.trades.map(trade => {
             const isChecked = currentSkillIds.includes(trade.id);
-            return `<div style="display:flex; align-items:center; background:var(--bg-medium); padding:10px; border-radius:6px; border:1px solid var(--border-color);"><input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} style="margin-right:10px; transform:scale(1.2);"><label for="skill-${trade.id}" style="color:var(--text-bright); cursor:pointer;">${trade.name}</label></div>`;
+            return `<div class="talent-skill-item"><input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} class="talent-skill-checkbox"><label for="skill-${trade.id}" class="talent-skill-label">${trade.name}</label></div>`;
         }).join('');
-        showModal(`Manage Skills: ${person.name}`, `<div style="margin-bottom:20px; color:var(--text-dim); font-size:0.9rem;">Select capabilities.</div><div id="skills-checklist-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:300px; overflow-y:auto;">${checkboxes}</div>`, async () => {
+        showModal(`Manage Skills: ${person.name}`, `<div class="talent-modal-intro talent-modal-intro-lg">Select capabilities.</div><div id="skills-checklist-container" class="talent-skills-grid">${checkboxes}</div>`, async () => {
             const container = document.getElementById('skills-checklist-container');
             const selectedTradeIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
             await supabase.from('talent_skills').delete().eq('talent_id', person.id);
@@ -591,17 +586,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         const isPTO = avail && avail.status === 'PTO';
 
         showModal(`Schedule: ${person.name}`, `
-            <div style="text-align:center; margin-bottom:20px;"><h4 style="color:var(--primary-gold); font-size:1.1rem; margin-bottom:5px;">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4></div>
-            <div style="display:grid; grid-template-columns: 1fr; gap:20px;">
-                <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
-                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">Assign Task (Range)</label>
-                    <div style="display:flex; gap:10px; margin-bottom:10px;"><input type="date" id="assign-start" class="form-control" value="${dateStr}" style="flex:1;"><input type="date" id="assign-end" class="form-control" value="${dateStr}" style="flex:1;"></div>
-                    ${viableTasks.length > 0 ? `<select id="assign-task-select" class="form-control" style="width:100%; padding:10px; background:var(--bg-medium); color:white; border:1px solid var(--border-color); margin-bottom:15px;"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary" style="width:100%;">Save Allocation</button>` : `<div style="text-align:center; color:var(--text-dim); padding:10px;">No tasks found.</div>`}
+            <div class="talent-schedule-modal-header"><h4 class="talent-schedule-modal-date">${dayjs(dateStr).format('dddd, MMM D, YYYY')}</h4></div>
+            <div class="talent-schedule-modal-grid">
+                <div class="talent-schedule-panel">
+                    <label class="talent-schedule-label">Assign Task (Range)</label>
+                    <div class="talent-schedule-range-row"><input type="date" id="assign-start" class="form-control talent-modal-flex-input" value="${dateStr}"><input type="date" id="assign-end" class="form-control talent-modal-flex-input" value="${dateStr}"></div>
+                    ${viableTasks.length > 0 ? `<select id="assign-task-select" class="form-control talent-modal-dark-select talent-schedule-select"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary talent-modal-full-btn">Save Allocation</button>` : `<div class="talent-modal-empty">No tasks found.</div>`}
                 </div>
-                <div style="background:var(--bg-dark); padding:15px; border-radius:8px; border:1px solid var(--border-color);">
-                    <label style="display:block; color:var(--text-bright); margin-bottom:10px; font-weight:600;">PTO Range</label>
-                    <div style="display:flex; gap:10px; margin-bottom:15px;"><input type="date" id="pto-start-date" class="form-control" value="${dateStr}" style="flex:1;"><input type="date" id="pto-end-date" class="form-control" value="${dateStr}" style="flex:1;"></div>
-                    <div style="display:flex; gap:10px;"><button id="btn-mark-avail" style="flex:1; padding:10px; background:${!isPTO ? 'rgba(76,175,80,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Clear</button><button id="btn-mark-pto" style="flex:1; padding:10px; background:${isPTO ? 'rgba(244,67,54,0.2)' : 'transparent'}; border:1px solid var(--border-color); color:white; border-radius:6px;">Mark PTO</button></div>
+                <div class="talent-schedule-panel">
+                    <label class="talent-schedule-label">PTO Range</label>
+                    <div class="talent-schedule-range-row"><input type="date" id="pto-start-date" class="form-control talent-modal-flex-input" value="${dateStr}"><input type="date" id="pto-end-date" class="form-control talent-modal-flex-input" value="${dateStr}"></div>
+                    <div class="talent-schedule-toggle-row"><button id="btn-mark-avail" class="talent-schedule-toggle-btn ${!isPTO ? 'talent-schedule-toggle-avail' : ''}">Clear</button><button id="btn-mark-pto" class="talent-schedule-toggle-btn ${isPTO ? 'talent-schedule-toggle-pto' : ''}">Mark PTO</button></div>
                 </div>
             </div>
         `, async () => {});
@@ -662,7 +657,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         const loadByPersonWeek = {};
         state.assignments.forEach(a => {
-            const hrs = typeof a.hours === 'number' && a.hours >= 0 ? a.hours : 8;
+            const parsedHours = Number(a.hours);
+            const hrs = Number.isFinite(parsedHours) && parsedHours >= 0 ? parsedHours : 0;
             const d = dayjs(a.assigned_date);
             const weekKey = d.startOf('week').format('YYYY-MM-DD');
             const key = `${a.talent_id}|${weekKey}`;
@@ -683,17 +679,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         const overloadPeople = new Set(rows.filter(r => r.over).map(r => r.name)).size;
         const tableRows = rows.map(r =>
-            `<tr style="${r.over ? 'background:rgba(231,76,60,0.15);' : ''}">
+            `<tr class="${r.over ? 'talent-capacity-row-over' : ''}">
                 <td>${r.name}</td><td>${r.weekLabel}</td><td>${r.booked}h</td><td>${r.cap}h</td>
-                <td style="${r.over ? 'color:var(--danger-red); font-weight:bold;' : ''}">${r.pct}%</td>
-                <td>${r.over ? '<span style="color:var(--danger-red);">Over</span>' : '—'}</td>
+                <td class="${r.over ? 'talent-capacity-pct-over' : ''}">${r.pct}%</td>
+                <td>${r.over ? '<span class="talent-capacity-over-text">Over</span>' : '—'}</td>
             </tr>`
         ).join('');
         showModal('Capacity report (visible range)', `
-            <p style="color:var(--text-dim); margin-bottom:12px;">Booked vs capacity by person and week. Capacity = ${DEFAULT_HOURS_PER_WEEK}h/week default (or <code>hours_per_week</code> on talent).</p>
-            ${overloadPeople > 0 ? `<p style="color:var(--danger-red); font-weight:600;">${overloadPeople} person(s) over capacity in this range.</p>` : ''}
-            <div style="max-height:320px; overflow:auto;">
-                <table class="bom-table" style="font-size:0.85rem;">
+            <p class="talent-capacity-intro">Booked vs capacity by person and week. Capacity = ${DEFAULT_HOURS_PER_WEEK}h/week default (or <code>hours_per_week</code> on talent).</p>
+            ${overloadPeople > 0 ? `<p class="talent-capacity-over-summary">${overloadPeople} person(s) over capacity in this range.</p>` : ''}
+            <div class="talent-capacity-table-wrap">
+                <table class="bom-table talent-capacity-table">
                     <thead><tr><th>Person</th><th>Week of</th><th>Booked</th><th>Capacity</th><th>%</th><th>Status</th></tr></thead>
                     <tbody>${tableRows}</tbody>
                 </table>
