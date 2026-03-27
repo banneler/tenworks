@@ -71,7 +71,33 @@
 
         <!-- Leader View -->
         <div id="view-leader" class="mobile-view hidden">
-            <div id="leader-tab-tasks">
+            <div id="leader-tab-dash">
+                <h2 class="mobile-section-title">Dashboard</h2>
+                <div class="mobile-metric-grid">
+                    <div class="mobile-metric-card full-width">
+                        <div class="mobile-metric-label">Shop Load (This Week)</div>
+                        <div class="mobile-metric-value" id="mobile-metric-load">--%</div>
+                        <div class="mobile-progress-wrap">
+                            <div class="mobile-progress-fill" id="mobile-metric-load-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="mobile-metric-card">
+                        <div class="mobile-metric-value" id="mobile-metric-active">--</div>
+                        <div class="mobile-metric-label">Active Projects</div>
+                    </div>
+                    <div class="mobile-metric-card">
+                        <div class="mobile-metric-value danger" id="mobile-metric-overdue">--</div>
+                        <div class="mobile-metric-label">Overdue Projects</div>
+                    </div>
+                </div>
+
+                <h2 class="mobile-section-title" style="margin-top: 20px;">Upcoming Time Off</h2>
+                <div id="leader-pto-list"></div>
+                
+                <h2 class="mobile-section-title" style="margin-top: 20px; color: var(--danger-red);">Overdue Projects</h2>
+                <div id="leader-overdue-list"></div>
+            </div>
+            <div id="leader-tab-tasks" class="hidden">
                 <h2 class="mobile-section-title">Shop Floor Tasks</h2>
                 <div id="leader-tasks-list"></div>
             </div>
@@ -84,7 +110,8 @@
 
     <!-- Bottom Nav (Leader Only) -->
     <nav id="mobile-bottom-nav" class="mobile-bottom-nav hidden">
-        <button class="nav-item active" data-target="leader-tab-tasks"><i class="fas fa-tasks"></i> Tasks</button>
+        <button class="nav-item active" data-target="leader-tab-dash"><i class="fas fa-chart-pie"></i> Dash</button>
+        <button class="nav-item" data-target="leader-tab-tasks"><i class="fas fa-tasks"></i> Tasks</button>
         <button class="nav-item" data-target="leader-tab-team"><i class="fas fa-users"></i> Team</button>
     </nav>
 
