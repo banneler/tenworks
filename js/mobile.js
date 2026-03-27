@@ -1,4 +1,6 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, hideGlobalLoader } from './shared_constants.js';
+
+console.log("Mobile JS starting...");
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
@@ -15,15 +17,16 @@ let state = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log("DOM loaded, initializing mobile app...");
     // Register SW for PWA
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW registration failed:', err));
     }
 
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    console.log("Session fetched:", sessionData);
     if (sessionError) {
-        const loader = document.getElementById('loader');
-        if (loader) loader.style.display = 'none';
+        hideGlobalLoader();
         console.error("Session Error:", sessionError);
         alert("Session error: " + sessionError.message);
         return;
@@ -31,10 +34,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const session = sessionData?.session;
     if (!session || !session.user) {
+        console.log("No valid session, redirecting to index.html");
         window.location.href = 'index.html';
         return;
     }
     state.user = session.user;
+    console.log("User authenticated:", state.user.email);
 
     document.getElementById('mobile-user-menu').addEventListener('click', async () => {
         if(confirm('Log out?')) {
@@ -60,7 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadData() {
-    document.getElementById('loader').classList.remove('hidden');
+    console.log("Starting loadData...");
+    // We removed the hardcoded loader from HTML, so we don't need to manipulate it here.
     document.getElementById('view-laborer').classList.add('hidden');
     document.getElementById('view-leader').classList.add('hidden');
 
@@ -84,6 +90,7 @@ async function loadData() {
 
         // 2. Fetch Tasks & Assignments for Today
         const todayStr = dayjs().format('YYYY-MM-DD');
+        console.log("Fetching tasks for today:", todayStr);
         
         const [assignRes, tasksRes, projRes] = await Promise.all([
             supabase.from('task_assignments').select('*').eq('assigned_date', todayStr),
@@ -98,23 +105,29 @@ async function loadData() {
         state.assignments = assignRes.data || [];
         state.tasks = tasksRes.data || [];
         state.projects = projRes.data || [];
+        
+        console.log(`Loaded ${state.assignments.length} assignments, ${state.tasks.length} tasks, ${state.projects.length} projects`);
 
     } catch (error) {
-        const loader = document.getElementById('loader');
-        if (loader) loader.style.display = 'none';
+        hideGlobalLoader();
         console.error("Error loading data:", error);
         alert("Failed to load data: " + error.message);
     } finally {
-        const loader = document.getElementById('loader');
-        if (loader) loader.classList.add('hidden');
+        console.log("loadData complete");
+        hideGlobalLoader();
     }
 
     if (state.isLeader) {
+        console.log("Rendering Leader View");
         document.getElementById('view-leader').classList.remove('hidden');
+        document.getElementById('view-leader').style.display = 'block';
         document.getElementById('mobile-bottom-nav').classList.remove('hidden');
+        document.getElementById('mobile-bottom-nav').style.display = 'flex';
         renderLeaderView();
     } else {
+        console.log("Rendering Laborer View");
         document.getElementById('view-laborer').classList.remove('hidden');
+        document.getElementById('view-laborer').style.display = 'block';
         renderLaborerView();
     }
 }

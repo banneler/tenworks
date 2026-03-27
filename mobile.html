@@ -11,15 +11,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script type="module" src="js/shared_constants.js"></script>
     <script>
         // Catch unhandled errors before mobile.js even runs
         window.onerror = function(msg, url, line, col, error) {
-            const loader = document.getElementById('loader');
+            const loader = document.getElementById('global-loader-overlay');
             if (loader) loader.style.display = 'none';
-            alert("Global Error: " + msg + "\nLine: " + line);
+            alert("Global Error: " + msg + "\nLine: " + line + "\nURL: " + url);
         };
         window.addEventListener('unhandledrejection', function(event) {
-            const loader = document.getElementById('loader');
+            const loader = document.getElementById('global-loader-overlay');
             if (loader) loader.style.display = 'none';
             alert("Unhandled Promise Rejection: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
         });
@@ -36,14 +37,22 @@
             height: 100vh;
             width: 100vw;
             background: var(--bg-dark);
-            position: absolute;
+            position: fixed; /* Changed from absolute to fixed */
             top: 0;
             left: 0;
-            z-index: 999; /* Lowered so native alerts show over it */
+            z-index: 999;
         }
     </style>
 </head>
-<body class="theme-dark mobile-app">
+<body class="theme-dark mobile-app" data-nav="erp">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
     <!-- App Header -->
     <header class="mobile-header">
         <div class="mobile-logo"><img src="assets/logo.svg" alt="TenWorks"></div>
@@ -52,9 +61,7 @@
 
     <!-- Main Content -->
     <main id="mobile-main" class="mobile-main" style="position: relative;">
-        <div id="loader" class="mobile-loader">
-            <i class="fas fa-spinner fa-spin fa-2x"></i><br>Loading...
-        </div>
+        <!-- We removed the hardcoded loader div here to prevent it from getting stuck -->
         
         <!-- Laborer View -->
         <div id="view-laborer" class="mobile-view hidden">
@@ -91,5 +98,15 @@
     </div>
 
     <script type="module" src="js/mobile.js"></script>
+    <script>
+        // Emergency fallback: if loader is still here after 3 seconds, kill it.
+        setTimeout(() => {
+            const loader = document.getElementById('global-loader-overlay');
+            if (loader && loader.style.display !== 'none') {
+                console.warn("Emergency loader kill triggered.");
+                loader.style.display = 'none';
+            }
+        }, 3000);
+    </script>
 </body>
 </html>
