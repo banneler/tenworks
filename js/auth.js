@@ -13,6 +13,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadSVGs();
     setupModalListeners();
 
+    const getPostLoginPath = () => {
+        // iOS home-screen mode uses navigator.standalone.
+        const isIosStandalone = window.navigator.standalone === true;
+        // Other PWAs use display-mode: standalone.
+        const isDisplayModeStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+        // Allow explicit override when needed.
+        const forceMobile = new URLSearchParams(window.location.search).get('app') === 'mobile';
+        if (isIosStandalone || isDisplayModeStandalone || forceMobile) {
+            return 'mobile.html';
+        }
+        return 'command-center.html';
+    };
+
     // --- DOM SELECTORS ---
     const authForm = document.getElementById("auth-form");
     const resetForm = document.getElementById("reset-form");
@@ -95,9 +108,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (error) {
                 showTemporaryMessage(error.message, false);
             } else {
-                // EXPLICIT REDIRECT: If there's no error, we are logged in. Go to the command center.
-                sessionStorage.setItem('showLoadingScreen', 'true'); // <-- ADD THIS LINE
-                window.location.href = "command-center.html";
+                const target = getPostLoginPath();
+                if (target === 'command-center.html') {
+                    sessionStorage.setItem('showLoadingScreen', 'true');
+                }
+                window.location.href = target;
             }
         } else {
             const confirmPassword = authConfirmPasswordInput.value.trim();
@@ -153,8 +168,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         // This listener is still useful for auto-login if a session already exists,
         // but our form submission is now more reliable.
         if (event === "SIGNED_IN" && session) {
-            if (!window.location.pathname.includes('command-center.html')) {
-                window.location.href = "command-center.html";
+            const target = getPostLoginPath();
+            if (!window.location.pathname.includes(target)) {
+                if (target === 'command-center.html') {
+                    sessionStorage.setItem('showLoadingScreen', 'true');
+                }
+                window.location.href = target;
             }
         }
     });
