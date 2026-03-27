@@ -8256,6 +8256,20 @@ i, .fa, .fas, .far, .fab, .fa-solid, .fa-regular, .fa-brands {
     padding-left: 8px;
 }
 
+.schedule-task-machine-pill {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(0,0,0,0.2);
+    color: var(--text-bright);
+    font-size: 0.62rem;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
 .schedule-modal-section {
     margin-bottom: 20px;
     border-bottom: 1px solid var(--border-color);
@@ -11010,6 +11024,64 @@ body.proposals-page .proposal-readiness-panel {
     margin: 0;
     font-size: 0.85rem;
     color: var(--text-medium);
+}
+
+/* Mid-size viewport tuning (1080-ish): reduce pinch before tablet breakpoints. */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .crm-container {
+        gap: 0.875rem;
+    }
+
+    .nav-sidebar {
+        width: 176px;
+        padding: 1rem 0.5rem;
+    }
+
+    .content-area {
+        padding: 1rem;
+    }
+
+    .accounts-layout,
+    .contacts-layout,
+    .sequences-layout,
+    .campaigns-layout {
+        gap: 0.75rem;
+    }
+
+    .account-picker-panel,
+    .contact-picker-panel,
+    .sequence-picker-panel,
+    .campaign-picker-panel {
+        width: 15.5rem;
+    }
+
+    .account-details-top-row,
+    .contact-details-top-row {
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+    }
+
+    .account-cards-row,
+    .contact-cards-row {
+        flex-direction: column;
+    }
+
+    .sequence-status-card {
+        width: 240px;
+        min-width: 240px;
+    }
+
+    #dashboard .dashboard-sections-grid,
+    #dashboard .dashboard-left-top-row {
+        grid-template-columns: 1fr;
+    }
+
+    .campaign-top-row {
+        flex-direction: column;
+    }
+
+    .deals-charts-section.section-card .section-card-body {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
 }
 
 .hidden {

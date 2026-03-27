@@ -127,9 +127,10 @@
         .talent-row-dimmed { opacity: 0.3; filter: grayscale(1); transition: all 0.3s; }
         .talent-row-highlight { background: rgba(255,255,255,0.05); transition: all 0.3s; }
 
-        /* Sub-pixel alignment: overlap borders to prevent 2px blurry lines (Phase 4) */
+        /* Keep row/cell sizing deterministic so sidebar/date rows align exactly. */
         #matrix-grid-canvas .grid-cell { margin-right: -1px; }
-        #matrix-grid-canvas .matrix-grid-row { margin-bottom: -1px; }
+        #matrix-grid-canvas .matrix-grid-row { margin-bottom: 0; }
+        .talent-row-item, .matrix-grid-row, .grid-cell { box-sizing: border-box; }
 
     </style>
 </head>
@@ -185,7 +186,7 @@
                         <div class="gantt-header-cell" style="height: 60px; min-height: 60px; padding: 0 15px; display: flex; align-items: center; font-weight: bold; color: var(--text-dim); border-bottom: 1px solid var(--border-color); background: var(--bg-medium);">
                             Team Member
                         </div>
-                        <div id="matrix-resource-list" style="flex: 1; overflow: hidden; background: var(--bg-dark);"></div>
+                        <div id="matrix-resource-list" style="flex: 1; overflow-y: hidden; overflow-x: hidden; background: var(--bg-dark);"></div>
                     </div>
 
                     <div class="gantt-timeline-wrapper" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">

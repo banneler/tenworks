@@ -38,7 +38,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         activeTasks: [],
         unassignedTasks: [],
         internalProjectID: null,
-        viewDate: dayjs(),
+        // Default timeline starts at today (forward-looking by default).
+        viewDate: dayjs().startOf('day'),
         daysToShow: 30,
         filterTradeId: null,
         filterProjectId: null,
@@ -235,7 +236,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     </div>
                 </div>
             `;
-            card.addEventListener('dragstart', (e) => handleDragStart(e, task));
+            card.addEventListener('dragstart', (e) => handleDragStart(e, task, { mode: 'copy' }));
             card.addEventListener('dragend', handleDragEnd);
             list.appendChild(card);
         });
@@ -412,6 +413,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         chip.style.flexDirection = 'column';
                         chip.style.justifyContent = 'center';
                         chip.style.padding = '0 4px';
+                        chip.style.cursor = 'grab';
+                        chip.draggable = true;
                         
                         // Inner Content
                         chip.innerHTML = `
@@ -419,6 +422,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                             <div class="talent-chip-name">${task.name}</div>
                         `;
                         chip.title = `${task.projects?.name} - ${task.name} (${hours} hrs)`;
+                        chip.addEventListener('dragstart', (e) => handleDragStart(e, task, {
+                            mode: 'move',
+                            sourceTalentId: person.id,
+                            sourceDate: dateStr
+                        }));
+                        chip.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openAssignedChipDetailModal(person, dateStr, assign, avail);
+                        });
+                        chip.addEventListener('dragend', handleDragEnd);
                         
                         cell.appendChild(chip);
                     });
@@ -441,12 +454,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     // 7. DRAG AND DROP (OPTIMIZED & OPTIMISTIC)
     // ------------------------------------------------------------------------
-    let draggingTask = null;
+    let draggingPayload = null;
 
-    function handleDragStart(e, task) {
-        draggingTask = task;
-        e.dataTransfer.setData('text/plain', JSON.stringify(task));
-        e.dataTransfer.effectAllowed = 'copy';
+    function handleDragStart(e, task, options = {}) {
+        draggingPayload = {
+            task,
+            mode: options.mode || 'copy',
+            sourceTalentId: options.sourceTalentId ?? null,
+            sourceDate: options.sourceDate ?? null
+        };
+        e.dataTransfer.setData('text/plain', JSON.stringify({ taskId: task.id }));
+        e.dataTransfer.effectAllowed = draggingPayload.mode === 'move' ? 'move' : 'copy';
         const matchingTalentIds = state.skills.filter(s => s.trade_id === task.trade_id).map(s => s.talent_id);
         document.querySelectorAll('.talent-row-item').forEach(item => {
             const tId = parseInt(item.dataset.talentId);
@@ -456,19 +474,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function handleDragEnd(e) {
-        draggingTask = null;
+        draggingPayload = null;
         document.querySelectorAll('.talent-row-item').forEach(item => item.classList.remove('talent-row-highlight', 'talent-row-dimmed'));
         document.querySelectorAll('.grid-cell').forEach(cell => cell.classList.remove('grid-cell-droppable'));
     }
 
-    function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = draggingPayload?.mode === 'move' ? 'move' : 'copy';
+    }
     function handleDragEnter(e) { e.preventDefault(); if (e.target.classList.contains('grid-cell')) e.target.classList.add('grid-cell-droppable'); }
     function handleDragLeave(e) { if (e.target.classList.contains('grid-cell')) e.target.classList.remove('grid-cell-droppable'); }
 
     async function handleDrop(e, person, dateStr) {
         e.preventDefault();
         e.target.classList.remove('grid-cell-droppable');
-        if (!draggingTask) return;
+        if (!draggingPayload?.task) return;
+        const { task: draggingTask, mode, sourceTalentId, sourceDate } = draggingPayload;
+
+        // No-op for dropping moved chip into the same cell.
+        if (mode === 'move' && sourceTalentId === person.id && sourceDate === dateStr) {
+            draggingPayload = null;
+            return;
+        }
 
         const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
         if (!hasSkill && !confirm(`${person.name} is not tagged for this trade. Assign anyway?`)) return;
@@ -482,8 +510,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             project_tasks: draggingTask // Nested object for renderer
         };
 
-        // 2. Push to local state
-        state.assignments.push(optimisticAssignment);
+        // 2. Push/update local state
+        if (mode === 'move' && sourceTalentId != null && sourceDate) {
+            state.assignments = state.assignments.filter(a =>
+                !(a.task_id === draggingTask.id && a.talent_id === sourceTalentId && a.assigned_date === sourceDate)
+            );
+        }
+        const alreadyAssignedHere = state.assignments.some(a =>
+            a.task_id === draggingTask.id && a.talent_id === person.id && a.assigned_date === dateStr
+        );
+        if (!alreadyAssignedHere) {
+            state.assignments.push(optimisticAssignment);
+        }
 
         // 3. Remove from pool (visually) if it was the last chunk (simple logic: just refresh pool)
         // We trigger re-renders immediately
@@ -492,11 +530,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         // --- OPTIMISTIC UI UPDATE END ---
 
         // 4. PERFORM DATABASE OPERATIONS
-        const { error } = await supabase.from('task_assignments').upsert({
-            task_id: draggingTask.id,
-            talent_id: person.id,
-            assigned_date: dateStr
-        }, { onConflict: 'task_id, talent_id, assigned_date' });
+        let error = null;
+        if (mode === 'move' && sourceTalentId != null && sourceDate) {
+            const { error: deleteError } = await supabase
+                .from('task_assignments')
+                .delete()
+                .match({ task_id: draggingTask.id, talent_id: sourceTalentId, assigned_date: sourceDate });
+            if (deleteError) error = deleteError;
+        }
+        if (!error) {
+            const { error: upsertError } = await supabase.from('task_assignments').upsert({
+                task_id: draggingTask.id,
+                talent_id: person.id,
+                assigned_date: dateStr
+            }, { onConflict: 'task_id, talent_id, assigned_date' });
+            if (upsertError) error = upsertError;
+        }
 
         if (!error) {
             await supabase.from('talent_availability').delete().match({ talent_id: person.id, date: dateStr });
@@ -508,10 +557,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             console.error("Drop Error:", error);
             alert("Could not schedule task.");
-            // Rollback optimistic update
-            state.assignments = state.assignments.filter(a => !(a.task_id === draggingTask.id && a.assigned_date === dateStr));
-            renderMatrix();
+            // Rollback via source-of-truth refresh.
+            await loadTalentData();
         }
+        draggingPayload = null;
     }
 
     // ------------------------------------------------------------------------
@@ -581,8 +630,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             if(state.filterTradeId) return active && t.trade_id === state.filterTradeId;
             return active;
         });
+        const currentTask = currentAssignment
+            ? (currentAssignment.project_tasks || state.activeTasks.find(t => t.id === currentAssignment.task_id))
+            : null;
+        const mergedTasks = [...viableTasks];
+        if (currentTask && !mergedTasks.some(t => t.id === currentTask.id)) {
+            mergedTasks.unshift(currentTask);
+        }
         const assignedTaskId = currentAssignment ? currentAssignment.task_id : '';
-        const taskOptions = viableTasks.map(t => `<option value="${t.id}" ${assignedTaskId == t.id ? 'selected' : ''}>${t.projects?.name} - ${t.name}</option>`).join('');
+        const taskOptions = mergedTasks.map(t => `<option value="${t.id}" ${assignedTaskId == t.id ? 'selected' : ''}>${t.projects?.name || 'Project'} - ${t.name}</option>`).join('');
         const isPTO = avail && avail.status === 'PTO';
 
         showModal(`Schedule: ${person.name}`, `
@@ -591,7 +647,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div class="talent-schedule-panel">
                     <label class="talent-schedule-label">Assign Task (Range)</label>
                     <div class="talent-schedule-range-row"><input type="date" id="assign-start" class="form-control talent-modal-flex-input" value="${dateStr}"><input type="date" id="assign-end" class="form-control talent-modal-flex-input" value="${dateStr}"></div>
-                    ${viableTasks.length > 0 ? `<select id="assign-task-select" class="form-control talent-modal-dark-select talent-schedule-select"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary talent-modal-full-btn">Save Allocation</button>` : `<div class="talent-modal-empty">No tasks found.</div>`}
+                    ${mergedTasks.length > 0 ? `<select id="assign-task-select" class="form-control talent-modal-dark-select talent-schedule-select"><option value="">-- No Assignment --</option>${taskOptions}</select><button id="btn-save-assign" class="btn-primary talent-modal-full-btn">Save Allocation</button>` : `<div class="talent-modal-empty">No tasks found.</div>`}
                 </div>
                 <div class="talent-schedule-panel">
                     <label class="talent-schedule-label">PTO Range</label>
@@ -642,6 +698,59 @@ document.addEventListener("DOMContentLoaded", async () => {
                 hideModal(); loadTalentData();
             };
         }, 100);
+    }
+
+    function openAssignedChipDetailModal(person, dateStr, assignment, avail) {
+        const task = assignment?.project_tasks || state.activeTasks.find(t => t.id === assignment?.task_id);
+        if (!task) {
+            handleCellClick(person, dateStr, avail, assignment);
+            return;
+        }
+        const projectName = task.projects?.name || 'Project';
+        const scheduleUrl = task.project_id ? `schedule.html?project_id=${task.project_id}` : 'schedule.html';
+        const projectsUrl = task.project_id ? 'projects.html' : 'projects.html';
+        const startLabel = task.start_date ? dayjs(task.start_date).format('MMM D, YYYY') : '—';
+        const endLabel = task.end_date ? dayjs(task.end_date).format('MMM D, YYYY') : '—';
+        const assignedLabel = dayjs(dateStr).format('ddd, MMM D, YYYY');
+        showModal(`Assignment: ${person.name}`, `
+            <div class="talent-modal-intro talent-modal-intro-lg">Assigned task details</div>
+            <div class="talent-schedule-panel" style="margin-bottom:12px;">
+                <label class="talent-schedule-label">Project</label>
+                <div>${projectName}</div>
+                <label class="talent-schedule-label" style="margin-top:10px;">Task</label>
+                <div>${task.name}</div>
+                <label class="talent-schedule-label" style="margin-top:10px;">Assigned day</label>
+                <div>${assignedLabel}</div>
+                <label class="talent-schedule-label" style="margin-top:10px;">Task window</label>
+                <div>${startLabel} to ${endLabel}</div>
+                <label class="talent-schedule-label" style="margin-top:10px;">Estimated hours</label>
+                <div>${task.estimated_hours ?? 0}h</div>
+            </div>
+            <div class="talent-schedule-toggle-row">
+                <a href="${scheduleUrl}" class="btn-secondary talent-modal-flex-input" style="text-align:center; text-decoration:none;">Open in Schedule</a>
+                <a href="${projectsUrl}" class="btn-secondary talent-modal-flex-input" style="text-align:center; text-decoration:none;">Open in Projects</a>
+            </div>
+            <div class="talent-schedule-toggle-row" style="margin-top:8px;">
+                <button id="btn-edit-chip-assign" class="btn-primary talent-modal-flex-input">Edit Assignment</button>
+                <button id="btn-remove-chip-assign" class="btn-secondary talent-modal-flex-input">Remove This Day</button>
+            </div>
+        `, async () => {});
+
+        setTimeout(() => {
+            document.getElementById('btn-edit-chip-assign')?.addEventListener('click', () => {
+                hideModal();
+                handleCellClick(person, dateStr, avail, assignment);
+            });
+            document.getElementById('btn-remove-chip-assign')?.addEventListener('click', async () => {
+                await supabase.from('task_assignments').delete().match({
+                    task_id: assignment.task_id,
+                    talent_id: person.id,
+                    assigned_date: dateStr
+                });
+                hideModal();
+                loadTalentData();
+            });
+        }, 50);
     }
 
     function openCapacityReportModal() {

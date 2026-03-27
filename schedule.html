@@ -22,9 +22,43 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.7/dayjs.min.js"></script>
+    <style>
+        /* Keep schedule page vertically scrollable when content exceeds viewport. */
+        body.schedule-page .content-area {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        body.schedule-page .projects-view {
+            min-height: 100%;
+        }
+
+        .schedule-time-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .schedule-range-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            min-width: 220px;
+            text-align: center;
+        }
+
+        .schedule-help-banner {
+            margin: 10px 0 16px;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-medium);
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+    </style>
 </head>
 
-<body data-nav="erp">
+<body data-nav="erp" class="schedule-page">
     <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
         <div class="global-loader-content">
             <div class="global-loader-spinner" aria-hidden="true">
@@ -50,16 +84,12 @@
     </div>
     
     <div style="display:flex; align-items:center; gap:20px;">
-        <div id="project-filter-controls" style="display:none; align-items:center; gap:15px; padding:0 15px; border-right:1px solid var(--border-color);">
-            <select id="gantt-sort" class="form-control" style="padding:8px 10px; font-size:0.85rem; width:auto; background:var(--bg-medium); color:white;">
-                <option value="start_date">Sort: Start Date</option>
-                <option value="end_date">Sort: Due Date</option>
-            </select>
-            
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem; color:var(--text-dim); user-select:none;">
-                <input type="checkbox" id="gantt-show-completed"> 
-                Show Completed
-            </label>
+        <div class="schedule-time-controls">
+            <button id="schedule-prev-range-btn" class="btn-secondary" style="padding:8px 12px;" title="Show earlier dates"><i class="fas fa-chevron-left"></i></button>
+            <button id="schedule-today-btn" class="btn-secondary" style="padding:8px 12px;" title="Jump to current range">Today</button>
+            <button id="schedule-next-range-btn" class="btn-secondary" style="padding:8px 12px;" title="Show later dates"><i class="fas fa-chevron-right"></i></button>
+            <input type="date" id="schedule-start-date" class="form-control" style="padding:8px 10px; font-size:0.85rem; width:auto; background:var(--bg-medium); color:white;">
+            <span id="schedule-range-label" class="schedule-range-label">Range: --</span>
         </div>
 
      <div class="view-controls" style="background: var(--bg-medium); padding: 5px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; gap: 5px;">
@@ -81,6 +111,25 @@
         </button>
     </div>
 </div>
+
+<div id="project-filter-controls" style="display:none; align-items:center; gap:20px; padding: 10px 15px; margin-bottom: 16px; border: 1px solid var(--border-color); background: var(--bg-medium); border-radius: 6px;">
+    <span style="color: var(--text-dim); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Project Filters:</span>
+    <select id="gantt-sort" class="form-control" style="padding:6px 10px; font-size:0.85rem; width:auto; background:var(--bg-dark); color:white;">
+        <option value="start_date">Sort: Start Date</option>
+        <option value="end_date">Sort: Due Date</option>
+    </select>
+    
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem; color:var(--text-dim); user-select:none; line-height:1;">
+        <input type="checkbox" id="gantt-show-completed" style="margin:0; flex-shrink:0; width:14px; height:14px; cursor:pointer;"> Show Completed
+    </label>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem; color:var(--danger-red); user-select:none; line-height:1;">
+        <input type="checkbox" id="gantt-filter-overdue" style="margin:0; flex-shrink:0; width:14px; height:14px; cursor:pointer;"> Overdue Only
+    </label>
+</div>
+
+                <div id="schedule-view-help" class="schedule-help-banner">
+                    Drag task bars left/right to reschedule. Click a task bar to edit details.
+                </div>
 
                 <div class="project-metrics-bar">
                     <div class="metric-card">

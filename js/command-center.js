@@ -103,9 +103,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const tableMap = {
             "contacts": "contacts", "accounts": "accounts", "sequences": "sequences",
             "activities": "activities", "contact_sequences": "contact_sequences",
-            "deals_tw": "deals", "tasks": "tasks", "cognito_alerts": "cognitoAlerts"
+            "deals_tw": "deals", "tasks": "tasks", "cognito_alerts": "cognitoAlerts",
+            "sequence_steps": "sequence_steps"
         };
-        const userSpecificTables = Object.keys(tableMap);
+        const userSpecificTables = ["contacts", "accounts", "sequences", "activities", "contact_sequences", "deals_tw", "tasks", "cognito_alerts"];
         const publicTables = ["sequence_steps"];
 
         // --- THIS IS THE KEY CHANGE ---

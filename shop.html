@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="description" content="TenWorks The Shop: A powerful and intuitive tool for managing your shop floor tasks.">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TenWorks The Shop</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+
+<body class="theme-dark" data-nav="erp">
+    <div id="global-loader-overlay" class="global-loader-overlay active" aria-live="polite" aria-busy="true">
+        <div class="global-loader-content">
+            <div class="global-loader-spinner" aria-hidden="true">
+                <img src="assets/logo.svg" alt="" class="global-loader-logo-spin" width="80" height="80">
+            </div>
+            <p class="global-loader-text">Loading…</p>
+        </div>
+    </div>
+    <div class="crm-container">
+        <nav class="nav-sidebar" id="nav-container"><script>(function(){try{if(localStorage.getItem('crm-nav-collapsed')==='1')document.getElementById('nav-container').classList.add('nav-sidebar-collapsed');}catch(e){}})();</script><!-- ERP nav loaded by nav-loader.js --></nav>
+        
+        <main class="content-area">
+            <div id="dashboard" class="content-view active-view">
+                <div class="header-action-area" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h1 class="page-title">The Shop</h1>
+                    <button type="button" id="shop-refresh-btn" class="btn-secondary"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+
+                <!-- Metrics Row -->
+                <div class="dashboard-metrics-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div class="metric-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column;">
+                        <span style="color: var(--text-medium); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;">Shop Load (This Week)</span>
+                        <div style="display: flex; align-items: baseline; gap: 10px;">
+                            <span id="metric-capacity" style="font-size: 1.8rem; font-weight: 600; color: var(--text-bright);">--%</span>
+                        </div>
+                        <div style="width: 100%; height: 4px; background: var(--bg-dark); margin-top: 10px; overflow: hidden;">
+                            <div id="metric-capacity-bar" style="height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                    <div class="metric-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column;">
+                        <span style="color: var(--text-medium); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;">Active Projects</span>
+                        <span id="metric-active-projects" style="font-size: 1.8rem; font-weight: 600; color: var(--text-bright);">--</span>
+                    </div>
+                    <div class="metric-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column;">
+                        <span style="color: var(--text-medium); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;">Overdue Projects</span>
+                        <span id="metric-overdue" style="font-size: 1.8rem; font-weight: 600; color: var(--danger-red);">--</span>
+                    </div>
+                    <div class="metric-card" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column;">
+                        <span style="color: var(--text-medium); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;">Pending Portal Updates</span>
+                        <span id="metric-stale" style="font-size: 1.8rem; font-weight: 600; color: var(--warning-yellow);">--</span>
+                    </div>
+                </div>
+
+                <div id="dashboard-sections-grid" class="dashboard-sections-grid">
+                    <div class="dashboard-column-left">
+                        <!-- Production Tasks -->
+                        <div class="section-card production-tasks-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title">My Shop Tasks (Today)</h2>
+                            </div>
+                            <div id="production-tasks-list" class="my-tasks-list"></div>
+                        </div>
+
+                        <!-- PTO -->
+                        <div class="section-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title">Upcoming Time Off</h2>
+                            </div>
+                            <div id="pto-list" class="my-tasks-list"></div>
+                        </div>
+                    </div>
+                    <div class="dashboard-column-right">
+                        <!-- Overdue Projects -->
+                        <div class="section-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title" style="color: var(--danger-red);">Overdue Projects</h2>
+                            </div>
+                            <div id="overdue-projects-list" class="my-tasks-list"></div>
+                        </div>
+
+                        <!-- Stale Portal Updates -->
+                        <div class="section-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title" style="color: var(--warning-yellow);">Action Required: Portal Updates</h2>
+                            </div>
+                            <div class="section-card-body" style="padding: 10px 15px; font-size: 0.85rem; color: var(--text-medium); border-bottom: 1px solid var(--border-color);">
+                                Projects missing a client summary or not updated in the last 7 days.
+                            </div>
+                            <div id="stale-projects-list" class="my-tasks-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
+        </div>
+    </div>
+  
+    <script src="js/nav-loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/js/tom-select.complete.min.js"></script>
+    <script type="module" src="js/shop.js"></script>
+</body>
+
+</html>

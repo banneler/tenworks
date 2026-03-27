@@ -96,6 +96,9 @@ function buildCardHtml(row, opts = {}) {
     const footerBlock = skipFooter ? '' : `
             <div class="card-footer">
                 ${buildQuestionsCardHtml(row).trim()}
+                <div class="status-footer-brand" aria-hidden="true">
+                    <img src="assets/logo.svg" alt="" class="status-footer-brand-logo" />
+                </div>
             </div>`;
     return `
         <div class="result-wrap">
@@ -112,48 +115,7 @@ function buildCardHtml(row, opts = {}) {
     `;
 }
 
-async function initSingle(token) {
-    const loadingEl = document.getElementById('loading');
-    const resultEl = document.getElementById('result');
-    const errorEl = document.getElementById('error');
-
-    const { data, error } = await supabase.rpc('get_project_status', { p_token: token });
-    loadingEl.style.display = 'none';
-
-    if (error) {
-        errorEl.style.display = 'block';
-        errorEl.textContent = 'Unable to load project status. The link may be invalid or expired.';
-        return;
-    }
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row || !row.project_name) {
-        errorEl.style.display = 'block';
-        errorEl.textContent = 'Project not found. Please check the link or contact your project manager.';
-        return;
-    }
-
-    resultEl.style.display = 'block';
-    resultEl.innerHTML = buildCardHtml(row);
-}
-
-async function initPortal(portalToken) {
-    const loadingEl = document.getElementById('loading');
-    const contentEl = document.getElementById('content');
-    const errorEl = document.getElementById('error');
-
-    const { data: projects, error: listError } = await supabase.rpc('get_portal_projects', { p_portal_token: portalToken });
-    loadingEl.style.display = 'none';
-
-    if (listError || !projects || projects.length === 0) {
-        errorEl.style.display = 'block';
-        errorEl.textContent = 'Unable to load projects. The link may be invalid or you have no projects assigned.';
-        return;
-    }
-
-    document.body.classList.add('portal-mode');
-    const projectIdParam = new URLSearchParams(window.location.search).get('project');
-    const selectedId = projectIdParam ? parseInt(projectIdParam, 10) : (projects[0]?.project_id ?? null);
-
+function renderPortalShell(contentEl, projects, selectedId, initialRow) {
     const sidebarHtml = `
         <div class="portal-sidebar">
             <div class="nav-label">Projects</div>
@@ -165,7 +127,7 @@ async function initPortal(portalToken) {
         </div>
         <div class="portal-main" id="portal-main">
             <div class="portal-project-card" id="portal-project-card">
-                <div class="loading">Loading…</div>
+                ${initialRow ? buildCardHtml(initialRow, { skipFooter: true }) : '<div class="loading">Loading…</div>'}
             </div>
         </div>
     `;
@@ -186,6 +148,7 @@ async function initPortal(portalToken) {
     const questionsCardEl = document.createElement('div');
     questionsCardEl.id = 'portal-questions-card';
     questionsCardEl.className = 'portal-questions-card';
+    if (initialRow) questionsCardEl.innerHTML = buildQuestionsCardHtml(initialRow);
 
     footerWrap.appendChild(logoCardEl);
     footerWrap.appendChild(questionsCardEl);
@@ -194,12 +157,68 @@ async function initPortal(portalToken) {
     const asOfEl = document.createElement('p');
     asOfEl.className = 'portal-as-of';
     asOfEl.setAttribute('aria-hidden', 'true');
+    if (initialRow) {
+        const asOfDate = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        asOfEl.textContent = `Information as of ${asOfDate}`;
+    }
     contentEl.appendChild(asOfEl);
 
     const brandEl = document.createElement('p');
     brandEl.className = 'portal-brand';
     brandEl.innerHTML = '<a href="https://tenworksfab.com" target="_blank" rel="noopener noreferrer">TenWorks</a>';
     contentEl.appendChild(brandEl);
+
+    return { layout, questionsCardEl, asOfEl };
+}
+
+async function initSingle(token) {
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const errorEl = document.getElementById('error');
+
+    const { data, error } = await supabase.rpc('get_project_status', { p_token: token });
+    loadingEl.style.display = 'none';
+
+    if (error) {
+        errorEl.style.display = 'block';
+        errorEl.textContent = 'Unable to load project status. The link may be invalid or expired.';
+        return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || !row.project_name) {
+        errorEl.style.display = 'block';
+        errorEl.textContent = 'Project not found. Please check the link or contact your project manager.';
+        return;
+    }
+
+    document.body.classList.add('portal-mode');
+    renderPortalShell(
+        contentEl,
+        [{ project_id: Number(row.project_id) || 0, project_name: row.project_name }],
+        Number(row.project_id) || 0,
+        row
+    );
+}
+
+async function initPortal(portalToken) {
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const errorEl = document.getElementById('error');
+
+    const { data: projects, error: listError } = await supabase.rpc('get_portal_projects', { p_portal_token: portalToken });
+    loadingEl.style.display = 'none';
+
+    if (listError || !projects || projects.length === 0) {
+        errorEl.style.display = 'block';
+        errorEl.textContent = 'Unable to load projects. The link may be invalid or you have no projects assigned.';
+        return;
+    }
+
+    document.body.classList.add('portal-mode');
+    const projectIdParam = new URLSearchParams(window.location.search).get('project');
+    const selectedId = projectIdParam ? parseInt(projectIdParam, 10) : (projects[0]?.project_id ?? null);
+
+    const { layout, questionsCardEl, asOfEl } = renderPortalShell(contentEl, projects, selectedId, null);
 
     const projectCardEl = document.getElementById('portal-project-card');
     const navItems = layout.querySelectorAll('.nav-item');

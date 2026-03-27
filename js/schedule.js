@@ -57,6 +57,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         filterOverdue: false,
         talent: [],
         assignments: [],
+        timelineStartDate: dayjs().subtract(5, 'day').startOf('day'),
+        timelineDays: 60,
+        timelineStepDays: 14,
         lastLoadedAt: null
     };
 
@@ -151,6 +154,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btnResource = document.getElementById('view-resource-btn');
     const btnProject = document.getElementById('view-project-btn');
     const btnMachine = document.getElementById('view-machine-btn'); // NEW BUTTON
+    const prevRangeBtn = document.getElementById('schedule-prev-range-btn');
+    const nextRangeBtn = document.getElementById('schedule-next-range-btn');
+    const todayRangeBtn = document.getElementById('schedule-today-btn');
+    const startDateInput = document.getElementById('schedule-start-date');
+    const rangeLabelEl = document.getElementById('schedule-range-label');
+    const viewHelpEl = document.getElementById('schedule-view-help');
     const sortSelect = document.getElementById('gantt-sort');
     const completedToggle = document.getElementById('gantt-show-completed');
     const filterControls = document.getElementById('project-filter-controls');
@@ -158,6 +167,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (btnResource) btnResource.addEventListener('click', () => switchView('resource'));
     if (btnProject) btnProject.addEventListener('click', () => switchView('project'));
     if (btnMachine) btnMachine.addEventListener('click', () => switchView('machine'));
+    if (prevRangeBtn) prevRangeBtn.addEventListener('click', () => {
+        state.timelineStartDate = state.timelineStartDate.subtract(state.timelineStepDays, 'day');
+        renderGantt();
+    });
+    if (nextRangeBtn) nextRangeBtn.addEventListener('click', () => {
+        state.timelineStartDate = state.timelineStartDate.add(state.timelineStepDays, 'day');
+        renderGantt();
+    });
+    if (todayRangeBtn) todayRangeBtn.addEventListener('click', () => {
+        state.timelineStartDate = dayjs().subtract(5, 'day').startOf('day');
+        renderGantt();
+    });
+    if (startDateInput) startDateInput.addEventListener('change', (e) => {
+        const selected = dayjs(e.target.value);
+        if (selected.isValid()) {
+            state.timelineStartDate = selected.startOf('day');
+            renderGantt();
+        }
+    });
 
     if (sortSelect) {
         sortSelect.addEventListener('change', (e) => {
@@ -170,6 +198,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         completedToggle.addEventListener('change', (e) => {
             state.showCompleted = e.target.checked;
             renderGantt();
+        });
+    }
+
+    // Keep left resource rows and top date header aligned with timeline scrolling.
+    const timelineWrapperEl = document.querySelector('.gantt-timeline-wrapper');
+    const resourceListEl = document.getElementById('gantt-resource-list');
+    const dateHeaderEl = document.getElementById('gantt-date-header');
+    if (timelineWrapperEl && resourceListEl && dateHeaderEl) {
+        timelineWrapperEl.addEventListener('scroll', () => {
+            resourceListEl.scrollTop = timelineWrapperEl.scrollTop;
+            dateHeaderEl.scrollLeft = timelineWrapperEl.scrollLeft;
         });
     }
 
@@ -198,7 +237,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             filterControls.style.display = view === 'project' ? 'flex' : 'none';
         }
 
+        updateViewHelp();
+
         renderGantt();
+    }
+
+    function updateViewHelp() {
+        if (!viewHelpEl) return;
+        if (state.currentView === 'project') {
+            viewHelpEl.textContent = 'Project Timelines: click a project name to manage CRDD and steps. Drag bars to shift task dates. Click any task bar to edit and assign a machine.';
+            return;
+        }
+        if (state.currentView === 'machine') {
+            viewHelpEl.textContent = 'Machines: rows show only machine-assigned tasks. To assign one, click its task bar in any view and set "Assign Machine" in the task editor.';
+            return;
+        }
+        viewHelpEl.textContent = 'Shop Resources: rows group tasks by trade. Drag bars left/right to reschedule. Click any task bar to open the editor and set "Assign Machine".';
     }
 
     // ------------------------------------------------------------------------
@@ -243,9 +297,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // A. TIMELINE HEADER
         let dateHtml = '';
-        const startDate = dayjs().subtract(5, 'day');
-        const daysToRender = 60;
+        const startDate = state.timelineStartDate.startOf('day');
+        const daysToRender = state.timelineDays;
         const dayWidth = 100;
+        const endDate = startDate.add(daysToRender - 1, 'day');
+        if (rangeLabelEl) rangeLabelEl.textContent = `${startDate.format('MMM D, YYYY')} - ${endDate.format('MMM D, YYYY')}`;
+        if (startDateInput) startDateInput.value = startDate.format('YYYY-MM-DD');
 
         for (let i = 0; i < daysToRender; i++) {
             const current = startDate.add(i, 'day');
@@ -262,11 +319,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         dateHeader.innerHTML = dateHtml;
         const totalWidth = daysToRender * dayWidth;
         dateHeader.style.width = `${totalWidth}px`;
+        dateHeader.style.backgroundSize = `${dayWidth}px 100%`;
+        dateHeader.style.backgroundPosition = `${dayWidth - 1}px 0`;
         gridCanvas.style.width = `${totalWidth}px`;
         
         gridCanvas.style.backgroundImage = 'linear-gradient(90deg, var(--border-color) 1px, transparent 1px)';
-        gridCanvas.style.backgroundSize = '100px 100%';
-        gridCanvas.style.backgroundPosition = '0.5px 0.5px'; /* Sub-pixel alignment */ 
+        gridCanvas.style.backgroundSize = `${dayWidth}px 100%`;
+        gridCanvas.style.backgroundPosition = `${dayWidth - 1}px 0`; 
 
         // B. DETERMINE ROWS
         resourceList.innerHTML = '';
@@ -368,6 +427,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             rowBg.style.backgroundColor = rowBackground;
             rowBg.style.borderBottom = '1px solid var(--border-color)';
             rowBg.style.zIndex = '0';
+            rowBg.style.cursor = 'pointer';
+            rowBg.title = 'Click to schedule a pending task here';
+            
+            rowBg.addEventListener('click', (e) => {
+                if (e.target !== rowBg) return;
+                const clickX = e.offsetX;
+                const clickedCol = Math.floor(clickX / dayWidth);
+                const clickedDate = startDate.add(clickedCol, 'day').format('YYYY-MM-DD');
+                openAssignPendingTaskModal(rowItem, clickedDate);
+            });
+
             gridCanvas.appendChild(rowBg);
 
             // 3. Project Target Completion Line (Project View Only)
@@ -416,6 +486,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-task-bar';
+                const assignedMachine = state.machines.find(m => m.id === task.assigned_machine_id);
                 
                 const laneOffset = (task.laneIndex || 0) * (barHeight + barMargin);
                 const barLeft = diff * dayWidth;
@@ -449,11 +520,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 
                 // Label Logic: In Resource/Machine view, show Project Name. In Project view, show Task Name/Trade.
                 const label = (state.currentView === 'resource' || state.currentView === 'machine') ? task.projects?.name : task.shop_trades?.name;
+                const machineLabel = assignedMachine ? assignedMachine.name : 'No Machine';
 
                 bar.innerHTML = `
-                    <span class="gantt-task-info schedule-task-label">${label || task.name}</span>
+                    <span class="gantt-task-info schedule-task-label">${label || task.name} • <span class="schedule-task-machine-pill">${machineLabel}</span></span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
+                bar.title = `${task.name}\nMachine: ${machineLabel}\nClick bar to edit / assign machine`;
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
                 gridCanvas.appendChild(bar);
             });
@@ -467,6 +540,92 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     // 7. PHYSICS ENGINE (Drag & Drop)
     // ------------------------------------------------------------------------
+    
+    function openAssignPendingTaskModal(rowItem, clickedDate) {
+        let candidateTasks = state.tasks.filter(t => t.status !== 'Completed');
+        
+        if (state.currentView === 'resource') {
+            candidateTasks = candidateTasks.filter(t => t.trade_id === rowItem.id);
+        } else if (state.currentView === 'machine') {
+            candidateTasks = candidateTasks.filter(t => !t.assigned_machine_id || t.assigned_machine_id === rowItem.id);
+        } else if (state.currentView === 'project') {
+            candidateTasks = candidateTasks.filter(t => t.project_id === rowItem.id);
+        }
+        
+        candidateTasks.sort((a, b) => {
+            const pA = a.projects?.name || '';
+            const pB = b.projects?.name || '';
+            if (pA !== pB) return pA.localeCompare(pB);
+            return a.name.localeCompare(b.name);
+        });
+
+        if (candidateTasks.length === 0) {
+            showModal('No Tasks', '<p style="color:var(--text-medium);">There are no pending tasks available for this selection.</p>', null, true, '<button id="modal-cancel-btn" class="btn-primary">Close</button>');
+            return;
+        }
+
+        const optionsHtml = candidateTasks.map(t => {
+            const projName = t.projects?.name || 'Unknown Project';
+            const dateStr = t.start_date ? ` (Currently: ${dayjs(t.start_date).format('MMM D')})` : ' (Unscheduled)';
+            return `<option value="${t.id}">${projName} - ${t.name}${dateStr}</option>`;
+        }).join('');
+
+        let title = 'Assign Task';
+        if (state.currentView === 'resource') title = `Schedule Task for ${rowItem.name}`;
+        if (state.currentView === 'machine') title = `Assign Task to ${rowItem.name}`;
+        if (state.currentView === 'project') title = `Schedule Task for ${rowItem.name}`;
+
+        showModal(title, `
+            <div style="margin-bottom: 15px; color: var(--text-medium); font-size: 0.9rem;">
+                Select a task to schedule starting on <strong>${dayjs(clickedDate).format('MMM D, YYYY')}</strong>.
+            </div>
+            <div class="schedule-modal-field">
+                <label>Select Task</label>
+                <select id="quick-assign-task" class="form-control schedule-modal-dark-select">
+                    ${optionsHtml}
+                </select>
+            </div>
+        `, async () => {}, true, '<button id="modal-confirm-btn" class="btn-primary">Assign Task</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>');
+
+        setTimeout(() => {
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            if (confirmBtn) {
+                confirmBtn.onclick = async () => {
+                    const taskId = document.getElementById('quick-assign-task').value;
+                    if (!taskId) return;
+
+                    const task = state.tasks.find(t => t.id == taskId);
+                    if (!task) return;
+
+                    const currentStart = task.start_date ? dayjs(task.start_date) : dayjs(clickedDate);
+                    const currentEnd = task.end_date ? dayjs(task.end_date) : dayjs(clickedDate);
+                    const durationDays = Math.max(0, currentEnd.diff(currentStart, 'day'));
+                    
+                    const newStart = dayjs(clickedDate).format('YYYY-MM-DD');
+                    const newEnd = dayjs(clickedDate).add(durationDays, 'day').format('YYYY-MM-DD');
+
+                    const updates = {
+                        start_date: newStart,
+                        end_date: newEnd
+                    };
+
+                    if (state.currentView === 'machine') {
+                        updates.assigned_machine_id = rowItem.id;
+                    }
+
+                    const { error } = await supabase.from('project_tasks').update(updates).eq('id', taskId);
+                    if (error) {
+                        showToast('Error assigning task: ' + error.message, 'error');
+                    } else {
+                        showToast('Task scheduled successfully.', 'success');
+                        hideModal();
+                        loadShopData();
+                    }
+                };
+            }
+        }, 100);
+    }
+
     function handleDragStart(e, task, element) {
         if (e.button !== 0) return; 
 
@@ -565,6 +724,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     function openProjectModal(project) {
         const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        const machineOptions = `<option value="">-- Unassigned --</option>${state.machines.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}`;
         
         showModal(`Manage: ${project.name}`, `
             <div class="schedule-modal-section">
@@ -594,6 +754,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <label>Duration (Biz Days)</label>
                         <input type="number" id="new-task-days" class="form-control" value="3">
                     </div>
+                    <div>
+                        <label>Assign Machine (Optional)</label>
+                        <select id="new-task-machine" class="form-control schedule-modal-dark-select">${machineOptions}</select>
+                    </div>
                 </div>
                 <button id="btn-add-step" class="btn-primary schedule-modal-full-btn">Insert Step</button>
             </div>
@@ -613,6 +777,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const name = document.getElementById('new-task-name').value;
                 const startVal = document.getElementById('new-task-start').value;
                 const daysVal = parseInt(document.getElementById('new-task-days').value) || 1;
+                const machineId = document.getElementById('new-task-machine')?.value || null;
                 
                 if (!name) return;
                 
@@ -622,7 +787,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 await supabase.from('project_tasks').insert({
                     project_id: project.id, trade_id: tradeId, name: name,
                     start_date: start.format('YYYY-MM-DD'), end_date: end.format('YYYY-MM-DD'),
-                    estimated_hours: daysVal * 8, status: 'Pending'
+                    estimated_hours: daysVal * 8, status: 'Pending',
+                    assigned_machine_id: machineId || null
                 });
                 hideModal(); loadShopData();
             };
@@ -644,7 +810,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             machineOptions += `<option value="${m.id}" ${selected}>${m.name}</option>`;
         });
 
-        showModal(`Edit Task: ${task.name}`, `
+        showModal(`Edit Task / Machine: ${task.name}`, `
+            <div class="schedule-modal-sub-label" style="margin-bottom:10px;">Machine assignment is saved with this task and appears in Machine view.</div>
             <div class="form-grid schedule-modal-grid-wide">
                 <div>
                     <label>Status</label>
@@ -716,8 +883,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                     assigned_machine_id: newMachine // SAVE MACHINE
                 }).eq('id', task.id);
 
-                if (error) alert('Error: ' + error.message);
-                else { hideModal(); loadShopData(); }
+                if (error) {
+                    alert('Error: ' + error.message);
+                } else {
+                    if (newStatus === 'Completed') {
+                        const { data: siblingTasks } = await supabase.from('project_tasks').select('status').eq('project_id', task.project_id);
+                        if (siblingTasks && siblingTasks.every(t => t.status === 'Completed')) {
+                            const { data: proj } = await supabase.from('projects').select('status').eq('id', task.project_id).single();
+                            if (proj && proj.status !== 'Completed') {
+                                if (confirm("All tasks for this project are now completed. Do you want to mark the entire project as Completed?")) {
+                                    await supabase.from('projects').update({ status: 'Completed' }).eq('id', task.project_id);
+                                }
+                            }
+                        }
+                    }
+                    hideModal(); 
+                    loadShopData(); 
+                }
             };
 
             const delBtn = document.getElementById('delete-task-btn');
@@ -807,6 +989,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     // START
+    updateViewHelp();
     await loadShopData();
 
     const params = new URLSearchParams(window.location.search);

@@ -55,6 +55,7 @@
 
 /* 2. The Gantt Frame — TenWorks glass */
 .gantt-container-frame {
+    --schedule-day-width: 100px;
     display: grid;
     grid-template-columns: 260px 1fr; /* Sidebar | Timeline */
     background: var(--glass-content-bg);
@@ -73,7 +74,14 @@
     background: var(--bg-medium);
     border-right: 1px solid var(--border-color);
     z-index: 20;
-    overflow-y: hidden; /* Synced with grid via JS if needed */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Vertical sync is driven by timeline scroll */
+}
+
+#gantt-resource-list {
+    flex: 1;
+    overflow-y: hidden;
 }
 
 .gantt-header-cell {
@@ -120,7 +128,7 @@
 /* Timeline (The Grid) */
 .gantt-timeline-wrapper {
     overflow-x: auto;
-    overflow-y: hidden; /* Vertical scroll handled by container? No, usually coupled. */
+    overflow-y: auto;
     position: relative;
     background: #15181c;
 }
@@ -130,15 +138,21 @@
     height: 50px;
     background: var(--bg-medium);
     border-bottom: 1px solid var(--border-color);
+    background-image: linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+    background-size: var(--schedule-day-width) 100%;
+    background-position: calc(var(--schedule-day-width) - 1px) 0;
     position: sticky; /* Keeps header visible if we scroll vertical */
     top: 0;
     z-index: 10;
 }
 
 .date-cell {
-    min-width: 100px; /* Width of one day */
-    border-right: 1px solid var(--border-color);
-    margin-right: -1px; /* Sub-pixel: overlap to prevent 2px blurry borders */
+    flex: 0 0 var(--schedule-day-width);
+    width: var(--schedule-day-width);
+    min-width: var(--schedule-day-width);
+    max-width: var(--schedule-day-width);
+    border-right: none;
+    margin-right: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -164,8 +178,8 @@
     background-image: 
         linear-gradient(var(--border-color) 1px, transparent 1px),
         linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
-    background-size: 50px 70px; /* Adjusted to 50px dayWidth */
-    background-position: 0.5px 0.5px;
+    background-size: var(--schedule-day-width) 70px;
+    background-position: calc(var(--schedule-day-width) - 1px) 0;
 }
 
 /* Task Bars - UPDATED TO BE TALLER */
@@ -234,4 +248,17 @@
     color: var(--primary-gold);
     opacity: 0.8;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+/* Compact desktop tuning for project/schedule boards. */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .project-metrics-bar {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        padding: 14px;
+    }
+
+    .gantt-container-frame {
+        grid-template-columns: 220px 1fr;
+    }
 }

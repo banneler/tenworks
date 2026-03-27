@@ -329,7 +329,13 @@ function renderTaskList() {
             <td class="project-task-name">${t.name}</td>
             <td>${t.estimated_hours ?? '-'}</td>
             <td><input type="number" min="0" step="0.25" data-task-id="${t.id}" class="task-actual-input form-control project-task-actual-input" value="${actualVal}"></td>
-            <td><span class="project-task-status">${t.status || 'Pending'}</span></td>
+            <td>
+                <select class="form-control task-status-select" data-task-id="${t.id}" data-project-id="${t.project_id}" style="padding: 4px 8px; font-size: 0.8rem; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-bright); border-radius: 4px;">
+                    <option value="Pending" ${t.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                    <option value="In Progress" ${t.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                    <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                </select>
+            </td>
             <td><button type="button" class="btn-secondary task-save-actual project-task-save-btn" data-task-id="${t.id}"><i class="fas fa-save"></i></button></td>
         `;
         tbody.appendChild(tr);
@@ -338,10 +344,28 @@ function renderTaskList() {
         btn.addEventListener('click', async () => {
             const taskId = btn.dataset.taskId;
             const input = tbody.querySelector(`.task-actual-input[data-task-id="${taskId}"]`);
+            const statusSelect = tbody.querySelector(`.task-status-select[data-task-id="${taskId}"]`);
             const val = parseFloat(input?.value) || 0;
-            const { error } = await supabase.from('project_tasks').update({ actual_hours: val }).eq('id', taskId);
-            if (error) showToast('Update failed: ' + error.message, 'error');
-            else if (state.currentProject) await loadProjectDetails(state.currentProject.id);
+            const newStatus = statusSelect?.value || 'Pending';
+            const projectId = statusSelect?.dataset.projectId;
+
+            const { error } = await supabase.from('project_tasks').update({ actual_hours: val, status: newStatus }).eq('id', taskId);
+            if (error) {
+                showToast('Update failed: ' + error.message, 'error');
+            } else {
+                if (newStatus === 'Completed' && projectId) {
+                    const { data: siblingTasks } = await supabase.from('project_tasks').select('status').eq('project_id', projectId);
+                    if (siblingTasks && siblingTasks.every(t => t.status === 'Completed')) {
+                        const { data: proj } = await supabase.from('projects').select('status').eq('id', projectId).single();
+                        if (proj && proj.status !== 'Completed') {
+                            if (confirm("All tasks for this project are now completed. Do you want to mark the entire project as Completed?")) {
+                                await supabase.from('projects').update({ status: 'Completed' }).eq('id', projectId);
+                            }
+                        }
+                    }
+                }
+                if (state.currentProject) await loadProjectDetails(state.currentProject.id);
+            }
         });
     });
 }
@@ -353,10 +377,6 @@ function renderBOM() {
     tbody.innerHTML = state.bom.map(item => {
         const inv = item.inventory_items || { name: 'Unknown Item', sku: '???', category: 'Misc', uom: 'ea' };
         
-        let statusColor = '#888';
-        if(item.status === 'Pulled') statusColor = 'var(--primary-blue)';
-        if(item.status === 'Ordered') statusColor = 'var(--warning-yellow)';
-        
         return `
             <tr>
                 <td>
@@ -366,13 +386,49 @@ function renderBOM() {
                 <td><span class="project-bom-category-pill">${inv.category}</span></td>
                 <td>${item.qty_required} ${inv.uom}</td>
                 <td>${item.qty_allocated} ${inv.uom}</td>
-                <td><span class="bom-status-pill" style="--project-bom-status-color:${statusColor};">${item.status}</span></td>
+                <td>
+                    <select class="form-control bom-status-select" data-bom-id="${item.id}" data-old-status="${item.status}" data-item-id="${item.inventory_item_id}" data-qty="${item.qty_allocated || item.qty_required}" style="padding: 4px 8px; font-size: 0.8rem; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-bright); border-radius: 4px; width: 100px;">
+                        <option value="Pending" ${item.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                        <option value="Ordered" ${item.status === 'Ordered' ? 'selected' : ''}>Ordered</option>
+                        <option value="Pulled" ${item.status === 'Pulled' ? 'selected' : ''}>Pulled</option>
+                    </select>
+                </td>
                 <td>
                     <button class="btn-secondary project-bom-delete-btn" onclick="window.deleteBOM(${item.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `;
     }).join('') || '<tr><td colspan="6" class="project-bom-empty">No materials added.</td></tr>';
+
+    tbody.querySelectorAll('.bom-status-select').forEach(select => {
+        select.addEventListener('change', async (e) => {
+            const oldStatus = e.target.dataset.oldStatus;
+            const newStatus = e.target.value;
+            const bomId = e.target.dataset.bomId;
+            const itemId = e.target.dataset.itemId;
+            const qty = parseFloat(e.target.dataset.qty) || 0;
+
+            if (oldStatus !== 'Pulled' && newStatus === 'Pulled') {
+                const { data: inv } = await supabase.from('inventory_items').select('qty_on_hand').eq('id', itemId).single();
+                if (inv) {
+                    await supabase.from('inventory_items').update({ qty_on_hand: (inv.qty_on_hand || 0) - qty }).eq('id', itemId);
+                }
+            } else if (oldStatus === 'Pulled' && newStatus !== 'Pulled') {
+                const { data: inv } = await supabase.from('inventory_items').select('qty_on_hand').eq('id', itemId).single();
+                if (inv) {
+                    await supabase.from('inventory_items').update({ qty_on_hand: (inv.qty_on_hand || 0) + qty }).eq('id', itemId);
+                }
+            }
+
+            const { error } = await supabase.from('project_bom').update({ status: newStatus }).eq('id', bomId);
+            if (error) {
+                showToast('Failed to update BOM status.', 'error');
+            } else {
+                showToast(`BOM item marked as ${newStatus}.`, 'success');
+                loadProjectDetails(state.currentProject.id);
+            }
+        });
+    });
 }
 
 function renderTeam() {
@@ -413,6 +469,22 @@ function renderTeam() {
             }
         });
     });
+}
+
+function getPreferredPortalContactId() {
+    if (!Array.isArray(state.contacts) || state.contacts.length === 0) return null;
+    const ranked = [...state.contacts].sort((a, b) => {
+        const aRole = (a?.role || '').toLowerCase();
+        const bRole = (b?.role || '').toLowerCase();
+        const score = (role) => {
+            if (role.includes('client')) return 0;
+            if (role.includes('owner')) return 1;
+            if (role.includes('primary')) return 2;
+            return 3;
+        };
+        return score(aRole) - score(bRole);
+    });
+    return ranked[0]?.contacts?.id || null;
 }
 
 function renderMiniGantt() {
@@ -591,21 +663,43 @@ function setupEventListeners() {
 
     document.getElementById('btn-share-status-link')?.addEventListener('click', async () => {
         if (!state.currentProject) return;
+
+        const basePath = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}`;
+        const portalContactId = getPreferredPortalContactId();
+
+        if (portalContactId != null) {
+            const { data: portalToken, error: portalError } = await supabase.rpc('get_or_create_contact_portal_token', { p_contact_id: portalContactId });
+            if (portalError) {
+                showToast('Could not create portal link: ' + portalError.message, 'error');
+                return;
+            }
+            const url = `${basePath}status.html?portal=${portalToken}&project=${state.currentProject.id}`;
+            try {
+                await navigator.clipboard.writeText(url);
+                if (window.showToast) window.showToast('Customer portal link copied.');
+                else showToast('Portal link copied. Customer will see all their projects.', 'success');
+            } catch (_) {
+                prompt('Copy this customer portal link:', url);
+            }
+            return;
+        }
+
+        // Fallback: if no contact is attached, keep sharing a single-project link.
         let token = state.currentProject.status_token;
         if (!token) {
             const newToken = crypto.randomUUID();
             const { error } = await supabase.from('projects').update({ status_token: newToken }).eq('id', state.currentProject.id);
-            if (error) { showToast('Could not create share link: ' + error.message, 'error'); return; }
+            if (error) { showToast('Could not create status link: ' + error.message, 'error'); return; }
             state.currentProject.status_token = newToken;
             token = newToken;
         }
-        const url = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html?token=${token}`;
+        const fallbackUrl = `${basePath}status.html?token=${token}`;
         try {
-            await navigator.clipboard.writeText(url);
-            if (window.showToast) window.showToast('Status link copied to clipboard.');
-            else showToast('Link copied to clipboard.', 'success');
+            await navigator.clipboard.writeText(fallbackUrl);
+            if (window.showToast) window.showToast('No client contact on this project; copied single-project status link.');
+            else showToast('Copied status link. Add a project contact to use portal links.', 'success');
         } catch (_) {
-            prompt('Copy this status link for your client:', url);
+            prompt('Copy this project status link:', fallbackUrl);
         }
     });
 
@@ -625,6 +719,9 @@ function setupEventListeners() {
     
     // NEW: BOM Modal
     document.getElementById('btn-add-bom').addEventListener('click', openAddBOMModal);
+
+    // NEW: Add Task Modal
+    document.getElementById('btn-add-task')?.addEventListener('click', openAddTaskModal);
 
     document.getElementById('toggle-hide-zero').addEventListener('change', (e) => {
         state.hideZeroValue = e.target.checked;
@@ -843,6 +940,72 @@ async function openAddBOMModal() {
             });
             hideModal();
             loadProjectDetails(state.currentProject.id);
+        }
+    }, 100);
+}
+
+function openAddTaskModal() {
+    if (!state.currentProject) return;
+
+    const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+
+    showModal('Add Task', `
+        <div class="project-modal-field">
+            <label>Task Name</label>
+            <input type="text" id="new-task-name" class="form-control project-modal-dark-input" placeholder="e.g. Fabrication">
+        </div>
+        <div class="project-modal-grid-two">
+            <div>
+                <label>Trade / Resource</label>
+                <select id="new-task-trade" class="form-control project-modal-dark-input">
+                    ${tradeOptions}
+                </select>
+            </div>
+            <div>
+                <label>Estimated Hours</label>
+                <input type="number" id="new-task-est" class="form-control" value="0" min="0" step="0.5">
+            </div>
+        </div>
+        <div class="project-modal-grid-two">
+            <div>
+                <label>Start Date</label>
+                <input type="date" id="new-task-start" class="form-control project-modal-dark-input">
+            </div>
+            <div>
+                <label>End Date</label>
+                <input type="date" id="new-task-end" class="form-control project-modal-dark-input">
+            </div>
+        </div>
+        <button id="btn-save-task" class="btn-primary project-modal-submit">Add Task</button>
+    `, async () => {});
+
+    setTimeout(() => {
+        const saveBtn = document.getElementById('btn-save-task');
+        if(saveBtn) saveBtn.onclick = async () => {
+            const name = document.getElementById('new-task-name').value.trim();
+            const tradeId = document.getElementById('new-task-trade').value;
+            const estHrs = parseFloat(document.getElementById('new-task-est').value) || 0;
+            const start = document.getElementById('new-task-start').value;
+            const end = document.getElementById('new-task-end').value;
+
+            if(!name) { showToast("Enter a task name.", 'error'); return; }
+
+            const { error } = await supabase.from('project_tasks').insert({
+                project_id: state.currentProject.id,
+                name: name,
+                trade_id: tradeId,
+                estimated_hours: estHrs,
+                start_date: start || null,
+                end_date: end || null,
+                status: 'Pending'
+            });
+
+            if (error) {
+                showToast('Error adding task: ' + error.message, 'error');
+            } else {
+                hideModal();
+                loadProjectDetails(state.currentProject.id);
+            }
         }
     }, 100);
 }
