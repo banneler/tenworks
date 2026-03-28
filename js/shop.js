@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 supabase.from('task_assignments').select('*'),
                 supabase.from('project_tasks').select('*'),
                 supabase.from('projects').select('*'),
-                supabase.from('shop_talent').select('*'),
+                supabase.from('shop_talent').select('*').eq('active', true),
                 supabase.from('talent_availability').select('*')
             ]);
 
@@ -72,6 +72,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderMetrics();
     }
 
+    function getAssignmentBookedHours(assignment) {
+        const explicit = Number(assignment?.hours);
+        if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+        const task = state.project_tasks.find(t => String(t.id) === String(assignment?.task_id));
+        const est = Number(task?.estimated_hours);
+        const normalized = Number.isFinite(est) && est > 0 ? est : 8;
+        if (task) return Math.min(normalized, 8);
+        return 0;
+    }
+
     function renderMetrics() {
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
         const overdueProjects = activeProjects.filter(p => p.end_date && dayjs(p.end_date).isBefore(dayjs(), 'day'));
@@ -91,8 +102,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const weekEndStr = weekEnd.format('YYYY-MM-DD');
 
         const totalCapacity = state.shop_talent.reduce((sum, t) => sum + (Number(t.hours_per_week) || DEFAULT_HOURS_PER_WEEK), 0);
-        const weekAssignments = state.task_assignments.filter(a => a.assigned_date >= weekStartStr && a.assigned_date <= weekEndStr);
-        const totalLoad = weekAssignments.reduce((sum, a) => sum + (Number(a.hours) || 0), 0);
+        const weekAssignments = state.task_assignments.filter(a => {
+            const assigned = dayjs(String(a?.assigned_date || '').slice(0, 10));
+            return assigned.isValid() && !assigned.isBefore(weekStart, 'day') && !assigned.isAfter(weekEnd, 'day');
+        });
+        const totalLoad = weekAssignments.reduce((sum, a) => sum + getAssignmentBookedHours(a), 0);
 
         const pct = totalCapacity > 0 ? Math.round((totalLoad / totalCapacity) * 100) : 0;
         const barPct = totalCapacity > 0 ? Math.min((totalLoad / totalCapacity) * 100, 100) : 0;

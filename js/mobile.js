@@ -43,9 +43,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("User authenticated:", state.user.email);
 
     document.getElementById('mobile-user-menu').addEventListener('click', async () => {
-        if(confirm('Log out?')) {
-            await supabase.auth.signOut();
-            window.location.href = 'index.html';
+        // Toggle a simple dropdown for the user menu in mobile
+        let menu = document.getElementById('mobile-dropdown-menu');
+        if (!menu) {
+            menu = document.createElement('div');
+            menu.id = 'mobile-dropdown-menu';
+            menu.style.position = 'absolute';
+            menu.style.top = '60px';
+            menu.style.right = '20px';
+            menu.style.background = 'var(--bg-dark)';
+            menu.style.border = '1px solid var(--border-color)';
+            menu.style.borderRadius = '8px';
+            menu.style.padding = '10px';
+            menu.style.zIndex = '1000';
+            menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+            
+            const currentRole = localStorage.getItem('demo_mobile_role') || 'leader';
+            
+            menu.innerHTML = `
+                <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                    <label style="display:block; margin-bottom:5px; font-size: 0.8rem; color: var(--text-dim);">Demo View</label>
+                    <select id="mobile-demo-role" class="mobile-input" style="padding: 4px 8px; font-size: 0.9rem;">
+                        <option value="leader" ${currentRole === 'leader' ? 'selected' : ''}>Leader View</option>
+                        <option value="laborer" ${currentRole === 'laborer' ? 'selected' : ''}>Laborer View</option>
+                    </select>
+                </div>
+                <button id="mobile-logout-btn" style="width: 100%; background: none; border: none; color: var(--danger-red); text-align: left; padding: 5px 0; font-size: 1rem; cursor: pointer;">
+                    <i class="fas fa-sign-out-alt"></i> Log Out
+                </button>
+            `;
+            document.body.appendChild(menu);
+
+            document.getElementById('mobile-demo-role').addEventListener('change', (e) => {
+                localStorage.setItem('demo_mobile_role', e.target.value);
+                window.location.reload();
+            });
+
+            document.getElementById('mobile-logout-btn').addEventListener('click', async () => {
+                if(confirm('Log out?')) {
+                    await supabase.auth.signOut();
+                    window.location.href = 'index.html';
+                }
+            });
+
+            // Close menu if clicking outside
+            document.addEventListener('click', (e) => {
+                if (!menu.contains(e.target) && e.target.id !== 'mobile-user-menu') {
+                    menu.style.display = 'none';
+                }
+            });
+        } else {
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
         }
     });
 
@@ -78,7 +126,15 @@ async function loadData() {
         // If there is no user_profiles table, we can assume they are a manager for now, or check a different table.
         // For now, let's assume if they are logged in, they might be a manager if their email matches an admin list, 
         // or we just default to true for testing the leader view.
-        state.isLeader = true; // Temporary fallback if user_profiles doesn't exist
+        // We now check local storage for a demo override
+        const demoRole = localStorage.getItem('demo_mobile_role');
+        if (demoRole === 'laborer') {
+            state.isLeader = false;
+        } else if (demoRole === 'leader') {
+            state.isLeader = true;
+        } else {
+            state.isLeader = true; // Default fallback
+        }
 
         const { data: talent, error: talentErr } = await supabase.from('shop_talent').select('*').eq('active', true);
         if (talentErr) {
@@ -153,6 +209,17 @@ function isSameDayValue(dateValue, targetYmd) {
     const raw = String(dateValue);
     const normalized = raw.length >= 10 ? raw.slice(0, 10) : raw;
     return normalized === targetYmd;
+}
+
+function getAssignmentBookedHours(assignment) {
+    const explicit = Number(assignment?.hours);
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+    const task = state.tasks.find(t => String(t.id) === String(assignment?.task_id));
+    const est = Number(task?.estimated_hours);
+    const normalized = Number.isFinite(est) && est > 0 ? est : 8;
+    if (task) return Math.min(normalized, 8);
+    return 0;
 }
 
 // --- LABORER VIEW ---
@@ -292,12 +359,15 @@ function renderLeaderDashboard() {
 
     // Capacity (This Week)
     const DEFAULT_HOURS_PER_WEEK = 40;
-    const weekStart = dayjs().startOf('week').format('YYYY-MM-DD');
-    const weekEnd = dayjs().startOf('week').add(6, 'day').format('YYYY-MM-DD');
+    const weekStart = dayjs().startOf('week');
+    const weekEnd = dayjs().startOf('week').add(6, 'day');
 
     const totalCapacity = state.team.reduce((sum, t) => sum + (Number(t.hours_per_week) || DEFAULT_HOURS_PER_WEEK), 0);
-    const weekAssignments = state.assignments.filter(a => a.assigned_date >= weekStart && a.assigned_date <= weekEnd);
-    const totalLoad = weekAssignments.reduce((sum, a) => sum + (Number(a.hours) || 0), 0);
+    const weekAssignments = state.assignments.filter(a => {
+        const assigned = dayjs(String(a?.assigned_date || '').slice(0, 10));
+        return assigned.isValid() && !assigned.isBefore(weekStart, 'day') && !assigned.isAfter(weekEnd, 'day');
+    });
+    const totalLoad = weekAssignments.reduce((sum, a) => sum + getAssignmentBookedHours(a), 0);
 
     const pct = totalCapacity > 0 ? Math.round((totalLoad / totalCapacity) * 100) : 0;
     const barPct = Math.min(pct, 100);
@@ -359,21 +429,29 @@ window.openLogTimeModal = (taskId) => {
     document.getElementById('mobile-modal-title').textContent = 'Log Time';
     document.getElementById('mobile-modal-body').innerHTML = `
         <p style="margin-bottom:10px; font-size:0.9rem; color:var(--text-dim);">Task: ${task.name}</p>
-        <label style="display:block; margin-bottom:5px;">Actual Hours</label>
-        <input type="number" id="mobile-actual-hours" class="mobile-input" step="0.25" min="0" value="${task.actual_hours || 0}">
+        <p style="margin-bottom:10px; font-size:0.8rem; color:var(--text-bright);">Currently Logged: ${task.actual_hours || 0} hrs</p>
+        <label style="display:block; margin-bottom:5px;">Hours to Add</label>
+        <input type="number" id="mobile-add-hours" class="mobile-input" step="0.25" min="0" value="0" placeholder="e.g. 2.5">
     `;
     
     document.getElementById('mobile-modal-actions').innerHTML = `
         <button class="mobile-btn mobile-btn-secondary" id="btn-cancel-modal">Cancel</button>
-        <button class="mobile-btn mobile-btn-primary" id="btn-save-modal">Save</button>
+        <button class="mobile-btn mobile-btn-primary" id="btn-save-modal">Log Hours</button>
     `;
 
     modal.classList.remove('hidden');
 
     document.getElementById('btn-cancel-modal').onclick = () => modal.classList.add('hidden');
     document.getElementById('btn-save-modal').onclick = async () => {
-        const hours = parseFloat(document.getElementById('mobile-actual-hours').value) || 0;
-        const { error } = await supabase.from('project_tasks').update({ actual_hours: hours }).eq('id', taskId);
+        const hoursToAdd = parseFloat(document.getElementById('mobile-add-hours').value) || 0;
+        if (hoursToAdd <= 0) {
+            alert("Please enter a valid number of hours to add.");
+            return;
+        }
+        
+        const newTotal = (task.actual_hours || 0) + hoursToAdd;
+
+        const { error } = await supabase.from('project_tasks').update({ actual_hours: newTotal }).eq('id', taskId);
         if (error) {
             alert('Error saving hours: ' + error.message);
         } else {
@@ -445,8 +523,9 @@ window.openLeaderUpdateModal = (taskId) => {
             <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
             <option value="Completed" ${task.status === 'Completed' ? 'selected' : ''}>Completed</option>
         </select>
-        <label style="display:block; margin-bottom:5px; margin-top:10px;">Actual Hours</label>
-        <input type="number" id="mobile-update-hours" class="mobile-input" step="0.25" min="0" value="${task.actual_hours || 0}">
+        <p style="margin-top:15px; margin-bottom:5px; font-size:0.8rem; color:var(--text-bright);">Currently Logged: ${task.actual_hours || 0} hrs</p>
+        <label style="display:block; margin-bottom:5px;">Add Hours</label>
+        <input type="number" id="mobile-update-hours" class="mobile-input" step="0.25" min="0" value="0" placeholder="e.g. 2.5">
     `;
     
     document.getElementById('mobile-modal-actions').innerHTML = `
@@ -459,8 +538,10 @@ window.openLeaderUpdateModal = (taskId) => {
     document.getElementById('btn-cancel-modal').onclick = () => modal.classList.add('hidden');
     document.getElementById('btn-save-modal').onclick = async () => {
         const status = document.getElementById('mobile-update-status').value;
-        const hours = parseFloat(document.getElementById('mobile-update-hours').value) || 0;
-        const { error } = await supabase.from('project_tasks').update({ status, actual_hours: hours }).eq('id', taskId);
+        const hoursToAdd = parseFloat(document.getElementById('mobile-update-hours').value) || 0;
+        const newTotal = (task.actual_hours || 0) + hoursToAdd;
+        
+        const { error } = await supabase.from('project_tasks').update({ status, actual_hours: newTotal }).eq('id', taskId);
         if (error) {
             alert('Error: ' + error.message);
         } else {

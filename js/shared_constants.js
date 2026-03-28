@@ -204,6 +204,34 @@ function renderImpersonationDropdown() {
     // 5. Add it to the top of the popup
     userMenuPopup.prepend(container);
 
+    // 5b. Add Demo Mobile View Toggle
+    const isMobilePage = window.location.pathname.includes('mobile.html');
+    if (isMobilePage) {
+        const demoContainer = document.createElement('div');
+        demoContainer.className = 'impersonation-container';
+        demoContainer.style.marginTop = '10px';
+        
+        const currentDemoRole = localStorage.getItem('demo_mobile_role') || 'leader';
+        
+        demoContainer.innerHTML = `
+            <label for="demo-role-select">Demo Mobile View:</label>
+            <select id="demo-role-select" class="form-control" style="width: 100%; margin-top: 5px; background: var(--bg-dark); color: var(--text-bright); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px;">
+                <option value="leader" ${currentDemoRole === 'leader' ? 'selected' : ''}>Leader View</option>
+                <option value="laborer" ${currentDemoRole === 'laborer' ? 'selected' : ''}>Laborer View</option>
+            </select>
+        `;
+        userMenuPopup.prepend(demoContainer);
+
+        const demoSelect = document.getElementById('demo-role-select');
+        if (demoSelect) {
+            demoSelect.addEventListener('click', (e) => e.stopPropagation());
+            demoSelect.addEventListener('change', (e) => {
+                localStorage.setItem('demo_mobile_role', e.target.value);
+                window.location.reload();
+            });
+        }
+    }
+
     // 6. Add the event listener and optionally init TomSelect
     const impersonationSelect = document.getElementById('impersonation-select');
     if (impersonationSelect) {

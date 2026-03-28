@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../Constellation-SaaS"
+		},
+		{
+			"path": "../Constellation-V"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "tenworks"
+	}
+}

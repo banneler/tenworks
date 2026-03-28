@@ -15,6 +15,7 @@ import { openSharedProjectLaunchModal } from './project_launch_shared.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const dayjs = window.dayjs;
+const TIMELINE_DAY_WIDTH = 100;
 
 document.addEventListener("DOMContentLoaded", async () => {
     runWhenNavReady(async () => {
@@ -205,9 +206,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     const timelineWrapperEl = document.querySelector('.gantt-timeline-wrapper');
     const resourceListEl = document.getElementById('gantt-resource-list');
     const dateHeaderEl = document.getElementById('gantt-date-header');
-    if (timelineWrapperEl && resourceListEl && dateHeaderEl) {
+    const gridCanvasEl = document.getElementById('gantt-grid-canvas');
+    if (timelineWrapperEl && resourceListEl && dateHeaderEl && gridCanvasEl) {
         timelineWrapperEl.addEventListener('scroll', () => {
-            resourceListEl.scrollTop = timelineWrapperEl.scrollTop;
+            // Keep panes aligned, but clamp only to real content bounds.
+            const headerHeight = dateHeaderEl.offsetHeight || 50;
+            const visibleGridHeight = Math.max(0, timelineWrapperEl.clientHeight - headerHeight);
+            const maxTimelineByGrid = Math.max(0, gridCanvasEl.scrollHeight - visibleGridHeight);
+            const maxResourceScroll = Math.max(0, resourceListEl.scrollHeight - resourceListEl.clientHeight);
+
+            // Use the tighter non-zero bound when available; otherwise use whichever exists.
+            const hardMax =
+                maxResourceScroll > 0 && maxTimelineByGrid > 0
+                    ? Math.min(maxResourceScroll, maxTimelineByGrid)
+                    : Math.max(maxResourceScroll, maxTimelineByGrid);
+
+            const clampedTop = hardMax > 0 ? Math.min(timelineWrapperEl.scrollTop, hardMax) : timelineWrapperEl.scrollTop;
+            if (clampedTop !== timelineWrapperEl.scrollTop) timelineWrapperEl.scrollTop = clampedTop;
+            resourceListEl.scrollTop = clampedTop;
             dateHeaderEl.scrollLeft = timelineWrapperEl.scrollLeft;
         });
     }
@@ -242,6 +258,48 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderGantt();
     }
 
+    function focusProjectRow(projectId, taskId = null) {
+        const projectIdStr = String(projectId);
+        const projectTasks = state.tasks.filter(t => String(t.project_id) === projectIdStr);
+        const taskMatch = taskId != null
+            ? projectTasks.find(t => String(t.id) === String(taskId))
+            : null;
+        const startAnchor = taskMatch?.start_date || projectTasks
+            .map(t => t.start_date)
+            .filter(Boolean)
+            .sort((a, b) => dayjs(a).diff(dayjs(b)))[0];
+
+        if (startAnchor) {
+            const leadDays = Math.max(5, Math.floor(state.timelineDays * 0.2));
+            state.timelineStartDate = dayjs(startAnchor).subtract(leadDays, 'day').startOf('day');
+        }
+
+        switchView('project');
+
+        setTimeout(() => {
+            const row = document.getElementById(`project-row-${projectIdStr}`);
+            const rowBg = document.getElementById(`project-grid-row-${projectIdStr}`);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('schedule-project-hero');
+                setTimeout(() => row.classList.remove('schedule-project-hero'), 2200);
+            }
+            if (rowBg) {
+                rowBg.classList.add('schedule-project-hero-grid');
+                setTimeout(() => rowBg.classList.remove('schedule-project-hero-grid'), 2200);
+            }
+
+            if (timelineWrapperEl && startAnchor) {
+                const dayOffset = dayjs(startAnchor).startOf('day').diff(state.timelineStartDate, 'day');
+                const targetLeft = Math.max(
+                    0,
+                    (dayOffset * TIMELINE_DAY_WIDTH) - Math.floor(timelineWrapperEl.clientWidth * 0.35)
+                );
+                timelineWrapperEl.scrollTo({ left: targetLeft, behavior: 'smooth' });
+            }
+        }, 140);
+    }
+
     function updateViewHelp() {
         if (!viewHelpEl) return;
         if (state.currentView === 'project') {
@@ -268,7 +326,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             supabase.from('talent_availability').select('*'),
             supabase.from('shop_machines').select('*').order('name'),
             supabase.from('shop_talent').select('id, hours_per_week').eq('active', true),
-            supabase.from('task_assignments').select('talent_id, assigned_date, hours')
+            supabase.from('task_assignments').select('task_id, talent_id, assigned_date, hours')
         ]);
 
         if (tradesRes.error) console.error("Error loading data:", tradesRes.error);
@@ -299,7 +357,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         let dateHtml = '';
         const startDate = state.timelineStartDate.startOf('day');
         const daysToRender = state.timelineDays;
-        const dayWidth = 100;
+        const dayWidth = TIMELINE_DAY_WIDTH;
         const endDate = startDate.add(daysToRender - 1, 'day');
         if (rangeLabelEl) rangeLabelEl.textContent = `${startDate.format('MMM D, YYYY')} - ${endDate.format('MMM D, YYYY')}`;
         if (startDateInput) startDateInput.value = startDate.format('YYYY-MM-DD');
@@ -339,17 +397,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             // Project View
             const today = dayjs().format('YYYY-MM-DD');
-            const overdueTaskProjectIds = new Set(
-                state.tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'Completed').map(t => t.project_id)
-            );
+            // Project View Specific Logic
+            const today = dayjs().format('YYYY-MM-DD');
             const endPlus14 = dayjs().add(14, 'day').format('YYYY-MM-DD');
-            const atRiskProjectIds = new Set(
-                state.projects.filter(p => p.status !== 'Completed' && p.end_date && p.end_date >= today && p.end_date <= endPlus14 && overdueTaskProjectIds.has(p.id)).map(p => p.id)
+
+            // At Risk Logic:
+            // 1. Has an overdue task
+            // 2. OR: Has a task that should have started by now but is still 'Pending'
+            // 3. OR: Has a task that should have started by now but has no assigned talent
+            const atRiskTaskProjectIds = new Set(state.tasks.filter(t => {
+                if (t.status === 'Completed') return false;
+                const isOverdue = t.end_date && t.end_date < today;
+                const isUnstarted = t.start_date && t.start_date <= today && t.status === 'Pending';
+                const isUnassigned = t.start_date && t.start_date <= today && !t.assigned_talent_id;
+                return isOverdue || isUnstarted || isUnassigned;
+            }).map(t => t.project_id));
+
+            const overdueProjectIds = new Set(
+                state.projects.filter(p => p.status !== 'Completed' && p.end_date && p.end_date < today).map(p => p.id)
             );
+
+            const atRiskProjectIds = new Set(
+                state.projects.filter(p => p.status !== 'Completed' && p.end_date && p.end_date >= today && p.end_date <= endPlus14 && atRiskTaskProjectIds.has(p.id)).map(p => p.id)
+            );
+
             rows = state.projects.filter(p => {
                 if (state.showCompleted) return true;
                 if (p.status === 'Completed') return false;
-                if (state.filterOverdue) return overdueTaskProjectIds.has(p.id) || (p.end_date && p.end_date < today);
+                if (state.filterOverdue) return overdueProjectIds.has(p.id) || atRiskTaskProjectIds.has(p.id);
                 return true;
             });
 
@@ -394,11 +469,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role ${statusClass}">${rowItem.status}</div>`;
             } else {
                 // Project Sidebar
-                const today = dayjs().format('YYYY-MM-DD');
-                const overdueTaskProjectIds = new Set(state.tasks.filter(t => t.end_date && t.end_date < today && t.status !== 'Completed').map(t => t.project_id));
-                const endPlus14 = dayjs().add(14, 'day').format('YYYY-MM-DD');
-                const projectOverdue = rowItem.end_date && rowItem.end_date < today;
-                const projectAtRisk = !projectOverdue && rowItem.end_date && rowItem.end_date >= today && rowItem.end_date <= endPlus14 && overdueTaskProjectIds.has(rowItem.id);
+                const projectOverdue = overdueProjectIds.has(rowItem.id);
+                const projectAtRisk = !projectOverdue && atRiskProjectIds.has(rowItem.id);
                 const badge = projectOverdue
                     ? ' <span class="schedule-project-badge schedule-project-badge-overdue">Overdue</span>'
                     : (projectAtRisk ? ' <span class="schedule-project-badge schedule-project-badge-risk">At risk</span>' : '');
@@ -429,6 +501,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             rowBg.style.zIndex = '0';
             rowBg.style.cursor = 'pointer';
             rowBg.title = 'Click to schedule a pending task here';
+            if (state.currentView === 'project') {
+                rowBg.id = 'project-grid-row-' + rowItem.id;
+            }
             
             rowBg.addEventListener('click', (e) => {
                 if (e.target !== rowBg) return;
@@ -810,6 +885,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             machineOptions += `<option value="${m.id}" ${selected}>${m.name}</option>`;
         });
 
+        // Build Dependency Options (Tasks in same project)
+        const projectTasks = state.tasks.filter(t => t.project_id === task.project_id && t.id !== task.id);
+        let dependencyOptions = `<option value="">-- None --</option>`;
+        projectTasks.forEach(t => {
+            const selected = task.dependency_task_id === t.id ? 'selected' : '';
+            dependencyOptions += `<option value="${t.id}" ${selected}>${t.name}</option>`;
+        });
+
         showModal(`Edit Task / Machine: ${task.name}`, `
             <div class="schedule-modal-sub-label" style="margin-bottom:10px;">Machine assignment is saved with this task and appears in Machine view.</div>
             <div class="form-grid schedule-modal-grid-wide">
@@ -833,10 +916,16 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <label>Duration (Days)</label>
                     <input type="number" id="edit-duration" class="form-control" value="${dur}">
                 </div>
-                <div class="schedule-modal-grid-span">
+                <div>
                     <label class="schedule-modal-highlight-label">Assign Machine</label>
                     <select id="edit-machine" class="form-control schedule-modal-dark-select">
                         ${machineOptions}
+                    </select>
+                </div>
+                <div>
+                    <label>Depends On</label>
+                    <select id="edit-dependency" class="form-control schedule-modal-dark-select">
+                        ${dependencyOptions}
                     </select>
                 </div>
                 <div class="schedule-modal-grid-span">
@@ -874,13 +963,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const newStart = document.getElementById('edit-start').value;
                 const newEnd = document.getElementById('edit-end').value;
                 const newMachine = document.getElementById('edit-machine').value || null;
+                const newDependency = document.getElementById('edit-dependency').value || null;
 
                 const { error } = await supabase.from('project_tasks').update({
                     status: newStatus,
                     actual_hours: newActual, 
                     start_date: newStart, 
                     end_date: newEnd,
-                    assigned_machine_id: newMachine // SAVE MACHINE
+                    assigned_machine_id: newMachine,
+                    dependency_task_id: newDependency
                 }).eq('id', task.id);
 
                 if (error) {
@@ -891,8 +982,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                         if (siblingTasks && siblingTasks.every(t => t.status === 'Completed')) {
                             const { data: proj } = await supabase.from('projects').select('status').eq('id', task.project_id).single();
                             if (proj && proj.status !== 'Completed') {
-                                if (confirm("All tasks for this project are now completed. Do you want to mark the entire project as Completed?")) {
-                                    await supabase.from('projects').update({ status: 'Completed' }).eq('id', task.project_id);
+                                // PRE-FLIGHT CLOSEOUT CHECKS
+                                const { data: bomData } = await supabase.from('project_bom').select('status').eq('project_id', task.project_id);
+                                const unpulledBom = (bomData || []).filter(b => b.status !== 'Pulled');
+                                
+                                if (unpulledBom.length > 0) {
+                                    alert(`Cannot complete project: ${unpulledBom.length} BOM items are not marked as 'Pulled'. Please update BOM in Projects view.`);
+                                } else {
+                                    const { data: notesData } = await supabase.from('project_notes').select('id').eq('project_id', task.project_id).limit(1);
+                                    const hasNotes = notesData && notesData.length > 0;
+                                    
+                                    const confirmMessage = hasNotes 
+                                        ? "All tasks are completed and BOM is pulled. Do you want to mark the entire project as Completed?" 
+                                        : "Warning: No portal updates/notes have been added to this project. All tasks are completed. Mark project as Completed anyway?";
+
+                                    if (confirm(confirmMessage)) {
+                                        await supabase.from('projects').update({ status: 'Completed' }).eq('id', task.project_id);
+                                    }
                                 }
                             }
                         }
@@ -916,6 +1022,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const DEFAULT_HOURS_PER_WEEK = 40;
 
     function updateMetrics() {
+        const getAssignmentBookedHours = (assignment) => {
+            const explicit = Number(assignment?.hours);
+            if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+            const task = state.tasks.find(t => String(t.id) === String(assignment?.task_id));
+            const est = Number(task?.estimated_hours);
+            const normalized = Number.isFinite(est) && est > 0 ? est : 8;
+            if (task) return Math.min(normalized, 8);
+            return 0;
+        };
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
         const totalRev = activeProjects.reduce((acc, p) => acc + (p.project_value || 0), 0);
 
@@ -929,15 +1045,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const weekStart = dayjs().startOf('week');
         const weekEnd = weekStart.add(6, 'day');
-        const weekStartStr = weekStart.format('YYYY-MM-DD');
-        const weekEndStr = weekEnd.format('YYYY-MM-DD');
-
         const totalCapacity = (state.talent || []).reduce((sum, t) => sum + (Number(t.hours_per_week) || DEFAULT_HOURS_PER_WEEK), 0);
-        const weekAssignments = (state.assignments || []).filter(a => a.assigned_date >= weekStartStr && a.assigned_date <= weekEndStr);
-        const totalLoad = weekAssignments.reduce((sum, a) => {
-            const hours = Number(a.hours);
-            return sum + (Number.isFinite(hours) && hours >= 0 ? hours : 0);
-        }, 0);
+        const weekAssignments = (state.assignments || []).filter(a => {
+            const assigned = dayjs(String(a?.assigned_date || '').slice(0, 10));
+            return assigned.isValid() && !assigned.isBefore(weekStart, 'day') && !assigned.isAfter(weekEnd, 'day');
+        });
+        const totalLoad = weekAssignments.reduce((sum, a) => sum + getAssignmentBookedHours(a), 0);
 
         const pct = totalCapacity > 0 ? Math.round((totalLoad / totalCapacity) * 100) : 0;
         const barPct = totalCapacity > 0 ? Math.min((totalLoad / totalCapacity) * 100, 150) : 0;
@@ -994,6 +1107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const params = new URLSearchParams(window.location.search);
     const projectIdParam = params.get('project_id');
+    const taskIdParam = params.get('task_id');
     const filterOverdue = params.get('filter') === 'overdue';
     if (filterOverdue) {
         state.filterOverdue = true;
@@ -1001,12 +1115,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         history.replaceState({}, '', window.location.pathname + '?filter=overdue');
     }
     if (projectIdParam) {
-        switchView('project');
+        focusProjectRow(projectIdParam, taskIdParam);
         if (!filterOverdue) history.replaceState({}, '', window.location.pathname);
+    }
+    if (taskIdParam) {
         setTimeout(() => {
-            const row = document.getElementById('project-row-' + projectIdParam);
-            if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 150);
+            const deepLinkedTask = state.tasks.find(t => String(t.id) === String(taskIdParam));
+            if (deepLinkedTask) openTaskModal(deepLinkedTask);
+        }, 220);
     }
         } finally {
             hideGlobalLoader();

@@ -46,6 +46,51 @@ let state = {
     lastLoadedAt: null
 };
 
+function activateProjectTab(tabName) {
+    if (!tabName) return;
+    const targetTab = String(tabName).toLowerCase();
+    const targetLink = Array.from(document.querySelectorAll('.tab-link'))
+        .find(btn => String(btn.dataset.tab || '').toLowerCase() === targetTab);
+    const targetContent = document.getElementById(`tab-${targetTab}`);
+    if (!targetLink || !targetContent) return;
+    document.querySelectorAll('.tab-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    targetLink.classList.add('active');
+    targetContent.classList.add('active');
+}
+
+async function openProjectFromUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const projectIdParam = params.get('project_id');
+    const taskIdParam = params.get('task_id');
+    const tabParam = params.get('tab');
+    if (!projectIdParam) return;
+
+    const targetProject = state.projects.find(p => String(p.id) === String(projectIdParam));
+    if (!targetProject) return;
+
+    await loadProjectDetails(targetProject.id);
+    document.querySelectorAll('.list-item').forEach(row => {
+        row.classList.toggle('selected', String(row.dataset.projectId) === String(targetProject.id));
+    });
+
+    if (tabParam) activateProjectTab(tabParam);
+
+    if (taskIdParam) {
+        activateProjectTab('timeline');
+        setTimeout(() => {
+            const taskSaveBtn = document.querySelector(`.task-save-actual[data-task-id="${taskIdParam}"]`);
+            const row = taskSaveBtn ? taskSaveBtn.closest('tr') : null;
+            if (!row) return;
+            row.classList.add('talent-deeplink-highlight');
+            row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setTimeout(() => row.classList.remove('talent-deeplink-highlight'), 1800);
+        }, 120);
+    }
+
+    history.replaceState({}, '', window.location.pathname);
+}
+
 function showStalenessBanner() {
     const el = document.getElementById('data-staleness-banner');
     if (el) { el.style.display = 'flex'; el.classList.remove('hidden'); }
@@ -74,6 +119,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         setupEventListeners();
         await loadProjectsList();
+        await openProjectFromUrlParams();
 
         const launchDealId = new URLSearchParams(window.location.search).get('launch_deal_id');
         if (launchDealId) {
@@ -97,7 +143,7 @@ async function loadProjectsList() {
     if (error) console.error("Error loading projects:", error);
     state.projects = data || [];
 
-    const { data: tasksData } = await supabase.from('project_tasks').select('project_id, end_date, status').neq('status', 'Completed');
+    const { data: tasksData } = await supabase.from('project_tasks').select('project_id, start_date, end_date, status, assigned_talent_id').neq('status', 'Completed');
     const allTasks = tasksData || [];
     const today = TODAY();
     const endPlus14 = new Date();
@@ -109,10 +155,21 @@ async function loadProjectsList() {
         if (!p.end_date || p.status === 'Completed') return;
         if (p.end_date < today) state.overdueProjectIds.add(p.id);
     });
-    const overdueTaskProjectIds = new Set(allTasks.filter(t => t.end_date && t.end_date < today).map(t => t.project_id));
+    
+    // At Risk Logic:
+    // 1. Has an overdue task
+    // 2. OR: Has a task that should have started by now but is still 'Pending'
+    // 3. OR: Has a task that should have started by now but has no assigned talent
+    const atRiskTaskProjectIds = new Set(allTasks.filter(t => {
+        const isOverdue = t.end_date && t.end_date < today;
+        const isUnstarted = t.start_date && t.start_date <= today && t.status === 'Pending';
+        const isUnassigned = t.start_date && t.start_date <= today && !t.assigned_talent_id;
+        return isOverdue || isUnstarted || isUnassigned;
+    }).map(t => t.project_id));
+
     state.projects.forEach(p => {
         if (!p.end_date || p.status === 'Completed') return;
-        if (p.end_date >= today && p.end_date <= endPlus14Str && overdueTaskProjectIds.has(p.id)) state.atRiskProjectIds.add(p.id);
+        if (p.end_date >= today && p.end_date <= endPlus14Str && atRiskTaskProjectIds.has(p.id)) state.atRiskProjectIds.add(p.id);
     });
 
     state.lastLoadedAt = Date.now();
@@ -173,6 +230,7 @@ function renderProjectList() {
         const statusClass = getProjectStatusClass(p.status);
         const el = document.createElement('div');
         el.className = 'list-item';
+        el.dataset.projectId = String(p.id);
         if (state.currentProject && state.currentProject.id === p.id) el.classList.add('selected');
 
         el.innerHTML = `
@@ -324,11 +382,16 @@ function renderTaskList() {
     tbody.innerHTML = '';
     state.tasks.forEach(t => {
         const tr = document.createElement('tr');
-        const actualVal = t.actual_hours != null && t.actual_hours !== '' ? Number(t.actual_hours) : '';
+        const actualVal = t.actual_hours != null && t.actual_hours !== '' ? Number(t.actual_hours) : 0;
         tr.innerHTML = `
             <td class="project-task-name">${t.name}</td>
             <td>${t.estimated_hours ?? '-'}</td>
-            <td><input type="number" min="0" step="0.25" data-task-id="${t.id}" class="task-actual-input form-control project-task-actual-input" value="${actualVal}"></td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="font-size: 0.8rem; color: var(--text-dim); min-width: 30px;">${actualVal}h +</span>
+                    <input type="number" min="0" step="0.25" data-task-id="${t.id}" class="task-actual-input form-control project-task-actual-input" value="0" placeholder="Add">
+                </div>
+            </td>
             <td>
                 <select class="form-control task-status-select" data-task-id="${t.id}" data-project-id="${t.project_id}" style="padding: 4px 8px; font-size: 0.8rem; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-bright); border-radius: 4px;">
                     <option value="Pending" ${t.status === 'Pending' ? 'selected' : ''}>Pending</option>
@@ -345,11 +408,14 @@ function renderTaskList() {
             const taskId = btn.dataset.taskId;
             const input = tbody.querySelector(`.task-actual-input[data-task-id="${taskId}"]`);
             const statusSelect = tbody.querySelector(`.task-status-select[data-task-id="${taskId}"]`);
-            const val = parseFloat(input?.value) || 0;
+            const hoursToAdd = parseFloat(input?.value) || 0;
             const newStatus = statusSelect?.value || 'Pending';
             const projectId = statusSelect?.dataset.projectId;
 
-            const { error } = await supabase.from('project_tasks').update({ actual_hours: val, status: newStatus }).eq('id', taskId);
+            const task = state.tasks.find(t => t.id == taskId);
+            const newTotalHours = (task.actual_hours || 0) + hoursToAdd;
+
+            const { error } = await supabase.from('project_tasks').update({ actual_hours: newTotalHours, status: newStatus }).eq('id', taskId);
             if (error) {
                 showToast('Update failed: ' + error.message, 'error');
             } else {
@@ -358,7 +424,22 @@ function renderTaskList() {
                     if (siblingTasks && siblingTasks.every(t => t.status === 'Completed')) {
                         const { data: proj } = await supabase.from('projects').select('status').eq('id', projectId).single();
                         if (proj && proj.status !== 'Completed') {
-                            if (confirm("All tasks for this project are now completed. Do you want to mark the entire project as Completed?")) {
+                            // PRE-FLIGHT CLOSEOUT CHECKS
+                            const unpulledBom = state.bom.filter(b => b.status !== 'Pulled');
+                            if (unpulledBom.length > 0) {
+                                showToast(`Cannot complete project: ${unpulledBom.length} BOM items are not marked as 'Pulled'.`, 'error');
+                                return;
+                            }
+
+                            // Check if final portal summary exists (assuming it's a note with a specific keyword, or just any note for now)
+                            // For a more robust check, you might want a specific 'final_summary' flag on notes or projects.
+                            // For now, let's just warn them to ensure they've communicated.
+                            const hasNotes = state.notes && state.notes.length > 0;
+                            const confirmMessage = hasNotes 
+                                ? "All tasks are completed and BOM is pulled. Do you want to mark the entire project as Completed?" 
+                                : "Warning: No portal updates/notes have been added to this project. All tasks are completed. Mark project as Completed anyway?";
+
+                            if (confirm(confirmMessage)) {
                                 await supabase.from('projects').update({ status: 'Completed' }).eq('id', projectId);
                             }
                         }
@@ -375,13 +456,17 @@ function renderBOM() {
     if(!tbody) return;
     
     tbody.innerHTML = state.bom.map(item => {
-        const inv = item.inventory_items || { name: 'Unknown Item', sku: '???', category: 'Misc', uom: 'ea' };
+        const inv = item.inventory_items || { name: 'Unknown Item', sku: '???', category: 'Misc', uom: 'ea', qty_on_hand: 0 };
         
+        const isShortage = item.status !== 'Pulled' && (inv.qty_on_hand || 0) < item.qty_required;
+        const shortageWarning = isShortage ? `<div style="color: var(--danger-red); font-size: 0.75rem; margin-top: 2px;"><i class="fas fa-exclamation-triangle"></i> Shortage (On Hand: ${inv.qty_on_hand || 0})</div>` : '';
+
         return `
             <tr>
                 <td>
                     <div class="project-bom-item-name">${inv.name}</div>
                     <div class="project-bom-item-sku">${inv.sku}</div>
+                    ${shortageWarning}
                 </td>
                 <td><span class="project-bom-category-pill">${inv.category}</span></td>
                 <td>${item.qty_required} ${inv.uom}</td>
@@ -411,7 +496,14 @@ function renderBOM() {
             if (oldStatus !== 'Pulled' && newStatus === 'Pulled') {
                 const { data: inv } = await supabase.from('inventory_items').select('qty_on_hand').eq('id', itemId).single();
                 if (inv) {
-                    await supabase.from('inventory_items').update({ qty_on_hand: (inv.qty_on_hand || 0) - qty }).eq('id', itemId);
+                    const newQty = (inv.qty_on_hand || 0) - qty;
+                    if (newQty < 0) {
+                        if (!confirm(`Warning: Pulling this item will result in negative inventory (${newQty}). Proceed anyway?`)) {
+                            e.target.value = oldStatus; // Revert selection
+                            return;
+                        }
+                    }
+                    await supabase.from('inventory_items').update({ qty_on_hand: newQty }).eq('id', itemId);
                 }
             } else if (oldStatus === 'Pulled' && newStatus !== 'Pulled') {
                 const { data: inv } = await supabase.from('inventory_items').select('qty_on_hand').eq('id', itemId).single();
@@ -812,10 +904,7 @@ function setupEventListeners() {
 
     document.querySelectorAll('.tab-link').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-link').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+            activateProjectTab(btn.dataset.tab);
         });
     });
 
@@ -948,6 +1037,10 @@ function openAddTaskModal() {
     if (!state.currentProject) return;
 
     const tradeOptions = state.trades.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+    let dependencyOptions = `<option value="">-- None --</option>`;
+    state.tasks.forEach(t => {
+        dependencyOptions += `<option value="${t.id}">${t.name}</option>`;
+    });
 
     showModal('Add Task', `
         <div class="project-modal-field">
@@ -976,7 +1069,13 @@ function openAddTaskModal() {
                 <input type="date" id="new-task-end" class="form-control project-modal-dark-input">
             </div>
         </div>
-        <button id="btn-save-task" class="btn-primary project-modal-submit">Add Task</button>
+        <div class="project-modal-field" style="margin-top: 10px;">
+            <label>Depends On</label>
+            <select id="new-task-dependency" class="form-control project-modal-dark-input">
+                ${dependencyOptions}
+            </select>
+        </div>
+        <button id="btn-save-task" class="btn-primary project-modal-submit" style="margin-top: 15px;">Add Task</button>
     `, async () => {});
 
     setTimeout(() => {
@@ -987,6 +1086,7 @@ function openAddTaskModal() {
             const estHrs = parseFloat(document.getElementById('new-task-est').value) || 0;
             const start = document.getElementById('new-task-start').value;
             const end = document.getElementById('new-task-end').value;
+            const depId = document.getElementById('new-task-dependency').value || null;
 
             if(!name) { showToast("Enter a task name.", 'error'); return; }
 
@@ -997,7 +1097,8 @@ function openAddTaskModal() {
                 estimated_hours: estHrs,
                 start_date: start || null,
                 end_date: end || null,
-                status: 'Pending'
+                status: 'Pending',
+                dependency_task_id: depId
             });
 
             if (error) {

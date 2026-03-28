@@ -62,6 +62,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const TRADE_COLORS = { 1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2' };
     const DEFAULT_HOURS_PER_WEEK = 40;
     function getTradeColor(id) { return TRADE_COLORS[id] || 'var(--primary-gold)'; }
+    function getAssignmentBookedHours(assignment) {
+        const explicit = Number(assignment?.hours);
+        if (Number.isFinite(explicit) && explicit > 0) return explicit;
+        const linkedTask = assignment?.project_tasks || state.activeTasks.find(t => String(t.id) === String(assignment?.task_id));
+        const est = Number(linkedTask?.estimated_hours);
+        const normalized = Number.isFinite(est) && est > 0 ? est : 8;
+        if (linkedTask) return Math.min(normalized, 8);
+        return 0;
+    }
 
     // ------------------------------------------------------------------------
     // 3. LISTENERS
@@ -124,7 +133,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             supabase.from('shop_trades').select('*').order('name'),
             supabase.from('talent_skills').select('*'),
             supabase.from('talent_availability').select('*'),
-            supabase.from('task_assignments').select(`*, project_tasks (id, name, trade_id, estimated_hours, projects(name))`),
+            supabase.from('task_assignments').select(`*, project_tasks (id, project_id, name, trade_id, estimated_hours, projects(name))`),
             supabase.from('project_tasks').select('*, projects(name), shop_trades(name)').neq('status', 'Completed') 
         ]);
 
@@ -272,16 +281,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const isWeekend = d.day() === 0 || d.day() === 6;
             const isToday = d.isSame(dayjs(), 'day');
 
-            // Find Booked Hours based on chip size logic
-            // Assuming 1 chip = min(est_hours, 8)
-            let bookedHours = 0;
-            state.assignments.forEach(a => {
-                if (a.assigned_date === dateStr) {
-                    const t = state.activeTasks.find(task => task.id === a.task_id);
-                    if(t) bookedHours += Math.min(t.estimated_hours || 8, 8);
-                }
-            });
-
             // This is "Total Shop Load" for that day across ALL visible people
             // But we want "Load vs Capacity" for the header
             // Let's sum up individual capacities
@@ -291,11 +290,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             // Filter bookings to ONLY visible people
             const visibleBookings = state.assignments.filter(a => a.assigned_date === dateStr && visibleIds.includes(a.talent_id));
-            let visibleLoadHours = 0;
-            visibleBookings.forEach(a => {
-                const t = a.project_tasks || state.activeTasks.find(task => task.id === a.task_id);
-                if(t) visibleLoadHours += Math.min(t.estimated_hours || 8, 8);
-            });
+            const visibleLoadHours = visibleBookings.reduce((sum, a) => sum + getAssignmentBookedHours(a), 0);
 
             const metricClass = visibleLoadHours > totalCapacityHours
                 ? 'talent-header-metric-over'
@@ -501,12 +496,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
         if (!hasSkill && !confirm(`${person.name} is not tagged for this trade. Assign anyway?`)) return;
 
+        // Prompt for explicit hours
+        let explicitHours = null;
+        const defaultHours = draggingTask.estimated_hours ? Math.min(draggingTask.estimated_hours, 8) : 8;
+        const hoursInput = prompt(`How many hours will ${person.name} work on this task on ${dayjs(dateStr).format('MMM D')}?`, defaultHours);
+        
+        if (hoursInput === null) {
+            // User cancelled the prompt
+            draggingPayload = null;
+            return;
+        }
+
+        explicitHours = parseFloat(hoursInput);
+        if (isNaN(explicitHours) || explicitHours < 0) {
+            alert("Invalid hours entered. Defaulting to estimated/standard hours.");
+            explicitHours = null; // Let the system fallback
+        }
+
         // --- OPTIMISTIC UI UPDATE START ---
         // 1. Create a fake assignment object mimicking DB structure
         const optimisticAssignment = {
             task_id: draggingTask.id,
             talent_id: person.id,
             assigned_date: dateStr,
+            hours: explicitHours, // Add explicit hours
             project_tasks: draggingTask // Nested object for renderer
         };
 
@@ -521,6 +534,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
         if (!alreadyAssignedHere) {
             state.assignments.push(optimisticAssignment);
+        } else {
+            // Update existing optimistic assignment with new hours
+            const existing = state.assignments.find(a => a.task_id === draggingTask.id && a.talent_id === person.id && a.assigned_date === dateStr);
+            if (existing) existing.hours = explicitHours;
         }
 
         // 3. Remove from pool (visually) if it was the last chunk (simple logic: just refresh pool)
@@ -542,7 +559,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             const { error: upsertError } = await supabase.from('task_assignments').upsert({
                 task_id: draggingTask.id,
                 talent_id: person.id,
-                assigned_date: dateStr
+                assigned_date: dateStr,
+                hours: explicitHours // Save explicit hours to DB
             }, { onConflict: 'task_id, talent_id, assigned_date' });
             if (upsertError) error = upsertError;
         }
@@ -608,19 +626,64 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ------------------------------------------------------------------------
     function getInitials(name) { return name ? name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'TW'; }
     
-    function openSkillsModal(person) { 
+    function openSkillsModal(person) {
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
         const currentSkillIds = state.skills.filter(s => s.talent_id === person.id).map(s => s.trade_id);
-        const checkboxes = state.trades.map(trade => {
+        const skillPills = state.trades.map(trade => {
             const isChecked = currentSkillIds.includes(trade.id);
-            return `<div class="talent-skill-item"><input type="checkbox" id="skill-${trade.id}" value="${trade.id}" ${isChecked ? 'checked' : ''} class="talent-skill-checkbox"><label for="skill-${trade.id}" class="talent-skill-label">${trade.name}</label></div>`;
+            return `
+                <button
+                    type="button"
+                    class="talent-skill-pill ${isChecked ? 'active' : ''}"
+                    data-trade-id="${trade.id}"
+                    aria-pressed="${isChecked ? 'true' : 'false'}"
+                >
+                    ${escapeHtml(trade.name)}
+                </button>
+            `;
         }).join('');
-        showModal(`Manage Skills: ${person.name}`, `<div class="talent-modal-intro talent-modal-intro-lg">Select capabilities.</div><div id="skills-checklist-container" class="talent-skills-grid">${checkboxes}</div>`, async () => {
-            const container = document.getElementById('skills-checklist-container');
-            const selectedTradeIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
-            await supabase.from('talent_skills').delete().eq('talent_id', person.id);
-            if(selectedTradeIds.length > 0) await supabase.from('talent_skills').insert(selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid })));
-            loadTalentData(); return true; 
-        });
+        const modalBodyEl = showModal(
+            `Manage Skills: ${person.name}`,
+            `
+                <div class="talent-skills-modal-body">
+                    <div class="talent-modal-intro talent-modal-intro-lg">Select capabilities.</div>
+                    <div id="skills-checklist-container" class="talent-skills-grid">
+                        ${skillPills || '<div class="talent-modal-empty">No trades found.</div>'}
+                    </div>
+                </div>
+            `,
+            async () => {
+                const container = document.getElementById('skills-checklist-container');
+                if (!container) return false;
+                const selectedTradeIds = Array.from(container.querySelectorAll('.talent-skill-pill.active'))
+                    .map(el => parseInt(el.dataset.tradeId, 10))
+                    .filter(Number.isFinite);
+                await supabase.from('talent_skills').delete().eq('talent_id', person.id);
+                if (selectedTradeIds.length > 0) {
+                    await supabase
+                        .from('talent_skills')
+                        .insert(selectedTradeIds.map(tid => ({ talent_id: person.id, trade_id: tid })));
+                }
+                loadTalentData();
+                return true;
+            }
+        );
+
+        if (modalBodyEl) {
+            const container = modalBodyEl.querySelector('#skills-checklist-container');
+            container?.addEventListener('click', (e) => {
+                const pill = e.target.closest('.talent-skill-pill');
+                if (!pill) return;
+                const nextState = !pill.classList.contains('active');
+                pill.classList.toggle('active', nextState);
+                pill.setAttribute('aria-pressed', nextState ? 'true' : 'false');
+            });
+        }
     }
 
     function handleCellClick(person, dateStr, avail, currentAssignment) {
@@ -706,9 +769,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             handleCellClick(person, dateStr, avail, assignment);
             return;
         }
+        const fullTask = state.activeTasks.find(t => String(t.id) === String(task.id)) || task;
+        const resolvedProjectId = fullTask.project_id ?? task.project_id ?? null;
         const projectName = task.projects?.name || 'Project';
-        const scheduleUrl = task.project_id ? `schedule.html?project_id=${task.project_id}` : 'schedule.html';
-        const projectsUrl = task.project_id ? 'projects.html' : 'projects.html';
+        const scheduleParams = new URLSearchParams();
+        if (resolvedProjectId != null) scheduleParams.set('project_id', String(resolvedProjectId));
+        if (task.id != null) scheduleParams.set('task_id', String(task.id));
+        const scheduleUrl = scheduleParams.toString() ? `schedule.html?${scheduleParams.toString()}` : 'schedule.html';
+
+        const projectsParams = new URLSearchParams();
+        if (resolvedProjectId != null) projectsParams.set('project_id', String(resolvedProjectId));
+        if (task.id != null) projectsParams.set('task_id', String(task.id));
+        projectsParams.set('tab', 'timeline');
+        const projectsUrl = projectsParams.toString() ? `projects.html?${projectsParams.toString()}` : 'projects.html';
         const startLabel = task.start_date ? dayjs(task.start_date).format('MMM D, YYYY') : '—';
         const endLabel = task.end_date ? dayjs(task.end_date).format('MMM D, YYYY') : '—';
         const assignedLabel = dayjs(dateStr).format('ddd, MMM D, YYYY');
@@ -756,37 +829,61 @@ document.addEventListener("DOMContentLoaded", async () => {
     function openCapacityReportModal() {
         const viewStart = state.viewDate.startOf('week');
         const weeks = [];
-        for (let i = 0; i < 5; i++) {
+        const weeksToShow = Math.max(1, Math.ceil((state.daysToShow || 30) / 7));
+        for (let i = 0; i < weeksToShow; i++) {
             const weekStart = viewStart.add(i * 7, 'day');
-            weeks.push({ start: weekStart.format('YYYY-MM-DD'), label: 'Week of ' + weekStart.format('MMM D') });
+            weeks.push({
+                start: weekStart.format('YYYY-MM-DD'),
+                label: 'Week of ' + weekStart.format('MMM D'),
+                order: i
+            });
         }
         const capacityByPerson = {};
         state.talent.forEach(p => {
             capacityByPerson[p.id] = Number(p.hours_per_week) || DEFAULT_HOURS_PER_WEEK;
         });
         const loadByPersonWeek = {};
+        let windowAssignmentCount = 0;
+        let missingTaskLinkCount = 0;
+        let explicitHoursCount = 0;
+        let fallbackHoursCount = 0;
+        let computedWindowLoad = 0;
         state.assignments.forEach(a => {
-            const parsedHours = Number(a.hours);
-            const hrs = Number.isFinite(parsedHours) && parsedHours >= 0 ? parsedHours : 0;
             const d = dayjs(a.assigned_date);
             const weekKey = d.startOf('week').format('YYYY-MM-DD');
+            const inWindow = weeks.some(w => w.start === weekKey);
+            if (inWindow) {
+                windowAssignmentCount++;
+                const explicit = Number(a?.hours);
+                if (Number.isFinite(explicit) && explicit > 0) explicitHoursCount++;
+                else fallbackHoursCount++;
+                const linkedTask = a?.project_tasks || state.activeTasks.find(t => String(t.id) === String(a?.task_id));
+                if (!linkedTask) missingTaskLinkCount++;
+            }
+            const hrs = getAssignmentBookedHours(a);
             const key = `${a.talent_id}|${weekKey}`;
             loadByPersonWeek[key] = (loadByPersonWeek[key] || 0) + hrs;
+            if (inWindow) computedWindowLoad += hrs;
         });
         const rows = [];
         let overloadCount = 0;
-        state.talent.forEach(p => {
-            const cap = capacityByPerson[p.id] || DEFAULT_HOURS_PER_WEEK;
-            weeks.forEach(w => {
+        weeks.forEach(w => {
+            state.talent.forEach(p => {
+                const cap = capacityByPerson[p.id] || DEFAULT_HOURS_PER_WEEK;
                 const key = `${p.id}|${w.start}`;
                 const booked = loadByPersonWeek[key] || 0;
                 const pct = cap > 0 ? Math.round((booked / cap) * 100) : 0;
                 const over = booked > cap;
                 if (over) overloadCount++;
-                rows.push({ name: p.name, weekLabel: w.label, booked, cap, pct, over });
+                rows.push({ weekOrder: w.order, weekLabel: w.label, name: p.name, booked, cap, pct, over });
             });
         });
+        rows.sort((a, b) => {
+            if (a.weekOrder !== b.weekOrder) return a.weekOrder - b.weekOrder;
+            return a.name.localeCompare(b.name);
+        });
         const overloadPeople = new Set(rows.filter(r => r.over).map(r => r.name)).size;
+        const windowCapacityTotal = state.talent.reduce((sum, p) => sum + ((capacityByPerson[p.id] || DEFAULT_HOURS_PER_WEEK) * weeksToShow), 0);
         const tableRows = rows.map(r =>
             `<tr class="${r.over ? 'talent-capacity-row-over' : ''}">
                 <td>${r.name}</td><td>${r.weekLabel}</td><td>${r.booked}h</td><td>${r.cap}h</td>
@@ -794,8 +891,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <td>${r.over ? '<span class="talent-capacity-over-text">Over</span>' : '—'}</td>
             </tr>`
         ).join('');
-        showModal('Capacity report (visible range)', `
-            <p class="talent-capacity-intro">Booked vs capacity by person and week. Capacity = ${DEFAULT_HOURS_PER_WEEK}h/week default (or <code>hours_per_week</code> on talent).</p>
+        showModal('Capacity report (timeline window)', `
+            <p class="talent-capacity-intro">Booked vs capacity by week, then person. Window starts ${viewStart.format('MMM D')} for ${weeksToShow} week(s), based on the current timeline horizon.</p>
+            <p class="talent-capacity-intro">Capacity = ${DEFAULT_HOURS_PER_WEEK}h/week default (or <code>hours_per_week</code> on talent).</p>
+            <div class="talent-capacity-debug-row" style="margin: 8px 0 10px; padding: 8px 10px; border: 1px dashed var(--warning-yellow); color: var(--warning-yellow); font-size: 0.8rem;">
+                <strong>Debug:</strong>
+                assignments in window: ${windowAssignmentCount}
+                | explicit hours: ${explicitHoursCount}
+                | fallback hours: ${fallbackHoursCount}
+                | missing task links: ${missingTaskLinkCount}
+                | computed load: ${computedWindowLoad}h
+                | window capacity: ${windowCapacityTotal}h
+            </div>
             ${overloadPeople > 0 ? `<p class="talent-capacity-over-summary">${overloadPeople} person(s) over capacity in this range.</p>` : ''}
             <div class="talent-capacity-table-wrap">
                 <table class="bom-table talent-capacity-table">
