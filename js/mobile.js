@@ -42,7 +42,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.user = session.user;
     console.log("User authenticated:", state.user.email);
 
-    document.getElementById('mobile-user-menu').addEventListener('click', async () => {
+    document.getElementById('mobile-user-menu').addEventListener('click', async (e) => {
+        e.stopPropagation(); // Prevent the document click listener from immediately closing it
         // Toggle a simple dropdown for the user menu in mobile
         let menu = document.getElementById('mobile-dropdown-menu');
         if (!menu) {
@@ -88,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Close menu if clicking outside
             document.addEventListener('click', (e) => {
-                if (!menu.contains(e.target) && e.target.id !== 'mobile-user-menu') {
+                if (!menu.contains(e.target) && !e.target.closest('#mobile-user-menu')) {
                     menu.style.display = 'none';
                 }
             });
