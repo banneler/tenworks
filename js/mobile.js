@@ -167,6 +167,21 @@ async function loadData() {
         state.tasks = tasksRes.data || [];
         state.projects = projRes.data || [];
         state.availability = availRes.data || [];
+
+        // DEMO OVERRIDE: if the logged-in user is not in shop_talent and we are in laborer mode,
+        // first try to pick someone with an assignment today so demo always shows real work.
+        if (!state.isLeader && !state.talentRecord && state.team.length > 0) {
+            const todayStr = dayjs().format('YYYY-MM-DD');
+            const todaysTalentIds = new Set(
+                state.assignments
+                    .filter(a => isSameDayValue(a.assigned_date, todayStr))
+                    .map(a => String(a.talent_id))
+            );
+
+            const assignedTodayTalent = state.team.find(t => todaysTalentIds.has(String(t.id)));
+            state.talentRecord = assignedTodayTalent || state.team[0];
+            console.log("Demo Override: Viewing as", state.talentRecord.name);
+        }
         
         console.log(`Loaded ${state.assignments.length} assignments, ${state.tasks.length} tasks, ${state.projects.length} projects`);
 

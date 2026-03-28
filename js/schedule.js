@@ -94,6 +94,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         return d;
     }
 
+    function addCalendarDays(date, daysToAdd) {
+        return dayjs(date).add(daysToAdd, 'day');
+    }
+
+    function countBusinessDaysInclusive(startDate, endDate) {
+        const start = dayjs(startDate);
+        const end = dayjs(endDate);
+        if (!start.isValid() || !end.isValid()) return 1;
+        if (end.isBefore(start, 'day')) return 1;
+        let cursor = start.startOf('day');
+        let count = 0;
+        while (!cursor.isAfter(end, 'day')) {
+            if (cursor.day() !== 0 && cursor.day() !== 6) count++;
+            cursor = cursor.add(1, 'day');
+        }
+        return Math.max(1, count);
+    }
+
     const TRADE_COLORS = {
         1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 
         4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2' 
@@ -390,6 +408,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         gridCanvas.innerHTML = '';
 
         let rows = [];
+        let overdueProjectIds = new Set();
+        let atRiskProjectIds = new Set();
         if (state.currentView === 'resource') {
             rows = state.trades;
         } else if (state.currentView === 'machine') {
@@ -398,7 +418,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Project View
             const today = dayjs().format('YYYY-MM-DD');
             // Project View Specific Logic
-            const today = dayjs().format('YYYY-MM-DD');
             const endPlus14 = dayjs().add(14, 'day').format('YYYY-MM-DD');
 
             // At Risk Logic:
@@ -413,11 +432,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return isOverdue || isUnstarted || isUnassigned;
             }).map(t => t.project_id));
 
-            const overdueProjectIds = new Set(
+            overdueProjectIds = new Set(
                 state.projects.filter(p => p.status !== 'Completed' && p.end_date && p.end_date < today).map(p => p.id)
             );
 
-            const atRiskProjectIds = new Set(
+            atRiskProjectIds = new Set(
                 state.projects.filter(p => p.status !== 'Completed' && p.end_date && p.end_date >= today && p.end_date <= endPlus14 && atRiskTaskProjectIds.has(p.id)).map(p => p.id)
             );
 
@@ -573,6 +592,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 bar.style.height = `${barHeight}px`;
                 bar.style.fontSize = '0.7rem';
                 bar.style.cursor = 'grab';
+                bar.style.zIndex = '2';
 
                 // --- COLOR LOGIC ---
                 const baseColor = state.currentView === 'project' ? getTradeColor(task.trade_id) : getProjectColor(task.project_id);
@@ -601,6 +621,24 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <span class="gantt-task-info schedule-task-label">${label || task.name} • <span class="schedule-task-machine-pill">${machineLabel}</span></span>
                     <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
                 `;
+
+                // Weekend placeholder overlay for non-overtime tasks.
+                // Keeps one continuous bar while visually marking closed-shop days.
+                const weekendOvertime = task.weekend_overtime === true;
+                if (!weekendOvertime) {
+                    const taskDayCount = Math.max(1, end.diff(start, 'day') + 1);
+                    for (let dayIndex = 0; dayIndex < taskDayCount; dayIndex++) {
+                        const dateAtIndex = start.add(dayIndex, 'day');
+                        const isWeekend = dateAtIndex.day() === 0 || dateAtIndex.day() === 6;
+                        if (!isWeekend) continue;
+                        const segment = document.createElement('div');
+                        segment.className = 'schedule-weekend-hatch-segment';
+                        // Align hatch segments to exact timeline day columns.
+                        segment.style.left = `${Math.max(0, dayIndex * dayWidth)}px`;
+                        segment.style.width = `${Math.max(2, dayWidth)}px`;
+                        bar.appendChild(segment);
+                    }
+                }
                 bar.title = `${task.name}\nMachine: ${machineLabel}\nClick bar to edit / assign machine`;
                 bar.addEventListener('mousedown', (e) => handleDragStart(e, task, bar));
                 gridCanvas.appendChild(bar);
@@ -610,6 +648,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         
         gridCanvas.style.height = `${currentY}px`;
+
+        // Weekend background columns across timeline (similar cue to Talent view).
+        const weekendLayer = document.createElement('div');
+        weekendLayer.className = 'schedule-weekend-layer';
+        weekendLayer.style.width = `${totalWidth}px`;
+        weekendLayer.style.height = `${currentY}px`;
+        for (let i = 0; i < daysToRender; i++) {
+            const day = startDate.add(i, 'day');
+            if (day.day() !== 0 && day.day() !== 6) continue;
+            const col = document.createElement('div');
+            col.className = 'schedule-weekend-column';
+            col.style.left = `${i * dayWidth}px`;
+            col.style.width = `${dayWidth}px`;
+            col.style.height = `${currentY}px`;
+            weekendLayer.appendChild(col);
+        }
+        gridCanvas.prepend(weekendLayer);
     }
 
     // ------------------------------------------------------------------------
@@ -833,6 +888,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <label>Assign Machine (Optional)</label>
                         <select id="new-task-machine" class="form-control schedule-modal-dark-select">${machineOptions}</select>
                     </div>
+                    <div class="schedule-modal-grid-span">
+                        <label class="schedule-checkbox-row">
+                            <input type="checkbox" id="new-task-weekend-overtime" class="schedule-checkbox-inline">
+                            <span>Enable Weekend Overtime</span>
+                        </label>
+                    </div>
                 </div>
                 <button id="btn-add-step" class="btn-primary schedule-modal-full-btn">Insert Step</button>
             </div>
@@ -856,15 +917,33 @@ document.addEventListener("DOMContentLoaded", async () => {
                 
                 if (!name) return;
                 
+                const weekendOvertime = document.getElementById('new-task-weekend-overtime')?.checked === true;
                 const start = dayjs(startVal);
-                const end = addBusinessDays(start, daysVal > 0 ? daysVal - 1 : 0);
+                const end = weekendOvertime
+                    ? addCalendarDays(start, daysVal > 0 ? daysVal - 1 : 0)
+                    : addBusinessDays(start, daysVal > 0 ? daysVal - 1 : 0);
 
-                await supabase.from('project_tasks').insert({
+                let { error } = await supabase.from('project_tasks').insert({
                     project_id: project.id, trade_id: tradeId, name: name,
                     start_date: start.format('YYYY-MM-DD'), end_date: end.format('YYYY-MM-DD'),
                     estimated_hours: daysVal * 8, status: 'Pending',
-                    assigned_machine_id: machineId || null
+                    assigned_machine_id: machineId || null,
+                    weekend_overtime: weekendOvertime
                 });
+                if (error && String(error.message || '').toLowerCase().includes('weekend_overtime')) {
+                    // Backward-compatible fallback if column is not yet migrated.
+                    ({ error } = await supabase.from('project_tasks').insert({
+                        project_id: project.id, trade_id: tradeId, name: name,
+                        start_date: start.format('YYYY-MM-DD'), end_date: end.format('YYYY-MM-DD'),
+                        estimated_hours: daysVal * 8, status: 'Pending',
+                        assigned_machine_id: machineId || null
+                    }));
+                    if (!error) showToast('Task created. Weekend Overtime column missing in DB; using business-day behavior only.', 'warning');
+                }
+                if (error) {
+                    showToast(`Could not create step: ${error.message}`, 'error');
+                    return;
+                }
                 hideModal(); loadShopData();
             };
         }, 100);
@@ -876,7 +955,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     function openTaskModal(task) {
         const s = dayjs(task.start_date);
         const e = dayjs(task.end_date);
-        const dur = e.diff(s, 'day') + 1; 
+        const weekendOvertime = task.weekend_overtime === true;
+        const dur = weekendOvertime ? (e.diff(s, 'day') + 1) : countBusinessDaysInclusive(s, e);
 
         // Build Machine Options for Assignment
         let machineOptions = `<option value="">-- None --</option>`;
@@ -929,6 +1009,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                     </select>
                 </div>
                 <div class="schedule-modal-grid-span">
+                    <label class="schedule-checkbox-row">
+                        <input type="checkbox" id="edit-weekend-overtime" class="schedule-checkbox-inline" ${weekendOvertime ? 'checked' : ''}>
+                        <span>Enable Weekend Overtime</span>
+                    </label>
+                </div>
+                <div class="schedule-modal-grid-span">
                     <label class="schedule-modal-sub-label">Calculated End Date: <span id="calc-end-date" class="schedule-modal-end-date">${task.end_date}</span></label>
                     <input type="hidden" id="edit-end" value="${task.end_date}"> 
                 </div>
@@ -937,24 +1023,29 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <button id="delete-task-btn" class="schedule-delete-btn">Delete Task</button>
                 <button id="save-task-btn" class="btn-primary">Save Changes</button>
             </div>
-        `, async () => {});
+        `, null, false, '<div></div>');
 
         setTimeout(() => {
             const startInput = document.getElementById('edit-start');
             const durInput = document.getElementById('edit-duration');
             const endInput = document.getElementById('edit-end');
             const endDisplay = document.getElementById('calc-end-date');
+            const overtimeToggle = document.getElementById('edit-weekend-overtime');
 
             function updateEnd() {
                 const s = dayjs(startInput.value);
                 const d = parseInt(durInput.value) || 1;
-                const finalDate = addBusinessDays(s, d > 0 ? d - 1 : 0);
+                const useWeekendOvertime = overtimeToggle?.checked === true;
+                const finalDate = useWeekendOvertime
+                    ? addCalendarDays(s, d > 0 ? d - 1 : 0)
+                    : addBusinessDays(s, d > 0 ? d - 1 : 0);
                 const fmt = finalDate.format('YYYY-MM-DD');
                 endInput.value = fmt;
                 endDisplay.textContent = fmt;
             }
             startInput.addEventListener('change', updateEnd);
             durInput.addEventListener('change', updateEnd);
+            if (overtimeToggle) overtimeToggle.addEventListener('change', updateEnd);
 
             const saveBtn = document.getElementById('save-task-btn');
             if (saveBtn) saveBtn.onclick = async () => {
@@ -964,15 +1055,29 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const newEnd = document.getElementById('edit-end').value;
                 const newMachine = document.getElementById('edit-machine').value || null;
                 const newDependency = document.getElementById('edit-dependency').value || null;
+                const newWeekendOvertime = document.getElementById('edit-weekend-overtime')?.checked === true;
 
-                const { error } = await supabase.from('project_tasks').update({
+                let { error } = await supabase.from('project_tasks').update({
                     status: newStatus,
                     actual_hours: newActual, 
                     start_date: newStart, 
                     end_date: newEnd,
                     assigned_machine_id: newMachine,
-                    dependency_task_id: newDependency
+                    dependency_task_id: newDependency,
+                    weekend_overtime: newWeekendOvertime
                 }).eq('id', task.id);
+                if (error && String(error.message || '').toLowerCase().includes('weekend_overtime')) {
+                    // Backward-compatible fallback if column is not yet migrated.
+                    ({ error } = await supabase.from('project_tasks').update({
+                        status: newStatus,
+                        actual_hours: newActual, 
+                        start_date: newStart, 
+                        end_date: newEnd,
+                        assigned_machine_id: newMachine,
+                        dependency_task_id: newDependency
+                    }).eq('id', task.id));
+                    if (!error) showToast('Saved. Weekend Overtime column missing in DB; using business-day behavior only.', 'warning');
+                }
 
                 if (error) {
                     alert('Error: ' + error.message);
