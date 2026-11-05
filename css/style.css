@@ -11283,3 +11283,38 @@ body.proposals-page .proposal-readiness-panel {
 @keyframes deepLinkPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(212,175,106,0); } 30% { box-shadow: 0 0 0 3px rgba(212,175,106,0.9); } }
 .deep-link-highlight { animation: deepLinkPulse 1.2s ease-in-out 3; outline: 2px solid var(--primary-gold, #d4af6a); outline-offset: -2px; }
 tr.deep-link-highlight > td { background: rgba(212,175,106,0.10) !important; }
+
+/* ===== Round 2: phone comfort for Schedule + Project detail (<=600px) ===== */
+@media (max-width: 600px) {
+  body.schedule-page .header-action-area { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  body.schedule-page .header-action-area .contact-name { font-size: 1.5rem !important; }
+  body.schedule-page .schedule-time-controls { gap: 6px; }
+  body.schedule-page .schedule-time-controls .btn-secondary { min-height: 44px; min-width: 44px; }
+  body.schedule-page #schedule-start-date { flex: 1 1 140px; min-height: 44px; }
+  body.schedule-page .schedule-range-label { min-width: 0; width: 100%; text-align: left; }
+  body.schedule-page .view-controls { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  body.schedule-page .view-controls .btn-toggle { white-space: nowrap; min-height: 44px; }
+  body.schedule-page .schedule-help-banner { display: none; }
+  body.schedule-page .project-metrics-bar { display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; padding: 6px !important; }
+  body.schedule-page .project-metrics-bar .metric-card { padding: 8px 6px !important; min-width: 0; }
+  body.schedule-page .project-metrics-bar .metric-card .label { font-size: 0.6rem; letter-spacing: 0.5px; }
+  body.schedule-page .project-metrics-bar .metric-card .value { font-size: 1.05rem !important; }
+  body.schedule-page .gantt-container-frame { grid-template-columns: 112px 1fr !important; height: 62vh; }
+  body.schedule-page .gantt-header-cell { padding-left: 8px; font-size: 0.72rem; }
+  body.schedule-page .resource-row { padding: 6px 8px !important; overflow: hidden; }
+  body.schedule-page .resource-row * { font-size: 0.75rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.schedule-page #project-filter-controls { flex-wrap: wrap; gap: 10px !important; }
+
+  /* Projects: list on top (scrollable), detail stacked below */
+  .split-view { display: flex !important; flex-direction: column !important; gap: 12px; height: auto !important; }
+  .split-view .item-list-container { width: 100% !important; max-width: none !important; max-height: 45vh; display: flex; flex-direction: column; }
+  .split-view .item-list { display: block !important; flex-direction: column !important; overflow-x: hidden !important; overflow-y: auto !important; white-space: normal !important; }
+  .split-view .item-list > * { width: auto !important; min-width: 0 !important; display: block; white-space: normal !important; min-height: 44px; }
+  .split-view .details-panel { width: 100% !important; min-height: 0 !important; height: auto !important; }
+  #project-detail-panel .tab-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  #project-detail-panel .tab-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  #project-detail-panel .tab-link { white-space: nowrap; min-height: 44px; }
+  #project-detail-panel .bom-table { display: block; overflow-x: auto; }
+  .phone-back-to-list { display: inline-flex !important; }
+}
+.phone-back-to-list { display: none; align-items: center; gap: 6px; margin: 0 0 10px; min-height: 44px; }

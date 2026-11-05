@@ -256,6 +256,17 @@ function renderDetailView() {
 
     document.getElementById('empty-state').classList.add('hidden');
     document.getElementById('detail-content').classList.remove('hidden');
+    if (window.matchMedia && window.matchMedia('(max-width: 600px)').matches) {
+        const dc = document.getElementById('detail-content');
+        if (dc && !document.getElementById('phone-back-to-list')) {
+            const b = document.createElement('button');
+            b.id = 'phone-back-to-list'; b.type = 'button'; b.className = 'btn-secondary phone-back-to-list';
+            b.innerHTML = '<i class="fas fa-arrow-up"></i> All projects';
+            b.addEventListener('click', () => document.querySelector('.item-list-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+            dc.prepend(b);
+        }
+        document.getElementById('project-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     const proposalBtn = document.getElementById('btn-generate-proposal');
     if (proposalBtn) {
