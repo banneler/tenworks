@@ -452,17 +452,25 @@ BEGIN
                 CONTINUE;
             END IF;
 
-            INSERT INTO public.accounts (name, industry, address, notes, user_id, is_customer, status)
-            VALUES (
-                deal.account_name,
-                deal.industry,
-                deal.city,
-                deal.blurb,
-                u.id,
-                deal.stage_key = 'won',
-                CASE WHEN deal.stage_key = 'won' THEN 'Customer' ELSE 'Prospect' END
-            )
-            RETURNING id INTO acct_id;
+            SELECT a.id INTO acct_id
+            FROM public.accounts AS a
+            WHERE a.name = deal.account_name
+              AND a.user_id = u.id
+            LIMIT 1;
+
+            IF acct_id IS NULL THEN
+                INSERT INTO public.accounts (name, industry, address, notes, user_id, is_customer, status)
+                VALUES (
+                    deal.account_name,
+                    deal.industry,
+                    deal.city,
+                    deal.blurb,
+                    u.id,
+                    deal.stage_key = 'won',
+                    CASE WHEN deal.stage_key = 'won' THEN 'Customer' ELSE 'Prospect' END
+                )
+                RETURNING id INTO acct_id;
+            END IF;
 
             INSERT INTO public.contacts (first_name, last_name, title, account_id, user_id, notes)
             VALUES (
