@@ -11230,3 +11230,46 @@ body.proposals-page .proposal-readiness-panel {
 @media (max-width: 1100px) {
     #detail-content input[type="date"] { min-width: 140px; }
 }
+
+/* ===== PHONE (≤600px): shop pages are used one-handed on phones =====
+   The sidebar becomes a fixed bottom tab bar (icons + tiny labels, thumb reach);
+   content gets full width. Tablet/desktop are unchanged. */
+@media (max-width: 600px) {
+    body { font-size: 100% !important; padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important; }
+    .crm-container { flex-direction: column !important; height: auto !important; min-height: 100vh; }
+    .nav-sidebar, .nav-sidebar.nav-sidebar-collapsed {
+        position: fixed !important; left: 0; right: 0; bottom: 0; top: auto !important; z-index: 1000;
+        width: 100% !important; height: calc(60px + env(safe-area-inset-bottom)) !important;
+        padding: 0 0 env(safe-area-inset-bottom) 0 !important; display: block !important;
+        border-radius: 0 !important; box-shadow: 0 -4px 12px var(--shadow-medium);
+    }
+    .nav-sidebar .nav-drawer-content {
+        display: flex !important; flex-direction: row !important; align-items: stretch; height: 60px;
+        overflow-x: auto; overflow-y: visible; gap: 0; padding: 0 !important; scrollbar-width: none;
+    }
+    .nav-sidebar .nav-drawer-content::-webkit-scrollbar { display: none; }
+    .nav-sidebar .nav-top-section, .nav-sidebar .global-search-container,
+    .nav-sidebar .nav-pill-container, .nav-sidebar .nav-label-block, .nav-sidebar .nav-menu-chevron { display: none !important; }
+    .nav-sidebar .nav-drawer-content > .nav-button, .nav-sidebar .nav-menu-toggle {
+        flex: 1 0 64px; min-width: 64px; min-height: 60px !important; margin: 0 !important; padding: 6px 2px !important;
+        display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+        border-radius: 0 !important; box-shadow: none !important; font-size: 0.6rem !important; letter-spacing: 0;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .nav-sidebar .nav-label-text { display: block !important; font-size: 0.6rem; max-width: 62px; overflow: hidden; text-overflow: ellipsis; }
+    .nav-sidebar .nav-icon { font-size: 1.15rem; margin: 0 !important; }
+    .nav-sidebar .nav-bottom-section { margin: 0 !important; padding: 0 !important; border: 0 !important; flex: 1 0 64px; position: static; }
+    .nav-sidebar .user-menu { position: static; width: 100%; height: 100%; }
+    .nav-sidebar .user-menu-popup { position: fixed !important; right: 8px; left: auto !important; bottom: calc(68px + env(safe-area-inset-bottom)) !important; top: auto !important; min-width: 200px; z-index: 1001; }
+    .content-area { width: 100% !important; padding: 14px 12px !important; margin: 0 !important; box-sizing: border-box; overflow-x: hidden; }
+    .content-area h1, .content-area h2 { font-size: 1.25rem; }
+    .content-area button, .content-area .btn-primary, .content-area .btn-secondary,
+    .content-area select, .content-area input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; font-size: 16px; }
+    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .modal-content { width: calc(100vw - 20px) !important; max-width: none !important; max-height: 88vh; overflow-y: auto; }
+    .phone-app-banner { display: flex !important; }
+}
+.phone-app-banner { display: none; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 12px 14px; margin-bottom: 14px; border: 1px solid var(--primary-gold); border-radius: 10px;
+    color: var(--text-bright); text-decoration: none; font-weight: 600; }

@@ -20,12 +20,20 @@ let state = {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("DOM loaded, initializing mobile app...");
     // Register SW for PWA
+    // Offline indicator: the app shell works offline, but data needs a connection.
+    const offlineBar = document.createElement('div');
+    offlineBar.id = 'offline-bar';
+    offlineBar.textContent = 'Offline. Showing the last loaded screen; changes need a connection.';
+    offlineBar.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:3000;padding:calc(6px + env(safe-area-inset-top)) 12px 6px;background:#b45309;color:#fff;font-size:13px;text-align:center;';
+    document.body.appendChild(offlineBar);
+    const syncOnline = () => { offlineBar.style.display = navigator.onLine ? 'none' : 'block'; };
+    window.addEventListener('online', syncOnline); window.addEventListener('offline', syncOnline); syncOnline();
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW registration failed:', err));
     }
 
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    console.log("Session fetched:", sessionData);
+
     if (sessionError) {
         hideGlobalLoader();
         console.error("Session Error:", sessionError);
