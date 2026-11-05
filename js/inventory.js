@@ -38,6 +38,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('kpi-short')?.addEventListener('click', () => { state.filterBy = 'short'; renderTable(); document.getElementById('inventory-table-container')?.scrollIntoView({ behavior: 'smooth' }); });
         document.getElementById('filter-show-all')?.addEventListener('click', (e) => { e.preventDefault(); state.filterBy = 'all'; renderTable(); });
 
+        const qParam = new URLSearchParams(window.location.search).get('q');
+        if (qParam) document.getElementById('inventory-search').value = qParam;
+
         await loadInventory();
         } finally {
             hideGlobalLoader();

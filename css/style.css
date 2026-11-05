@@ -11161,3 +11161,64 @@ body.proposals-page .proposal-readiness-panel {
 .hidden {
     display: none !important;
 }
+
+/* ==========================================================================
+   OVERNIGHT POLISH (2026-11) — shared KPI grid, tablet/shop-floor ergonomics,
+   print-friendly views. Additive only; no page-specific rules overridden.
+   ========================================================================== */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.kpi-grid .kpi-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+}
+.kpi-grid .kpi-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.kpi-grid .kpi-value {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+/* Tablets (shop floor): keep wide tables scrollable instead of crushed, and
+   give touch users finger-sized targets. */
+@media (max-width: 1100px) {
+    .table-container, .glass-panel table { -webkit-overflow-scrolling: touch; }
+    .table-container { overflow-x: auto; }
+    .table-container > table { min-width: 720px; }
+    .content-area { padding-left: 16px; padding-right: 16px; }
+}
+@media (pointer: coarse) {
+    .btn-primary, .btn-secondary, .nav-button, select.form-control, input.form-control {
+        min-height: 40px;
+    }
+}
+
+/* Print: any page prints as a clean, light report (Projects, Inventory,
+   Schedule, Shop dashboard). Hide chrome, loaders, and action buttons. */
+@media print {
+    .nav-sidebar, #nav-container, .global-loader-overlay, .toast-container,
+    .global-search-container, .modal-backdrop, button, .btn-primary, .btn-secondary,
+    #inventory-search, #inventory-filter { display: none !important; }
+    html, body, .crm-container, .content-area, .glass-panel, .table-container, .kpi-card, table, th, td {
+        background: #fff !important;
+        color: #111 !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+    }
+    .crm-container { display: block !important; height: auto !important; }
+    .content-area { overflow: visible !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }
+    th, td { border: 1px solid #ccc !important; }
+    tr, .kpi-card { page-break-inside: avoid; }
+    .table-container > table { min-width: 0; }
+}

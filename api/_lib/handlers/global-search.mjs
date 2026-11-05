@@ -16,7 +16,9 @@ export default async function handler(req) {
   // Add logging at each step to see where it fails
   try {
     console.log("Function invoked. Parsing request body...");
-    const { searchTerm } = await req.json();
+    const { searchTerm: rawTerm } = await req.json();
+    // Strip characters that break PostgREST or()/ilike filters (commas, parens, wildcards).
+    const searchTerm = String(rawTerm || '').replace(/[,()%*\\]/g, ' ').trim().slice(0, 80);
     console.log(`Search term received: "${searchTerm}"`);
 
     if (!searchTerm || searchTerm.length < 2) {
@@ -34,11 +36,12 @@ export default async function handler(req) {
     );
     console.log("Client created. Executing database queries...");
 
-    const [accountsRes, contactsRes, dealsRes, projectsRes] = await Promise.all([
+    const [accountsRes, contactsRes, dealsRes, projectsRes, inventoryRes] = await Promise.all([
       supabaseClient.from('accounts').select('id, name').ilike('name', `%${searchTerm}%`).limit(5),
       supabaseClient.from('contacts').select('id, first_name, last_name').or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`).limit(5),
       supabaseClient.from('deals_tw').select('id, name').ilike('name', `%${searchTerm}%`).limit(5),
-      supabaseClient.from('projects').select('id, name').ilike('name', `%${searchTerm}%`).limit(5)
+      supabaseClient.from('projects').select('id, name, status').ilike('name', `%${searchTerm}%`).limit(5),
+      supabaseClient.from('inventory_items').select('id, name, sku').or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`).limit(5)
     ]);
     console.log("Queries finished. Checking for errors...");
 
@@ -62,7 +65,11 @@ export default async function handler(req) {
       dealsRes.data.forEach(d => results.push({ type: 'Deal', name: d.name, url: `deals.html?dealId=${d.id}` }));
     }
     if (projectsRes.data) {
-      projectsRes.data.forEach(p => results.push({ type: 'Project', name: p.name, url: `projects.html?projectId=${p.id}` }));
+      projectsRes.data.forEach(p => results.push({ type: 'Project', name: p.status ? `${p.name} (${p.status})` : p.name, url: `projects.html?project_id=${p.id}` }));
+    }
+    // Inventory is optional: a lookup error there should not sink the whole search.
+    if (inventoryRes && !inventoryRes.error && inventoryRes.data) {
+      inventoryRes.data.forEach(i => results.push({ type: 'Inventory', name: i.sku ? `${i.sku} · ${i.name}` : i.name, url: `inventory.html?q=${encodeURIComponent(i.sku || i.name)}` }));
     }
     console.log("Returning successful response.");
 

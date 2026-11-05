@@ -885,6 +885,11 @@ export async function setupGlobalSearch(supabase) {
     }
 
     searchInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape') { searchResultsContainer.classList.add('hidden'); searchInput.blur(); return; }
+        if (e.key === 'Enter') {
+            const first = searchResultsContainer.querySelector('a.search-result-item');
+            if (first) { window.location.href = first.getAttribute('href'); return; }
+        }
         clearTimeout(searchTimeout);
         const searchTerm = e.target.value.trim();
 
@@ -925,10 +930,11 @@ export async function setupGlobalSearch(supabase) {
             return;
         }
 
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
         searchResultsContainer.innerHTML = results.map(result => `
-            <a href="${result.url}" class="search-result-item">
-                <span class="result-type">${result.type}</span>
-                <span class="result-name">${result.name}</span>
+            <a href="${esc(result.url)}" class="search-result-item">
+                <span class="result-type">${esc(result.type)}</span>
+                <span class="result-name">${esc(result.name)}</span>
             </a>
         `).join('');
     }
