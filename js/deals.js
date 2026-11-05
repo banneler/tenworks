@@ -917,8 +917,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const isManager = state.currentUser.user_metadata?.is_manager === true;
         const isMyTeamView = state.dealsViewMode === 'all' && isManager;
         if (metricCurrentCommitTitle && metricBestCaseTitle) {
-            metricCurrentCommitTitle.textContent = isMyTeamView ? "My Team's Current Commit" : "My Current Commit";
-            metricBestCaseTitle.textContent = isMyTeamView ? "My Team's Current Best Case" : "My Current Best Case";
+            metricCurrentCommitTitle.textContent = isMyTeamView ? "Team Committed Work" : "My Committed Work";
+            metricBestCaseTitle.textContent = isMyTeamView ? "Team Likely Work" : "My Likely Work";
         }
         const effectiveMonthlyQuota = isMyTeamView ? state.allUsersQuotas.reduce((sum, quota) => sum + (quota.monthly_quota || 0), 0) : state.currentUserQuota;
         if (commitTotalQuota && bestCaseTotalQuota) {

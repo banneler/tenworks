@@ -741,6 +741,35 @@ if (typeof window !== 'undefined') {
 
 
 // --- USER MENU & AUTH LOGIC ---
+// One-time orientation shown right after a brand-new user enters their name.
+// Guarded by localStorage + auth metadata so it never shows twice.
+export function showWelcomeTour(fullName, user) {
+    const key = `tw-welcome-tour-done:${user?.id || 'anon'}`;
+    try { if (localStorage.getItem(key) === '1' || user?.user_metadata?.tw_tour_done) return; } catch (e) {}
+    const first = String(fullName || '').split(' ')[0].replace(/[<>&"']/g, '');
+    const items = [
+        ['fa-industry', 'The Shop', 'shop.html', "Today's load, overdue jobs and what needs attention."],
+        ['fa-calendar-alt', 'Schedule', 'schedule.html', 'Drag tasks across the shop timeline by trade or machine.'],
+        ['fa-folder-open', 'Projects', 'projects.html', 'Every job: dates, value, drawings, BOM and client updates.'],
+        ['fa-users', 'Talent Matrix', 'talent.html', 'Who can do what, and who is booked.'],
+        ['fa-boxes', 'Inventory', 'inventory.html', 'Stock levels and materials on hand.'],
+        ['fa-mobile-alt', 'Shop Floor app', 'mobile.html', 'Phone-friendly view for the floor — add it to your home screen.'],
+    ];
+    const body = `<div class="tw-tour">
+        <p class="tw-welcome-lead">${first ? `Thanks, ${first}. ` : ''}Here's the quick lay of the land:</p>
+        <ul class="tw-tour-list">${items.map(([i, t, h, d]) => `<li><a href="${h}"><i class="fas ${i}"></i><span><strong>${t}</strong><small>${d}</small></span></a></li>`).join('')}</ul>
+        <p class="tw-tour-foot">Tip: the search box and the Menu button are always there if you get lost.</p>
+    </div>`;
+    const done = () => {
+        try { localStorage.setItem(key, '1'); } catch (e) {}
+        try { supabaseForTour?.auth.updateUser({ data: { tw_tour_done: true } }); } catch (e) {}
+        return true;
+    };
+    showModal('Welcome to TenWorks', body, done, false, `<button id="modal-confirm-btn" class="btn-primary">Let's go</button>`);
+    document.querySelectorAll('.tw-tour-list a').forEach(a => a.addEventListener('click', done));
+}
+let supabaseForTour = null;
+
 export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
     // The sidebar (and its user menu) is injected async by nav-loader.js; on slow
     // loads wait once for 'navReady' instead of giving up.
@@ -762,9 +791,10 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
         return;
     }
 
+    supabaseForTour = supabase;
     const { data: userData, error: userError } = await supabase
         .from('user_quotas')
-        .select('full_name, monthly_quota')
+        .select('full_name')
         .eq('user_id', state.currentUser.id)
         .maybeSingle();
 
@@ -776,17 +806,20 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
     
     if (!userData || !userData.full_name) {
         const modalBodyHtml = `
-            <p>Welcome to TenWorks! Please enter your name to get started.</p>
-            <div>
-                <label for="modal-full-name">Full Name</label>
-                <input type="text" id="modal-full-name" required>
+            <div class="tw-welcome">
+                <p class="tw-welcome-lead">Welcome to <strong>TenWorks</strong> — the shop's operating system for projects, schedule, people and materials.</p>
+                <label for="modal-full-name">What should we call you?</label>
+                <input type="text" id="modal-full-name" placeholder="First and last name" autocomplete="name" required>
+                <p id="tw-welcome-error" class="tw-welcome-error" hidden>Please enter your name.</p>
             </div>
         `;
         showModal("Welcome!", modalBodyHtml, async () => {
             const fullName = document.getElementById('modal-full-name')?.value.trim();
 
             if (!fullName) {
-                alert("Please enter your name.");
+                const err = document.getElementById('tw-welcome-error');
+                if (err) err.hidden = false;
+                document.getElementById('modal-full-name')?.focus();
                 return false;
             }
 
@@ -804,7 +837,7 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
             }
 
             const { error: updateUserError } = await supabase.auth.updateUser({
-                data: { full_name: fullName }
+                data: { full_name: fullName, tw_onboarded: true }
             });
 
             if (updateUserError) {
@@ -814,9 +847,11 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
             userNameDisplay.textContent = fullName;
             await setupTheme(supabase, state.currentUser);
             attachUserMenuListeners();
+            setTimeout(() => showWelcomeTour(fullName, state.currentUser), 250);
             return true;
 
-        }, false, `<button id="modal-confirm-btn" class="btn-primary">Get Started</button>`);
+        }, false, `<button id="modal-confirm-btn" class="btn-primary">Continue</button>`);
+        setTimeout(() => document.getElementById('modal-full-name')?.focus(), 100);
     
     } else {
         userNameDisplay.textContent = userData.full_name || 'User';
