@@ -6,6 +6,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenWorks Shop</title>
+    <script>
+    // Phones/narrow viewports: send straight to Shop Floor (mobile.html).
+    // Opt out with ?desktop=1 if the full shop dashboard is needed on a phone.
+    (function () {
+        try {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('desktop') === '1') return;
+            var narrow = window.matchMedia && window.matchMedia('(max-width: 600px)').matches;
+            var ua = navigator.userAgent || '';
+            var mobileUa = /Android.+Mobile|iPhone|iPod|Windows Phone/i.test(ua);
+            if (!(narrow || mobileUa)) return;
+            var target = 'mobile.html' + (window.location.search || '') + (window.location.hash || '');
+            window.location.replace(target);
+        } catch (e) {}
+    })();
+    </script>
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml"><link rel="icon" href="assets/icon-192.png" sizes="192x192"><link rel="apple-touch-icon" href="assets/icon-180.png">
     <link rel="stylesheet" href="css/style.css">
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.5.2/dist/css/tom-select.css" rel="stylesheet">
