@@ -1256,6 +1256,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // --- App Initialization ---
+
+    // Deep link: deals.html?dealId=123 (used by global search) scrolls to and highlights the deal.
+    async function focusDealFromUrl() {
+        const id = new URLSearchParams(window.location.search).get('dealId');
+        if (!id) return;
+        const find = () => {
+            const cell = document.querySelector(`[data-deal-id="${CSS.escape(id)}"]`);
+            return cell ? (cell.closest('tr, .deal-card, .kanban-card, [class*="deal-card"]') || cell) : null;
+        };
+        let el = find();
+        if (!el && !state.showClosedLost) {
+            state.showClosedLost = true;
+            if (toggleClosedLost) toggleClosedLost.checked = true;
+            await loadAllData();
+            el = find();
+        }
+        if (!el) { showToast('That deal is not visible with the current filters.', 'info'); return; }
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('deep-link-highlight');
+        setTimeout(() => el.classList.remove('deep-link-highlight'), 3500);
+    }
+
     async function initializePage() {
         try {
         await loadSVGs();
@@ -1278,6 +1300,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (toggleClosedLost) toggleClosedLost.checked = state.showClosedLost;
             
             await loadAllData();
+            await focusDealFromUrl();
         } else {
             hideGlobalLoader();
             window.location.href = "index.html";
