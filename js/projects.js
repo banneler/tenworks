@@ -288,7 +288,15 @@ function renderDetailView() {
     if (shareStatusBtn) shareStatusBtn.style.display = 'inline-flex';
 
     document.getElementById('detail-name').value = p.name || '';
-    document.getElementById('detail-status').value = p.status || '';
+    const statusSel = document.getElementById('detail-status');
+    // Keep legacy/other statuses (e.g. Onboarding, Fabrication, Internal) selectable so
+    // saving a project never silently blanks or rewrites its status.
+    if (p.status && !Array.from(statusSel.options).some(o => o.value === p.status)) {
+        const opt = document.createElement('option');
+        opt.value = p.status; opt.textContent = p.status;
+        statusSel.appendChild(opt);
+    }
+    statusSel.value = p.status || 'Pre-Production';
     const paymentUrlEl = document.getElementById('detail-payment-url');
     if (paymentUrlEl) paymentUrlEl.value = p.payment_url || '';
     const clientSummaryEl = document.getElementById('detail-client-summary');

@@ -11222,3 +11222,11 @@ body.proposals-page .proposal-readiness-panel {
     tr, .kpi-card { page-break-inside: avoid; }
     .table-container > table { min-width: 0; }
 }
+
+/* Selected list rows: keep status/value meta readable on the gold highlight. */
+.list-item.selected span, .list-item.selected small { color: var(--bg-dark) !important; }
+/* Open-orders empty state was clipped by the condensed panel height. */
+#open-orders-section { height: auto !important; max-height: none !important; overflow: visible; }
+@media (max-width: 1100px) {
+    #detail-content input[type="date"] { min-width: 140px; }
+}
