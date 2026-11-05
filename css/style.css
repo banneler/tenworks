@@ -11327,6 +11327,9 @@ tr.deep-link-highlight > td { background: rgba(212,175,106,0.10) !important; }
   #detail-content > div:first-of-type > div:last-child { text-align: left !important; }
   #detail-name { width: 100%; font-size: 1.25rem !important; }
   #detail-content > div:first-of-type > div:first-child > div > div:first-child { flex-basis: 100% !important; }
+  #detail-content div:has(> div > #detail-status) { flex-wrap: wrap !important; gap: 10px !important; }
+  #detail-content div:has(> div > div > #detail-status) { flex-direction: column !important; margin-right: 0 !important; }
+  #detail-content div:has(> div > div > #detail-status) > div { margin-right: 0 !important; width: 100%; }
   #detail-content div:has(> #detail-status) { flex: 1 1 100% !important; width: 100%; }
   #detail-content #detail-status { width: 100% !important; }
   #project-detail-panel .tab-row { height: auto !important; min-height: 0 !important; }
