@@ -11273,3 +11273,8 @@ body.proposals-page .proposal-readiness-panel {
 .phone-app-banner { display: none; align-items: center; justify-content: space-between; gap: 10px;
     padding: 12px 14px; margin-bottom: 14px; border: 1px solid var(--primary-gold); border-radius: 10px;
     color: var(--text-bright); text-decoration: none; font-weight: 600; }
+
+/* Dashboard metric captions + overdue age badges */
+.metric-caption { margin-top: 8px; font-size: 0.75rem; color: var(--text-dim, #9aa0a6); letter-spacing: 0.01em; }
+.overdue-days-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+    color: var(--danger-red, #e05252); background: rgba(224, 82, 82, 0.12); border: 1px solid rgba(224, 82, 82, 0.35); white-space: nowrap; }

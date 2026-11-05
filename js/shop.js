@@ -92,6 +92,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         document.getElementById('metric-active-projects').textContent = activeProjects.length;
         document.getElementById('metric-overdue').textContent = overdueProjects.length;
+        setOverdueCaption(document.getElementById('metric-overdue'), overdueProjects);
         document.getElementById('metric-stale').textContent = staleProjects.length;
 
         // Capacity
@@ -112,6 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const barPct = totalCapacity > 0 ? Math.min((totalLoad / totalCapacity) * 100, 100) : 0;
 
         document.getElementById('metric-capacity').textContent = `${pct}%`;
+        setLoadCaption(document.getElementById('metric-capacity'), totalLoad, totalCapacity, weekAssignments.length, state.task_assignments);
         const capBar = document.getElementById('metric-capacity-bar');
         if (capBar) {
             capBar.style.width = `${barPct}%`;
@@ -215,14 +217,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             overdueProjects.forEach(project => {
                 const item = document.createElement("div");
                 item.className = `task-item past-due`;
+                const days = dayjs().startOf('day').diff(dayjs(project.end_date), 'day');
                 item.innerHTML = `
                     <div class="task-due">${dayjs(project.end_date).format('MMM D')}</div>
                     <div class="task-content">
-                        <div class="task-linked"><a href="projects.html?id=${project.id}" class="contact-name-link">${project.name}</a></div>
-                        <div class="task-description">Status: ${project.status || 'Active'}</div>
+                        <div class="task-linked"><a href="projects.html?project_id=${project.id}" class="contact-name-link">${escHtml(project.name)}</a></div>
+                        <div class="task-description">Status: ${escHtml(project.status || 'Active')} <span class="overdue-days-badge">${days}d overdue</span></div>
                     </div>
                     <div class="task-actions">
-                        <a href="schedule.html?project_id=${project.id}" class="btn-secondary btn-icon-only" title="View Schedule"><i class="fa-solid fa-calendar"></i></a>
+                        <a href="schedule.html?project_id=${project.id}" class="btn-secondary btn-icon-only" title="View Schedule" aria-label="View schedule"><i class="fa-solid fa-calendar"></i></a>
                     </div>
                 `;
                 overdueList.appendChild(item);
@@ -308,3 +311,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     init();
 });
+
+// --- Dashboard captions (shared logic with mobile.js) ---
+function escHtml(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function captionFor(el, id) {
+    if (!el) return null;
+    let cap = document.getElementById(id);
+    if (!cap) {
+        cap = document.createElement('div'); cap.id = id; cap.className = 'metric-caption';
+        (el.closest('.metric-card, .mobile-metric-card') || el.parentElement).appendChild(cap);
+    }
+    return cap;
+}
+function setLoadCaption(el, load, capacity, weekCount, allAssignments) {
+    const cap = captionFor(el, 'metric-capacity-caption'); if (!cap) return;
+    if (weekCount > 0) { cap.textContent = `${Math.round(load)}h booked of ${Math.round(capacity)}h capacity`; return; }
+    const last = (allAssignments || []).map(a => String(a.assigned_date || '').slice(0, 10)).filter(Boolean).sort().pop();
+    cap.textContent = last ? `Nothing booked this week · last booking ${dayjs(last).format('MMM D')}` : 'Nothing booked yet';
+}
+function setOverdueCaption(el, overdue) {
+    const cap = captionFor(el, 'metric-overdue-caption'); if (!cap) return;
+    if (!overdue.length) { cap.textContent = 'All on track'; return; }
+    const worst = Math.max(...overdue.map(p => dayjs().startOf('day').diff(dayjs(p.end_date), 'day')));
+    const recent = overdue.filter(p => dayjs().startOf('day').diff(dayjs(p.end_date), 'day') <= 14).length;
+    cap.textContent = `${recent} slipped in last 2 wks · oldest ${worst}d`;
+}

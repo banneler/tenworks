@@ -380,6 +380,7 @@ function renderLeaderDashboard() {
     
     document.getElementById('mobile-metric-active').textContent = activeProjects.length;
     document.getElementById('mobile-metric-overdue').textContent = overdueProjects.length;
+    setOverdueCaption(document.getElementById('mobile-metric-overdue'), overdueProjects);
 
     // Capacity (This Week)
     const DEFAULT_HOURS_PER_WEEK = 40;
@@ -397,6 +398,7 @@ function renderLeaderDashboard() {
     const barPct = Math.min(pct, 100);
 
     document.getElementById('mobile-metric-load').textContent = `${pct}%`;
+    setLoadCaption(document.getElementById('mobile-metric-load'), totalLoad, totalCapacity, weekAssignments.length, state.assignments);
     const loadBar = document.getElementById('mobile-metric-load-bar');
     if (loadBar) {
         loadBar.style.width = `${barPct}%`;
@@ -434,10 +436,10 @@ function renderLeaderDashboard() {
     } else {
         overdueList.innerHTML = overdueProjects.sort((a, b) => new Date(a.end_date) - new Date(b.end_date)).map(p => `
             <div class="mobile-card" style="padding: 10px 15px; margin-bottom: 10px; border-left: 3px solid var(--danger-red);">
-                <div class="mobile-card-title" style="font-size:1rem;">${p.name}</div>
+                <div class="mobile-card-title" style="font-size:1rem;">${escHtml(p.name)}</div>
                 <div class="mobile-card-meta" style="margin-bottom:0;">
-                    <span>Due: ${dayjs(p.end_date).format('MMM D')}</span>
-                    <span>${p.status || 'Active'}</span>
+                    <span>Due ${dayjs(p.end_date).format('MMM D')} · <span class="overdue-days-badge">${dayjs().startOf('day').diff(dayjs(p.end_date), 'day')}d overdue</span></span>
+                    <span>${escHtml(p.status || 'Active')}</span>
                 </div>
             </div>
         `).join('');
@@ -574,3 +576,28 @@ window.openLeaderUpdateModal = (taskId) => {
         }
     };
 };
+
+// --- Dashboard captions (shared logic with mobile.js) ---
+function escHtml(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function captionFor(el, id) {
+    if (!el) return null;
+    let cap = document.getElementById(id);
+    if (!cap) {
+        cap = document.createElement('div'); cap.id = id; cap.className = 'metric-caption';
+        (el.closest('.metric-card, .mobile-metric-card') || el.parentElement).appendChild(cap);
+    }
+    return cap;
+}
+function setLoadCaption(el, load, capacity, weekCount, allAssignments) {
+    const cap = captionFor(el, 'metric-capacity-caption'); if (!cap) return;
+    if (weekCount > 0) { cap.textContent = `${Math.round(load)}h booked of ${Math.round(capacity)}h capacity`; return; }
+    const last = (allAssignments || []).map(a => String(a.assigned_date || '').slice(0, 10)).filter(Boolean).sort().pop();
+    cap.textContent = last ? `Nothing booked this week · last booking ${dayjs(last).format('MMM D')}` : 'Nothing booked yet';
+}
+function setOverdueCaption(el, overdue) {
+    const cap = captionFor(el, 'metric-overdue-caption'); if (!cap) return;
+    if (!overdue.length) { cap.textContent = 'All on track'; return; }
+    const worst = Math.max(...overdue.map(p => dayjs().startOf('day').diff(dayjs(p.end_date), 'day')));
+    const recent = overdue.filter(p => dayjs().startOf('day').diff(dayjs(p.end_date), 'day') <= 14).length;
+    cap.textContent = `${recent} slipped in last 2 wks · oldest ${worst}d`;
+}

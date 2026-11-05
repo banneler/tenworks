@@ -83,10 +83,17 @@ function renderMetrics() {
     const tasksDue = state.tasks.filter(t => t.end_date === todayStr).length;
     document.getElementById('metric-tasks-today').textContent = tasksDue;
 
-    const totalCapacity = state.talent.length * 10;
+    // Today's load. Before this fix, each daily assignment counted the task's *entire*
+    // estimated_hours (e.g. 80h for one person-day) and ignored assignment.hours, so the % was
+    // wildly inflated. Now it matches shop.html / mobile: explicit hours, else the task estimate
+    // capped at one 8h day, against each person's daily capacity (hours_per_week / 5).
+    const totalCapacity = state.talent.reduce((sum, t) => sum + ((Number(t.hours_per_week) || 40) / 5), 0);
     let assignedHours = 0;
     state.assignments.forEach(a => {
-        assignedHours += (a.project_tasks?.estimated_hours || 0);
+        const explicit = Number(a.hours);
+        if (Number.isFinite(explicit) && explicit > 0) { assignedHours += explicit; return; }
+        const est = Number(a.project_tasks?.estimated_hours);
+        assignedHours += Math.min(Number.isFinite(est) && est > 0 ? est : 8, 8);
     });
     const loadPct = totalCapacity > 0 ? Math.round((assignedHours / totalCapacity) * 100) : 0;
     document.getElementById('metric-shop-load').textContent = `${loadPct}%`;
