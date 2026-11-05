@@ -12,7 +12,7 @@ import {
     runWhenNavReady,
     updateLastVisited,
     checkAndSetNotifications,
-    hideGlobalLoader
+    hideGlobalLoader, invokeApi
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -152,7 +152,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         setCardLoadingState(sourceCard, true, 'Generating AI post suggestion...');
         let suggestion = '';
         try {
-            const { data, error } = await supabase.functions.invoke('generate-social-post', { body: { article: item } });
+            const { data, error } = await invokeApi(supabase, 'generate-social-post', { body: { article: item } });
             if (error) {
                 console.error("Edge function error:", error);
                 suggestion = "Error generating suggestion. Please write your own or try again.";
@@ -215,7 +215,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             generateCustomBtn.textContent = 'Regenerating...';
             generateCustomBtn.disabled = true;
 
-            const { data, error } = await supabase.functions.invoke('refine-social-post', { body: { originalText, customPrompt } });
+            const { data, error } = await invokeApi(supabase, 'refine-social-post', { body: { originalText, customPrompt } });
             
             if (error) {
                 alert("Error refining post.");

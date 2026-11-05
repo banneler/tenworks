@@ -1,3 +1,4 @@
-.supabase/
 .DS_Store
+.supabase/
+node_modules
 supabase/.temp/

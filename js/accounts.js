@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatMonthYearShort, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, formatCurrency, runWhenNavReady, getDealStageColorClass, getDealCardContent, getKanbanDealCardContent, getStageDisplayName, getDealValue, getElementsPillHtml, DEAL_ELEMENTS_LIST, showToast, hideGlobalLoader } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatMonthYearShort, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, formatCurrency, runWhenNavReady, getDealStageColorClass, getDealCardContent, getKanbanDealCardContent, getStageDisplayName, getDealValue, getElementsPillHtml, DEAL_ELEMENTS_LIST, showToast, hideGlobalLoader, invokeApi } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1241,7 +1241,7 @@ const renderAccountList = () => {
                 }).join('\n')
             };
 
-            const { data: briefing, error } = await supabase.functions.invoke('get-account-briefing', { body: { internalData } });
+            const { data: briefing, error } = await invokeApi(supabase, 'get-account-briefing', { body: { internalData } });
             if (error) throw error;
 
             const summaryText = flattenAIResponse(briefing.summary);

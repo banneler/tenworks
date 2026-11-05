@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, initializeAppState, getState, addDays, loadSVGs, showGlobalLoader, hideGlobalLoader, setupGlobalSearch, checkAndSetNotifications, runWhenNavReady } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, initializeAppState, getState, addDays, loadSVGs, showGlobalLoader, hideGlobalLoader, setupGlobalSearch, checkAndSetNotifications, runWhenNavReady, invokeApi } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("sequences.js script started parsing.");
@@ -1272,7 +1272,7 @@ async function importMarketingSequence() {
         showModal("Generating Sequence", `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">AI is drafting your sequence steps...</p>`, null, false, `<button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
 
         try {
-            const { data, error } = await supabase.functions.invoke('generate-sequence-steps', {
+            const { data, error } = await invokeApi(supabase, 'generate-sequence-steps', {
                 body: { sequenceGoal, numSteps, totalDuration, stepTypes: selectedStepTypes, personaPrompt }
             });
 

@@ -17,7 +17,7 @@ import {
     runWhenNavReady,
     hideGlobalLoader,
     showToast,
-    showActionSuccess
+    showActionSuccess, invokeApi
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -255,7 +255,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 sequence_steps: state.sequence_steps
             };
             console.log("Payload being sent to Edge Function:", briefingPayload);
-            const { data: briefing, error } = await supabase.functions.invoke('get-daily-briefing', {
+            const { data: briefing, error } = await invokeApi(supabase, 'get-daily-briefing', {
                 body: { briefingPayload }
             });
             if (error) throw error;

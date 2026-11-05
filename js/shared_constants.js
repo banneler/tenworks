@@ -5,6 +5,28 @@
 export const SUPABASE_URL = "https://ccrnueyxmnzqlaphqdjn.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjcm51ZXl4bW56cWxhcGhxZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODgyOTIsImV4cCI6MjA4NDA2NDI5Mn0.fy6q89n3bzmwxjgOY9cMJoWqyynvA5M_COJqNdAQqME";
 
+// --- Vercel API helper (replaces supabase.functions.invoke) ---
+// Returns { data, error } like supabase.functions.invoke. AI actions -> /api/ai, admin -> /api/admin.
+export async function invokeApi(supabaseClient, name, { body = {} } = {}) {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return { data: null, error: new Error('Not signed in') };
+        const isAdmin = name === 'update-user-admin';
+        const res = await fetch(isAdmin ? '/api/admin' : '/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(isAdmin ? { action: 'update-user', ...body } : { action: name, ...body })
+        });
+        const text = await res.text();
+        let data; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+        if (!res.ok) return { data: null, error: new Error((data && data.error) || `Request failed (${res.status})`) };
+        return { data, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
 export const themes = ["dark", "light", "green", "blue", "corporate"];
 
 // --- GLOBAL LOADER (Phase 2 — TENWORKS_FACELIFT_GUIDELINES.md § 2.3) ---
@@ -887,7 +909,7 @@ export async function setupGlobalSearch(supabase) {
         searchResultsContainer.classList.remove('hidden');
 
         try {
-            const { data: results, error } = await supabase.functions.invoke('global-search', {
+            const { data: results, error } = await invokeApi(supabase, 'global-search', {
                 body: { searchTerm: term }
             });
 

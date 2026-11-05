@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatSimpleDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, addDays, showToast, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, runWhenNavReady, hideGlobalLoader } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatSimpleDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, addDays, showToast, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, runWhenNavReady, hideGlobalLoader, invokeApi } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -618,7 +618,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         showToast("Analyzing image data...", 'info');
         
         try {
-            const { data, error } = await supabase.functions.invoke('extract-contact-info', {
+            const { data, error } = await invokeApi(supabase, 'extract-contact-info', {
                 body: { image: base64Image }
             });
 
@@ -792,7 +792,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const accountName = state.accounts.find(acc => acc.id === contact.account_id)?.name || '';
 
         try {
-            const { data, error } = await supabase.functions.invoke('generate-prospect-email', {
+            const { data, error } = await invokeApi(supabase, 'generate-prospect-email', {
                 body: {
                     userPrompt: userPrompt,
                     contactName: contactName,
@@ -1708,7 +1708,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showModal("Generating AI Insight", `<div class="loader"></div><p class="placeholder-text" style="text-align: center;">Analyzing activities and generating insights...</p>`, null, false, `<button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
 
                 try {
-                    const { data, error } = await supabase.functions.invoke('get-activity-insight', {
+                    const { data, error } = await invokeApi(supabase, 'get-activity-insight', {
                         body: {
                             contactName: `${contact.first_name || ''} ${contact.last_name || ''}`,
                             activityLog: activityData

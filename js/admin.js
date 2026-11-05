@@ -11,7 +11,7 @@ import {
     showActionSuccess,
     loadSVGs,
     setupUserMenuAndAuth,
-    hideGlobalLoader
+    hideGlobalLoader, invokeApi
 } from './shared_constants.js';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -528,7 +528,7 @@ async function handleSaveUser(e) {
     e.target.textContent = 'Saving...';
 
     try {
-        const { data, error } = await supabase.functions.invoke('update-user-admin', {
+        const { data, error } = await invokeApi(supabase, 'update-user-admin', {
             body: {
                 target_user_id: userId,
                 full_name: fullName,

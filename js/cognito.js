@@ -14,7 +14,7 @@ import {
     updateLastVisited,
     checkAndSetNotifications,
     hideGlobalLoader,
-    showToast
+    showToast, invokeApi
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -521,7 +521,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function generateOutreachCopy(alert, account) {
         try {
-            const { data, error } = await supabase.functions.invoke('get-gemini-suggestion', {
+            const { data, error } = await invokeApi(supabase, 'get-gemini-suggestion', {
                 body: { alertData: alert, accountData: account }
             });
             if (error) throw error;
@@ -537,7 +537,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function generateCustomOutreachCopy(alert, account, customPrompt, previousSubject, previousBody, originalBasePrompt) {
         try {
-            const { data, error } = await supabase.functions.invoke('generate-custom-suggestion', {
+            const { data, error } = await invokeApi(supabase, 'generate-custom-suggestion', {
                 body: {
                     alertData: alert, accountData: account, customPrompt: customPrompt,
                     previousSubject: previousSubject, previousBody: previousBody,
