@@ -134,7 +134,7 @@ a:hover { color: var(--ink); }
 
 .hero h1 {
     font-size: clamp(2.4rem, 5.4vw, 4.4rem);
-    max-width: 14ch;
+    max-width: 16ch;
 }
 
 .lede {
