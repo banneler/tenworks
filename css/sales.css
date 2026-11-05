@@ -1,4 +1,4 @@
-/* TenWorks showcase. Colors and type follow tenworksfab.com:
+/* Ten Works sales page. Colors and type follow tenworksfab.com:
    charcoal #1f2329, bronze #b38c62 / #806245, copper rule #de6c43,
    warm paper, Poppins headlines, Montserrat body. */
 
@@ -12,12 +12,17 @@
     --paper-2: #e7e2d8;
     --white: #fffcf8;
     --line: rgba(31, 35, 41, 0.14);
-    --max: 1120px;
+    --ticket: #efe6d6;
+    --max: 1240px;
 }
 
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
+
+#why,
+#system,
+#clients { scroll-margin-top: 84px; }
 
 body {
     margin: 0;
@@ -110,7 +115,7 @@ a:hover { color: var(--ink); }
 .hero {
     background: var(--ink);
     color: #fff;
-    padding: 5.5rem 0 4.5rem;
+    padding: 4.25rem 0 3.4rem;
 }
 
 .kicker {
@@ -133,83 +138,89 @@ a:hover { color: var(--ink); }
 }
 
 .hero h1 {
-    font-size: clamp(2.4rem, 5.4vw, 4.4rem);
-    max-width: 16ch;
+    font-size: clamp(2.15rem, 4.4vw, 3.5rem);
+    max-width: 18em;
 }
 
 .lede {
-    max-width: 38rem;
-    font-size: 1.15rem;
+    max-width: 40rem;
+    font-size: 1.12rem;
     line-height: 1.55;
     color: #f4f1eb;
-    margin: 1.25rem 0 0;
+    margin: 1.15rem 0 0;
 }
 
-.quiet {
-    margin: 1.5rem 0 0;
-    color: #d9d3c8;
-    font-size: 0.95rem;
+.ask {
+    margin: 1.35rem 0 0;
+    color: var(--gold);
+    font-family: "Poppins", "Montserrat", sans-serif;
+    font-weight: 500;
+    font-size: 1rem;
 }
-
-.hero .quiet a { color: #fff; }
 
 .band {
-    background: var(--ink);
-    color: #f4f1eb;
-    padding: 1.1rem 0;
+    background: var(--ticket);
+    color: var(--ink);
+    padding: 0.85rem 0;
+    border-top: 1px solid rgba(31, 35, 41, 0.22);
+    border-bottom: 1px dashed rgba(31, 35, 41, 0.45);
 }
 
 .band ol {
     list-style: none;
+    counter-reset: op;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem 0;
+    align-items: center;
+    gap: 0.4rem;
     margin: 0;
-    padding: 0;
+    padding: 0.15rem 0;
     font-family: "Poppins", sans-serif;
-    font-size: 0.78rem;
-    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
-.band li { display: flex; align-items: center; }
-
-.band li + li::before {
-    content: "";
-    width: 18px;
-    height: 1px;
-    background: var(--copper);
-    margin: 0 0.7rem;
-}
-
-.section { padding: 4.25rem 0; }
-
-.feature {
-    display: grid;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    gap: 2.5rem 3rem;
+.band li {
+    display: inline-flex;
     align-items: center;
+    gap: 0.4rem;
+    background: var(--white);
+    border: 1px solid rgba(31, 35, 41, 0.32);
+    padding: 0.34rem 0.58rem 0.34rem 0.42rem;
 }
 
-.feature.flip { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+.band li::before {
+    counter-increment: op;
+    content: counter(op);
+    color: var(--bronze);
+    font-size: 0.62rem;
+    letter-spacing: 0;
+    font-weight: 600;
+}
 
-.feature.flip .copy { order: 2; }
+.section { padding: 3.1rem 0 2.4rem; }
+
+#system > .wrap + .wrap { margin-top: 3rem; }
+
+.feature { display: block; }
 
 .section h2 { font-size: clamp(1.8rem, 3vw, 2.6rem); }
 
-.intro { max-width: 42rem; margin-bottom: 1.5rem; }
+.intro { max-width: 42rem; margin-bottom: 0; }
 
 .copy p { margin: 0.9rem 0 0; color: var(--ink-soft); }
 
 .copy p strong { color: var(--ink); font-weight: 600; }
 
-.shot { margin: 0; }
+.shot { margin: 1.15rem 0 0; }
 
 .shot img {
     display: block;
     width: 100%;
-    background: var(--ink);
-    box-shadow: 0 18px 40px rgba(31, 35, 41, 0.16);
+    background: var(--paper-2);
+    border: 1px solid rgba(31, 35, 41, 0.2);
 }
 
 .shot figcaption,
@@ -230,8 +241,13 @@ a:hover { color: var(--ink); }
 }
 
 .phone-shot {
-    margin: 0 auto;
-    width: min(100%, 320px);
+    margin: 1.15rem 0 0;
+    width: min(100%, 390px);
+}
+
+.phone-shot img {
+    border: 8px solid var(--ink);
+    border-radius: 1.35rem;
 }
 
 .pair {
@@ -283,10 +299,7 @@ a:hover { color: var(--ink); }
 }
 
 .foot-inner {
-    display: flex;
-    justify-content: space-between;
-    gap: 1.5rem;
-    align-items: flex-end;
+    display: block;
 }
 
 .foot strong {
@@ -303,45 +316,26 @@ a:hover { color: var(--ink); }
 
 .foot a { color: var(--gold); }
 
-.motto {
-    margin: 0;
-    text-align: right;
-    font-family: "Poppins", sans-serif;
-    font-size: 0.95rem;
-    color: #fff;
-    max-width: 16rem;
-    line-height: 1.35;
-}
-
 @media (max-width: 860px) {
-    .top nav { display: none; }
-
-    .hero { padding: 3.25rem 0 2.75rem; }
-
-    .section { padding: 2.6rem 0; }
-
-    .feature,
-    .feature.flip {
-        grid-template-columns: 1fr;
-        gap: 1.15rem;
+    .top-inner {
+        flex-wrap: wrap;
+        min-height: 0;
+        padding: 0.75rem 0;
     }
 
-    .feature.flip .copy { order: -1; }
+    #why,
+    #system,
+    #clients { scroll-margin-top: 150px; }
+
+    .hero { padding: 3.1rem 0 2.5rem; }
+
+    .section { padding: 2.4rem 0; }
+
+    #system > .wrap + .wrap { margin-top: 2.4rem; }
 
     .pair { grid-template-columns: 1fr; }
 
     .pair .login-shot { max-width: 320px; }
-
-    .foot-inner { flex-direction: column; align-items: flex-start; }
-
-    .motto { text-align: left; max-width: none; }
-
-    .band li + li::before { display: none; }
-    .band ol { gap: 0.4rem; }
-    .band li {
-        border: 1px solid rgba(222, 108, 67, 0.65);
-        padding: 0.28rem 0.55rem;
-    }
 }
 
 @media (max-width: 420px) {
