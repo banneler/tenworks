@@ -11328,8 +11328,8 @@ tr.deep-link-highlight > td { background: rgba(212,175,106,0.10) !important; }
   #detail-name { width: 100%; font-size: 1.25rem !important; }
   #detail-content > div:first-child > div:first-child > div > div:first-child { flex-basis: 100% !important; }
   #project-detail-panel .tab-row { height: auto !important; min-height: 0 !important; }
-  #project-detail-panel .tab-nav { height: auto !important; min-height: 0 !important; width: 100% !important; align-items: center; }
+  #project-detail-panel .tab-nav { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; width: 100% !important; align-items: center; }
   #project-detail-panel .tab-link { height: auto !important; flex: 0 0 auto; }
-  #project-detail-panel .project-tab-actions { height: auto !important; min-height: 0 !important; width: 100% !important; flex-wrap: wrap; gap: 8px; }
+  #project-detail-panel .project-tab-actions { flex: 0 0 auto !important; height: auto !important; min-height: 0 !important; width: 100% !important; flex-wrap: wrap; gap: 8px; }
 }
 .phone-back-to-list { display: none; align-items: center; gap: 6px; margin: 0 0 10px; min-height: 44px; }
