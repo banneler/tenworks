@@ -3949,7 +3949,8 @@ body.theme-dark .auth-box {
 
 #auth-toggle-link,
 #forgot-password-link,
-#return-to-login-link {
+#return-to-login-link,
+#about-system-link {
     display: block;
     margin-top: 0.1rem;
     margin-bottom: 0.1rem;
@@ -3958,9 +3959,16 @@ body.theme-dark .auth-box {
     text-decoration: none;
 }
 
+#about-system-link {
+    margin-top: 0.65rem;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+}
+
 #auth-toggle-link:hover,
 #forgot-password-link:hover,
-#return-to-login-link:hover {
+#return-to-login-link:hover,
+#about-system-link:hover {
     text-decoration: underline;
 }
 

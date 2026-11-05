@@ -5,6 +5,9 @@ inventory, talent, and a CRM side (deals, accounts, contacts, campaigns, sequenc
 
 Production: https://tenworks.vercel.app
 
+Showcase (no login): https://tenworks.vercel.app/sales.html — `sales.html` next to the app.
+Nylas calendar and email sync are not live. They were never ported. The showcase lists them under “On the board.”
+
 ## Architecture
 - **Frontend:** static HTML pages at the repo root, one ES-module script per page in `js/`,
   styles in `css/style.css`. No build step and no framework.
