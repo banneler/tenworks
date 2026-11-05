@@ -816,6 +816,8 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
         showModal("Welcome!", modalBodyHtml, async () => {
             const fullName = document.getElementById('modal-full-name')?.value.trim();
 
+            const errEl = document.getElementById('tw-welcome-error');
+            if (errEl) errEl.hidden = true;
             if (!fullName) {
                 const err = document.getElementById('tw-welcome-error');
                 if (err) err.hidden = false;
@@ -823,12 +825,17 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
                 return false;
             }
 
-            const { error: upsertError } = await supabase
+            // Row is created by the handle_new_user trigger; users may UPDATE (not INSERT) their own row.
+            let { data: updRows, error: upsertError } = await supabase
                 .from('user_quotas')
-                .upsert({
-                    user_id: state.currentUser.id,
-                    full_name: fullName
-                }, { onConflict: 'user_id' });
+                .update({ full_name: fullName })
+                .eq('user_id', state.currentUser.id)
+                .select('user_id');
+            if (!upsertError && (!updRows || updRows.length === 0)) {
+                ({ error: upsertError } = await supabase
+                    .from('user_quotas')
+                    .insert({ user_id: state.currentUser.id, full_name: fullName }));
+            }
 
             if (upsertError) {
                 console.error("Error saving user details to user_quotas:", upsertError);
