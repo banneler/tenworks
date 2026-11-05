@@ -320,7 +320,8 @@ let currentThemeIndex = 0;
 
 function applyTheme(themeName) {
     const themeNameSpan = document.getElementById("theme-name");
-    document.body.className = '';
+    // Only swap theme-* classes; keep page classes (e.g. schedule-page) intact.
+    [...document.body.classList].filter(c => c.startsWith('theme-')).forEach(c => document.body.classList.remove(c));
     document.body.classList.add(`theme-${themeName}`);
     if (themeNameSpan) {
         const capitalizedThemeName = themeName.charAt(0).toUpperCase() + themeName.slice(1);
