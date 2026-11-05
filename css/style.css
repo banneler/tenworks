@@ -11286,24 +11286,24 @@ tr.deep-link-highlight > td { background: rgba(212,175,106,0.10) !important; }
 
 /* ===== Round 2: phone comfort for Schedule + Project detail (<=600px) ===== */
 @media (max-width: 600px) {
-  body.schedule-page .header-action-area { flex-direction: column; align-items: stretch !important; gap: 10px; }
-  body.schedule-page .header-action-area .contact-name { font-size: 1.5rem !important; }
-  body.schedule-page .schedule-time-controls { gap: 6px; }
-  body.schedule-page .schedule-time-controls .btn-secondary { min-height: 44px; min-width: 44px; }
-  body.schedule-page #schedule-start-date { flex: 1 1 140px; min-height: 44px; }
-  body.schedule-page .schedule-range-label { min-width: 0; width: 100%; text-align: left; }
-  body.schedule-page .view-controls { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  body.schedule-page .view-controls .btn-toggle { white-space: nowrap; min-height: 44px; }
-  body.schedule-page .schedule-help-banner { display: none; }
-  body.schedule-page .project-metrics-bar { display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; padding: 6px !important; }
-  body.schedule-page .project-metrics-bar .metric-card { padding: 8px 6px !important; min-width: 0; }
-  body.schedule-page .project-metrics-bar .metric-card .label { font-size: 0.6rem; letter-spacing: 0.5px; }
-  body.schedule-page .project-metrics-bar .metric-card .value { font-size: 1.05rem !important; }
-  body.schedule-page .gantt-container-frame { grid-template-columns: 112px 1fr !important; height: 62vh; }
-  body.schedule-page .gantt-header-cell { padding-left: 8px; font-size: 0.72rem; }
-  body.schedule-page .resource-row { padding: 6px 8px !important; overflow: hidden; }
-  body.schedule-page .resource-row * { font-size: 0.75rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  body.schedule-page #project-filter-controls { flex-wrap: wrap; gap: 10px !important; }
+  body:has(#gantt-date-header) .header-action-area { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  body:has(#gantt-date-header) .header-action-area .contact-name { font-size: 1.5rem !important; }
+  body:has(#gantt-date-header) .schedule-time-controls { gap: 6px; }
+  body:has(#gantt-date-header) .schedule-time-controls .btn-secondary { min-height: 44px; min-width: 44px; }
+  body:has(#gantt-date-header) #schedule-start-date { flex: 1 1 140px; min-height: 44px; }
+  body:has(#gantt-date-header) .schedule-range-label { min-width: 0; width: 100%; text-align: left; }
+  body:has(#gantt-date-header) .view-controls { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  body:has(#gantt-date-header) .view-controls .btn-toggle { white-space: nowrap; min-height: 44px; }
+  body:has(#gantt-date-header) .schedule-help-banner { display: none; }
+  body:has(#gantt-date-header) .project-metrics-bar { display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; padding: 6px !important; }
+  body:has(#gantt-date-header) .project-metrics-bar .metric-card { padding: 8px 6px !important; min-width: 0; }
+  body:has(#gantt-date-header) .project-metrics-bar .metric-card .label { font-size: 0.6rem; letter-spacing: 0.5px; }
+  body:has(#gantt-date-header) .project-metrics-bar .metric-card .value { font-size: 1.05rem !important; }
+  body:has(#gantt-date-header) .gantt-container-frame { grid-template-columns: 112px 1fr !important; height: 62vh; }
+  body:has(#gantt-date-header) .gantt-header-cell { padding-left: 8px; font-size: 0.72rem; }
+  body:has(#gantt-date-header) .resource-row { padding: 6px 8px !important; overflow: hidden; }
+  body:has(#gantt-date-header) .resource-row * { font-size: 0.75rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body:has(#gantt-date-header) #project-filter-controls { flex-wrap: wrap; gap: 10px !important; }
 
   /* Projects: list on top (scrollable), detail stacked below */
   .split-view { display: flex !important; flex-direction: column !important; gap: 12px; height: auto !important; }
