@@ -7,7 +7,7 @@
 const BASE = (process.argv[2] || process.env.SMOKE_BASE || 'https://tenworks.vercel.app').replace(/\/$/, '');
 const PAGES = ['index','command-center','projects','proposals','schedule','shop','shop-dashboard','shop-settings',
   'inventory','talent','deals','accounts','contacts','campaigns','sequences','social_hub','cognito','admin',
-  'ai-admin','mobile','status','reset-password'];
+  'ai-admin','mobile','status','reset-password','sales'];
 const AI = ['custom-user-social-post','extract-contact-info','generate-custom-suggestion','generate-prospect-email',
   'generate-sequence-steps','generate-social-post','get-account-briefing','get-activity-insight',
   'get-daily-briefing','get-gemini-suggestion','global-search','refine-social-post'];
