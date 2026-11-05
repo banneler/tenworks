@@ -11316,5 +11316,15 @@ tr.deep-link-highlight > td { background: rgba(212,175,106,0.10) !important; }
   #project-detail-panel .tab-link { white-space: nowrap; min-height: 44px; }
   #project-detail-panel .bom-table { display: block; overflow-x: auto; }
   .phone-back-to-list { display: inline-flex !important; }
+  body:has(#gantt-date-header) .header-action-area > div:nth-child(2) { flex-direction: column; align-items: stretch !important; gap: 10px !important; width: 100%; }
+  body:has(#gantt-date-header) .header-action-area > div:nth-child(2) > button { width: 100%; min-height: 44px; }
+  body:has(#gantt-date-header) .schedule-time-controls { flex-wrap: nowrap; }
+  #detail-content > div:first-child { flex-direction: column; gap: 10px; }
+  #detail-content > div:first-child > div:first-child { margin-right: 0 !important; width: 100%; }
+  #detail-content > div:first-child > div:first-child > div { flex-wrap: wrap; gap: 10px !important; }
+  #detail-content > div:first-child > div:first-child > div > div { flex: 1 1 140px; min-width: 0; }
+  #detail-content #detail-status, #detail-content input[type=date] { min-width: 0 !important; width: 100%; min-height: 44px; }
+  #detail-content > div:first-child > div:last-child { text-align: left !important; }
+  #detail-name { width: 100%; font-size: 1.25rem !important; }
 }
 .phone-back-to-list { display: none; align-items: center; gap: 6px; margin: 0 0 10px; min-height: 44px; }
