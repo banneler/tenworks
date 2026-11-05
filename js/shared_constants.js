@@ -766,22 +766,17 @@ export async function setupUserMenuAndAuth(supabase, state) {
     
     if (!userData || !userData.full_name) {
         const modalBodyHtml = `
-            <p>Welcome to TenWorks! Please enter your details to get started.</p>
+            <p>Welcome to TenWorks! Please enter your name to get started.</p>
             <div>
                 <label for="modal-full-name">Full Name</label>
                 <input type="text" id="modal-full-name" required>
             </div>
-            <div>
-                <label for="modal-monthly-quota">Monthly Quota ($)</label>
-                <input type="number" id="modal-monthly-quota" required placeholder="e.g., 50000">
-            </div>
         `;
         showModal("Welcome!", modalBodyHtml, async () => {
             const fullName = document.getElementById('modal-full-name')?.value.trim();
-            const monthlyQuota = document.getElementById('modal-monthly-quota')?.value;
 
-            if (!fullName || !monthlyQuota) {
-                alert("Please fill out all fields.");
+            if (!fullName) {
+                alert("Please enter your name.");
                 return false;
             }
 
@@ -789,8 +784,7 @@ export async function setupUserMenuAndAuth(supabase, state) {
                 .from('user_quotas')
                 .upsert({
                     user_id: state.currentUser.id,
-                    full_name: fullName,
-                    monthly_quota: Number(monthlyQuota)
+                    full_name: fullName
                 }, { onConflict: 'user_id' });
 
             if (upsertError) {

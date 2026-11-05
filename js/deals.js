@@ -430,7 +430,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 plugins: {
                     legend: { display: false },
                     tooltip: { callbacks: { label: (c) => `Value: ${formatCurrency(c.parsed.x)}` } },
-                    annotation: { annotations: { quotaLine: { type: 'line', scaleID: 'x', value: effectiveMonthlyQuota, borderColor: 'red', borderWidth: 2, borderDash: [6, 6] } } }
+                    annotation: { annotations: {} }
                 },
                 scales: { x: { ticks: { color: '#b0b0b0', callback: (v) => formatCurrencyK(v) }, grid: { color: '#b0b0b0' } }, y: { ticks: { color: '#b0b0b0' }, grid: { display: false } } }
             }
@@ -474,7 +474,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 plugins: {
                     legend: { display: false },
                     tooltip: { callbacks: { label: (c) => `Value: ${formatCurrency(c.parsed.x)}` } },
-                    annotation: { annotations: { quotaLine: { type: 'line', scaleID: 'x', value: effectiveMonthlyQuota, borderColor: 'red', borderWidth: 2, borderDash: [6, 6] } } }
+                    annotation: { annotations: {} }
                 },
                 scales: { x: { ticks: { color: '#b0b0b0', callback: (v) => formatCurrencyK(v) }, grid: { color: '#b0b0b0' } }, y: { ticks: { color: '#b0b0b0' }, grid: { display: false }, barPercentage: 0.7, categoryPercentage: 0.6 } }
             }

@@ -300,7 +300,6 @@ function renderUserTable() {
                 <td><input type="text" class="form-control user-name-input" value="${user.full_name || ''}"></td>
                 <td>${user.email || 'N/A'}</td>
                 <td>${user.last_login ? formatDate(user.last_login) : 'Never'}</td>
-                <td><input type="number" class="form-control user-quota-input" value="${user.monthly_quota || 0}"></td>
                 <td><input type="checkbox" class="is-manager-checkbox" ${user.is_manager ? 'checked' : ''} ${isSelf ? 'disabled' : ''}></td>
                 <td><input type="checkbox" class="exclude-reporting-checkbox" ${user.exclude_from_reporting ? 'checked' : ''}></td>
                 <td class="action-buttons">${deactivateBtn}<button class="btn-primary btn-sm save-user-btn">Save</button></td>
@@ -522,7 +521,6 @@ async function handleSaveUser(e) {
     // --- END FIX ---
 
     const fullName = row.querySelector('.user-name-input').value.trim();
-    const monthlyQuota = parseInt(row.querySelector('.user-quota-input').value, 10) || 0;
 
     e.target.disabled = true;
     e.target.textContent = 'Saving...';
@@ -532,7 +530,6 @@ async function handleSaveUser(e) {
             body: {
                 target_user_id: userId,
                 full_name: fullName,
-                monthly_quota: monthlyQuota,
                 is_manager: isManagerStatus,
                 exclude_from_reporting: excludeReportingStatus
             }
