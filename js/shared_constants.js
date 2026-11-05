@@ -740,7 +740,16 @@ if (typeof window !== 'undefined') {
 
 
 // --- USER MENU & AUTH LOGIC ---
-export async function setupUserMenuAndAuth(supabase, state) {
+export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
+    // The sidebar (and its user menu) is injected async by nav-loader.js; on slow
+    // loads wait once for 'navReady' instead of giving up.
+    if (!_retried && !window.__navReady && !document.getElementById('user-menu-popup') && document.getElementById('nav-container')) {
+        await new Promise(resolve => {
+            const t = setTimeout(resolve, 4000);
+            window.addEventListener('navReady', () => { clearTimeout(t); resolve(); }, { once: true });
+        });
+        return setupUserMenuAndAuth(supabase, state, true);
+    }
     const userNameDisplay = document.getElementById('user-name-display');
     const userMenuPopup = document.getElementById('user-menu-popup');
     const logoutBtn = document.getElementById("logout-btn");
@@ -748,7 +757,7 @@ export async function setupUserMenuAndAuth(supabase, state) {
     const navMenuToggle = document.getElementById('nav-menu-toggle');
 
     if (!userMenuPopup || !userNameDisplay || !logoutBtn) {
-        console.error("One or more user menu elements are missing.");
+        console.warn("User menu not present on this page; skipping user menu setup.");
         return;
     }
 

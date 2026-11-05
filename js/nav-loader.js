@@ -22,13 +22,13 @@
             wireCollapseToggle(container);
             wireUserMenuToggle(container);
             if (typeof window.dispatchEvent === 'function') {
-                window.dispatchEvent(new CustomEvent('navReady'));
+                window.__navReady = true; window.dispatchEvent(new CustomEvent('navReady'));
             }
         })
         .catch(function () {
             container.innerHTML = '<p class="nav-fallback" style="padding:1rem;color:var(--text-medium);font-size:0.85rem;">Navigation could not be loaded.</p>';
             if (typeof window.dispatchEvent === 'function') {
-                window.dispatchEvent(new CustomEvent('navReady'));
+                window.__navReady = true; window.dispatchEvent(new CustomEvent('navReady'));
             }
         });
 
