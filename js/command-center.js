@@ -19,6 +19,8 @@ import {
     showToast,
     showActionSuccess, invokeApi
 } from './shared_constants.js';
+import { emailActionLabel, getIntegrationState, sendEmail } from './integrations.js';
+import { mountNylasCalendar } from './nylas-calendar.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     // --- UPDATED LOADING SCREEN LOGIC ---
@@ -581,6 +583,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (!step) { showToast("Sequence step not found.", "error"); return; }
                 const subject = replacePlaceholders(step.subject, contact, account);
                 const message = replacePlaceholders(step.message, contact, account);
+                const integrationState = await getIntegrationState(supabase);
+                const confirmLabel = emailActionLabel(integrationState);
                 showModal('Compose Email', `
                     <div class="form-group">
                         <label for="modal-email-subject">Subject:</label>
@@ -593,12 +597,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 `, async () => {
                     const finalSubject = document.getElementById('modal-email-subject').value;
                     const finalMessage = document.getElementById('modal-email-body').value;
-                    const mailtoLink = `mailto:${contact.email}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalMessage)}`;
-                    window.open(mailtoLink, "_blank");
+                    const result = await sendEmail(
+                        supabase,
+                        { to: contact.email, subject: finalSubject, body: finalMessage },
+                        { onNotice: (msg, type) => showToast(msg, type) }
+                    );
                     await completeStep(csId, `Email Sent: ${finalSubject}`);
                 },
                 true,
-                `<button id="modal-confirm-btn" class="btn-primary">Send with Email Client</button>
+                `<button id="modal-confirm-btn" class="btn-primary">${confirmLabel}</button>
                  <button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`
                 );
             } else if (button.matches('.send-linkedin-message-btn')) {
@@ -758,6 +765,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             // The `loadAllData` function will now use the correct `state.isManager` flag.
             await loadAllData();
+            const nylasCalendar = mountNylasCalendar(supabase, { showModal, showToast });
+            await nylasCalendar.refresh();
 
             setupPageEventListeners();
 

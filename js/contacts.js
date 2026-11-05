@@ -1,4 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatSimpleDate, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, addDays, showToast, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, runWhenNavReady, hideGlobalLoader, invokeApi } from './shared_constants.js';
+import { emailActionLabel, getIntegrationState, sendEmail } from './integrations.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -751,7 +752,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <label>AI-Generated Draft:</label>
                 <textarea id="ai-email-body" rows="10"></textarea>
                 <div class="flex-end-buttons">
-                    <button id="open-email-client-btn" class="btn-primary">Open Email Client</button>
+                    <button id="open-email-client-btn" class="btn-primary">${emailActionLabel(await getIntegrationState(supabase))}</button>
                 </div>
             </div>
         `;
@@ -841,11 +842,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         const emailSubject = document.getElementById('ai-email-subject').value;
         const emailBody = document.getElementById('ai-email-body').value;
 
-        // Let encodeURIComponent handle the newlines automatically.
-        const encodedBody = encodeURIComponent(emailBody); 
-        
-        const mailtoLink = `mailto:${contact.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodedBody}`;
-        window.open(mailtoLink, '_blank');
+        let sendResult;
+        try {
+            sendResult = await sendEmail(
+                supabase,
+                { to: contact.email, subject: emailSubject, body: emailBody },
+                { onNotice: (msg, type) => showToast(msg, type) }
+            );
+        } catch (error) {
+            showToast(error.message || 'Could not send email.', 'error');
+            return;
+        }
+        const viaNylas = sendResult?.mode === 'nylas';
 
         try {
             globalState = getState();
@@ -853,7 +861,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 contact_id: state.selectedContactId,
                 account_id: contact?.account_id,
                 type: 'AI-Generated Email',
-                description: `AI-generated email draft opened in mail client. Subject: "${emailSubject}".`,
+                description: viaNylas
+                    ? `AI-generated email sent via connected inbox. Subject: "${emailSubject}".`
+                    : `AI-generated email draft opened in mail client. Subject: "${emailSubject}".`,
                 user_id: globalState.effectiveUserId,
                 date: new Date().toISOString()
             });
@@ -1549,15 +1559,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
                 const subject = replacePlaceholders(step.subject, contact, account);
                 const message = replacePlaceholders(step.message, contact, account);
+                const integrationState = await getIntegrationState(supabase);
+                const confirmLabel = emailActionLabel(integrationState);
                 showModal('Compose Email', `
                     <div class="form-group"><label for="modal-email-subject">Subject:</label><input type="text" id="modal-email-subject" class="form-control" value="${(subject || '').replace(/"/g, '&quot;')}"></div>
                     <div class="form-group"><label for="modal-email-body">Message:</label><textarea id="modal-email-body" class="form-control" rows="10">${(message || '')}</textarea></div>
                 `, async () => {
                     const finalSubject = document.getElementById('modal-email-subject').value;
                     const finalMessage = document.getElementById('modal-email-body').value;
-                    window.open(`mailto:${contact.email}?subject=${encodeURIComponent(finalSubject)}&body=${encodeURIComponent(finalMessage)}`, '_blank');
+                    await sendEmail(
+                        supabase,
+                        { to: contact.email, subject: finalSubject, body: finalMessage },
+                        { onNotice: (msg, type) => showToast(msg, type) }
+                    );
                     await completeStep(csId, `Email Sent: ${finalSubject}`);
-                }, true, `<button id="modal-confirm-btn" class="btn-primary">Send with Email Client</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+                }, true, `<button id="modal-confirm-btn" class="btn-primary">${confirmLabel}</button><button id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
             } else if (btn.matches('.send-linkedin-message-btn')) {
                 const account = contact.account_id ? state.accounts.find(a => a.id === contact.account_id) : null;
                 const message = replacePlaceholders(step.message, contact, account);

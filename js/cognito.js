@@ -16,10 +16,12 @@ import {
     hideGlobalLoader,
     showToast, invokeApi
 } from './shared_constants.js';
+import { emailActionLabel, getIntegrationState, sendEmail } from './integrations.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    let cognitoSendLabel = 'Send with Email Client';
     let state = {
         currentUser: null,
         
@@ -361,7 +363,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <textarea id="outreach-body" rows="8" readonly>${initialOutreachCopy.body}</textarea>
                         <div class="action-buttons">
                             <button class="btn-secondary" id="copy-btn">Copy</button>
-                            <button class="btn-primary" id="send-email-btn">Open Email Client</button>
+                            <button class="btn-primary" id="send-email-btn">${cognitoSendLabel}</button>
                         </div>
                         <button class="btn-tertiary" id="refine-suggestion-btn" style="margin-top: 15px;">Refine with Custom Prompt</button>
                     </div>
@@ -380,7 +382,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                             <textarea id="custom-outreach-body" rows="8" readonly></textarea>
                             <div class="action-buttons">
                                 <button class="btn-secondary" id="copy-custom-btn">Copy Custom</button>
-                                <button class="btn-primary" id="send-email-custom-btn">Open Email Client (Custom)</button>
+                                <button class="btn-primary" id="send-email-custom-btn">${cognitoSendLabel === 'Send Email' ? 'Send Email (Custom)' : 'Open Email Client (Custom)'}</button>
                             </div>
                         </div>
                     </div>
@@ -572,7 +574,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    function handleEmailAction(isCustom = false) { 
+    async function handleEmailAction(isCustom = false) { 
         const contactId = contactSelector?.tomselect ? contactSelector.tomselect.getValue() : contactSelector?.value;
         if (!contactId) { showToast('Please select a contact.', 'error'); return; }
         const contact = state.contacts.find(c => c.id === Number(contactId));
@@ -580,7 +582,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const subject = isCustom ? customOutreachSubjectInput.value : outreachSubjectInput.value;
         const body = isCustom ? customOutreachBodyTextarea.value : outreachBodyTextarea.value;
-        window.location.href = `mailto:${contact.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        try {
+            await sendEmail(
+                supabase,
+                { to: contact.email, subject, body },
+                { onNotice: (msg, type) => showToast(msg, type) }
+            );
+        } catch (error) {
+            showToast(error.message || 'Could not send email.', 'error');
+        }
     }
 
     function handleCopyAction(isCustom = false) { 
@@ -744,6 +754,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             setupPageEventListeners();
             await setupGlobalSearch(supabase, state.currentUser);
             await loadAllData();
+            cognitoSendLabel = emailActionLabel(await getIntegrationState(supabase));
             await checkAndSetNotifications(supabase);
             updateLastVisited(supabase, 'cognito');
         } else {

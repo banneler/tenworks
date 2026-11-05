@@ -91,6 +91,27 @@
 
         .constellation-toast i { font-size: 1.2rem; }
         .toast-success i { color: #4ade80; }
+        .settings-tab-panel[hidden] { display: none; }
+        .user-settings-panel {
+            margin-top: 20px;
+            padding: 22px 24px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-light);
+        }
+        .user-settings-panel + .user-settings-panel { margin-top: 16px; }
+        .user-settings-panel h3 { margin: 0 0 6px; color: var(--text-light); }
+        .user-settings-panel .placeholder-text {
+            text-align: left;
+            margin: 0;
+            font-style: normal;
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+        #user-settings-subtitle { text-align: left; margin-top: 0.35rem; font-style: normal; }
+        .user-settings-status { margin: 14px 0; color: var(--text-light); }
+        .user-settings-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+        #email-signature-input { width: 100%; min-height: 140px; }
         .toast-error { border-color: #f87171; }
         .toast-error i { color: #f87171; }
     </style>
@@ -117,8 +138,8 @@
             <div id="ai-admin-view" class="content-view active-view">
                 <div class="tasks-header">
                     <div class="tasks-header-left">
-                        <h2>AI Voice Administration</h2>
-                        <p class="placeholder-text">Manage the persona and instructions for the TenWorks AI ecosystem.</p>
+                        <h2>Settings</h2>
+                        <p class="placeholder-text" id="user-settings-subtitle">Connect calendar and email, then tune the AI voice.</p>
                     </div>
                     <div class="tasks-header-right">
                         <button id="save-config-btn" class="btn-primary hidden">
@@ -127,6 +148,34 @@
                     </div>
                 </div>
 
+                <div class="ai-admin-tabs-wrapper" id="user-settings-tabs" role="tablist" aria-label="Settings sections">
+                    <button type="button" class="irr-tab active" role="tab" aria-selected="true" data-settings-tab="integrations" id="tab-integrations">Integrations</button>
+                    <button type="button" class="irr-tab" role="tab" aria-selected="false" data-settings-tab="ai-voice" id="tab-ai-voice">AI Voice</button>
+                </div>
+
+                <div id="settings-tab-integrations" class="settings-tab-panel" role="tabpanel">
+                    <section class="user-settings-panel" id="integrations-panel">
+                        <div class="user-settings-panel-header">
+                            <h3>Email &amp; Calendar</h3>
+                            <p class="placeholder-text">Connect Google or Outlook to send email and show your calendar in TenWorks.</p>
+                        </div>
+                        <p class="user-settings-status" id="integrations-status-text">Checking connection…</p>
+                        <div class="user-settings-actions" id="integrations-actions"></div>
+                    </section>
+                    <section class="user-settings-panel" id="signature-panel">
+                        <div class="user-settings-panel-header">
+                            <h3>Email Signature</h3>
+                            <p class="placeholder-text">Appended when a message goes out through a connected inbox.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="email-signature-input">Signature</label>
+                            <textarea id="email-signature-input" class="form-control" rows="8" placeholder="Name&#10;Ten Works&#10;(000) 000-0000"></textarea>
+                        </div>
+                        <button type="button" class="btn-primary" id="save-signature-btn">Save Signature</button>
+                    </section>
+                </div>
+
+                <div id="settings-tab-ai-voice" class="settings-tab-panel" role="tabpanel" hidden>
                 <div class="card" style="margin-top: 20px; padding: 0; overflow: hidden; border: 1px solid var(--border-color);">
                     <div id="ai-engine-tabs" class="ai-admin-tabs-wrapper">
                         </div>
@@ -163,6 +212,7 @@
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
         </main>

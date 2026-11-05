@@ -22,6 +22,7 @@ import {
     checkAndSetNotifications,
     runWhenNavReady,
 } from './shared_constants.js';
+import { sendEmail } from './integrations.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -788,8 +789,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        const mailtoLink = `mailto:${to}?subject=${encodeURIComponent(subject || '')}&body=${encodeURIComponent(body || '')}`;
-        window.location.href = mailtoLink;
+        const sendResult = await sendEmail(
+            supabase,
+            { to, subject: subject || '', body: body || '' },
+            { onNotice: (msg, type) => showToast(msg, type) }
+        );
+        const viaNylas = sendResult?.mode === 'nylas';
 
         // CORRECTED: Get memberId from the button that was clicked
         const memberId = Number(event.target.dataset.memberId);
@@ -823,7 +828,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             error: memberUpdateError
         } = await supabase.from('campaign_members').update({
             status: 'Completed',
-            notes: `Email opened in client. Subject: ${subject || '(No Subject)'}`,
+            notes: viaNylas
+                ? `Email sent from connected inbox. Subject: ${subject || '(No Subject)'}`
+                : `Email opened in client. Subject: ${subject || '(No Subject)'}`,
             completed_at: new Date().toISOString()
         }).eq('id', currentMember.id);
         if (memberUpdateError) console.error("Error updating campaign member status (email):", memberUpdateError);

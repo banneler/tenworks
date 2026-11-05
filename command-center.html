@@ -89,7 +89,28 @@
                         </div>
                     </div>
                     <div class="dashboard-column-right">
-                        <div class="section-card">
+                        <div id="cc-calendar-card" class="section-card cc-calendar-card">
+                            <div class="section-card-header">
+                                <h2 class="section-title">Upcoming Calendar</h2>
+                                <div id="cc-calendar-actions" class="cc-calendar-actions">
+                                    <button type="button" id="cc-calendar-month-btn" class="btn-secondary btn-icon-header" title="Month view" aria-label="Open month calendar">
+                                        <i class="fa-solid fa-calendar-days"></i>
+                                    </button>
+                                    <button type="button" id="cc-calendar-add-btn" class="btn-primary btn-icon-header" title="Add event" aria-label="Add calendar event">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="cc-calendar-list" class="cc-calendar-list">
+                                <div class="nylas-connect-empty">
+                                    <div class="nylas-connect-mark" aria-hidden="true"><i class="fa-regular fa-calendar"></i></div>
+                                    <h3>Connect calendar &amp; email</h3>
+                                    <p>Google or Outlook shows up here once it’s connected. Until then this stays empty on purpose — the shop schedule is still on the Schedule page.</p>
+                                    <a class="btn-primary" href="ai-admin.html?tab=integrations">Connect calendar &amp; email</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="section-card cc-recent-activities-card">
                             <div class="section-card-header">
                                 <h2 class="section-title">Recent Activities</h2>
                             </div>
@@ -100,6 +121,32 @@
 
             </div>
         </main>
+    </div>
+
+    <div id="cc-month-calendar-backdrop" class="modal-backdrop cc-month-calendar-backdrop hidden" aria-hidden="true">
+        <div class="cc-month-calendar-modal" role="dialog" aria-modal="true" aria-labelledby="cc-month-calendar-title">
+            <div class="cc-month-calendar-header">
+                <div class="cc-month-calendar-nav">
+                    <button type="button" id="cc-month-prev-btn" class="cc-month-nav-btn" title="Previous month" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h3 id="cc-month-calendar-title" class="cc-month-calendar-title">Month</h3>
+                    <button type="button" id="cc-month-next-btn" class="cc-month-nav-btn" title="Next month" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <button type="button" id="cc-month-calendar-close" class="cc-month-calendar-close" title="Close" aria-label="Close month calendar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="cc-month-calendar-body">
+                <div class="cc-month-grid-wrap">
+                    <div class="cc-month-weekday-row" id="cc-month-weekday-row"></div>
+                    <div class="cc-month-grid" id="cc-month-grid"></div>
+                </div>
+                <aside class="cc-month-day-panel">
+                    <div class="cc-month-day-panel-header">
+                        <h4 id="cc-month-day-heading" class="cc-month-day-heading">Select a day</h4>
+                        <button type="button" id="cc-month-day-add-btn" class="btn-primary btn-icon-header hidden" title="Add event" aria-label="Add event on this day"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="cc-month-day-list" class="cc-month-day-list"></div>
+                </aside>
+            </div>
+        </div>
     </div>
 
     <div id="modal-backdrop" class="modal-backdrop hidden">

@@ -5,6 +5,14 @@ import {
     runWhenNavReady,
     hideGlobalLoader
 } from './shared_constants.js';
+import {
+    clearIntegrationStateCache,
+    disconnectIntegration,
+    getIntegrationState,
+    startConnect,
+} from './integrations.js';
+
+const SETTINGS_RETURN_TO = '/ai-admin.html?tab=integrations';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -180,6 +188,117 @@ document.addEventListener("DOMContentLoaded", async () => {
         iField.placeholder = `Demo: ${engine.demoInstructions}`;
     }
 
+    function setActiveSettingsTab(tabId) {
+        const next = tabId === 'ai-voice' ? 'ai-voice' : 'integrations';
+        document.querySelectorAll('#user-settings-tabs [data-settings-tab]').forEach((btn) => {
+            const active = btn.dataset.settingsTab === next;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.getElementById('settings-tab-integrations')?.toggleAttribute('hidden', next !== 'integrations');
+        document.getElementById('settings-tab-ai-voice')?.toggleAttribute('hidden', next !== 'ai-voice');
+        if (next !== 'ai-voice') saveBtn?.classList.add('hidden');
+        else if (state.selectedEngineId) saveBtn?.classList.remove('hidden');
+        const url = new URL(window.location.href);
+        if (next === 'integrations') url.searchParams.delete('tab');
+        else url.searchParams.set('tab', 'ai-voice');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    async function renderIntegrationsPanel() {
+        const statusEl = document.getElementById('integrations-status-text');
+        const actionsEl = document.getElementById('integrations-actions');
+        if (!statusEl || !actionsEl) return;
+        let integrationState;
+        try {
+            integrationState = await getIntegrationState(supabase, { force: true });
+        } catch (error) {
+            statusEl.textContent = 'Unable to load integration status.';
+            actionsEl.innerHTML = '';
+            return;
+        }
+        if (integrationState.schemaReady === false) {
+            statusEl.textContent = 'Calendar and email tables are not on this database yet. The connect screen is here; linking an account waits on that migration.';
+            actionsEl.innerHTML = '';
+            return;
+        }
+        if (!integrationState.orgEnabled) {
+            statusEl.textContent = 'Email and calendar are turned off for the shop. An admin can turn them on under Admin → System Settings.';
+            actionsEl.innerHTML = '';
+            return;
+        }
+        const providerLabel = integrationState.provider === 'microsoft' ? 'Outlook' : integrationState.provider === 'google' ? 'Google' : '';
+        if (integrationState.connected) {
+            statusEl.textContent = `Connected${providerLabel ? ` via ${providerLabel}` : ''}${integrationState.email ? ` · ${integrationState.email}` : ''}`;
+            actionsEl.innerHTML = `<button type="button" class="btn-danger" id="settings-integrations-disconnect-btn"><i class="fas fa-link-slash" aria-hidden="true"></i> Disconnect</button>`;
+            actionsEl.querySelector('#settings-integrations-disconnect-btn')?.addEventListener('click', async () => {
+                if (!confirm('Disconnect your email and calendar account?')) return;
+                try {
+                    await disconnectIntegration(supabase);
+                    clearIntegrationStateCache();
+                    showToast('Disconnected email and calendar.', 'success');
+                    await renderIntegrationsPanel();
+                } catch (error) {
+                    showToast(error.message || 'Could not disconnect.', 'error');
+                }
+            });
+            return;
+        }
+        const keysNote = integrationState.nylasConfigured === false
+            ? ' Nylas keys are not on this deployment yet, so Connect will explain that instead of opening Google or Outlook.'
+            : '';
+        statusEl.textContent = `Not connected. Choose Google or Outlook when you are ready to link an account.${keysNote}`;
+        actionsEl.innerHTML = `
+            <button type="button" class="btn-primary" id="settings-connect-google-btn"><i class="fa-brands fa-google" aria-hidden="true"></i> Connect Google</button>
+            <button type="button" class="btn-secondary" id="settings-connect-outlook-btn"><i class="fa-brands fa-microsoft" aria-hidden="true"></i> Connect Outlook</button>
+        `;
+        const begin = async (provider) => {
+            try {
+                await startConnect(supabase, provider, SETTINGS_RETURN_TO);
+            } catch (error) {
+                showToast(error.message || 'Could not start the connection.', 'error');
+            }
+        };
+        actionsEl.querySelector('#settings-connect-google-btn')?.addEventListener('click', () => begin('google'));
+        actionsEl.querySelector('#settings-connect-outlook-btn')?.addEventListener('click', () => begin('microsoft'));
+    }
+
+    async function loadEmailSignature() {
+        const input = document.getElementById('email-signature-input');
+        if (!state.currentUser || !input) return;
+        const { data, error } = await supabase
+            .from('user_settings')
+            .select('email_signature')
+            .eq('user_id', state.currentUser.id)
+            .maybeSingle();
+        if (error) {
+            if (!/does not exist|schema cache|PGRST205/i.test(error.message || '')) {
+                showToast('Unable to load email signature.', 'error');
+            }
+            return;
+        }
+        input.value = data?.email_signature || '';
+    }
+
+    async function saveEmailSignature() {
+        const input = document.getElementById('email-signature-input');
+        const button = document.getElementById('save-signature-btn');
+        if (!state.currentUser || !input) return;
+        if (button) button.disabled = true;
+        try {
+            const { error } = await supabase.from('user_settings').upsert({
+                user_id: state.currentUser.id,
+                email_signature: input.value ?? '',
+            }, { onConflict: 'user_id' });
+            if (error) throw error;
+            showToast('Email signature saved.', 'success');
+        } catch (error) {
+            showToast(error.message || 'Could not save signature.', 'error');
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
     async function initializePage() {
         try {
         await loadSVGs();
@@ -193,6 +312,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             updateActiveNavLink();
             setupModalListeners();
             await loadConfigs();
+            const requestedTab = new URLSearchParams(window.location.search).get('tab');
+            setActiveSettingsTab(requestedTab === 'ai-voice' ? 'ai-voice' : 'integrations');
+            document.getElementById('user-settings-tabs')?.addEventListener('click', (event) => {
+                const btn = event.target.closest('[data-settings-tab]');
+                if (!btn) return;
+                setActiveSettingsTab(btn.dataset.settingsTab);
+            });
+            await renderIntegrationsPanel();
+            await loadEmailSignature();
+            document.getElementById('save-signature-btn')?.addEventListener('click', saveEmailSignature);
 
             tabContainer.addEventListener('click', (e) => {
                 const tab = e.target.closest('.irr-tab');
