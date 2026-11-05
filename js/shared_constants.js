@@ -1,6 +1,7 @@
 // js/shared_constants.js
 
 // --- SHARED CONSTANTS AND FUNCTIONS ---
+import { handleIntegrationsQueryToast } from './integrations.js';
 
 export const SUPABASE_URL = "https://ccrnueyxmnzqlaphqdjn.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjcm51ZXl4bW56cWxhcGhxZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0ODgyOTIsImV4cCI6MjA4NDA2NDI5Mn0.fy6q89n3bzmwxjgOY9cMJoWqyynvA5M_COJqNdAQqME";
@@ -793,6 +794,10 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
     const logoutBtn = document.getElementById("logout-btn");
     const userMenuHeader = document.querySelector('.user-menu-header');
     const navMenuToggle = document.getElementById('nav-menu-toggle');
+
+    handleIntegrationsQueryToast((msg, type) => {
+        try { showToast(msg, type); } catch (_) { /* toast optional */ }
+    });
 
     if (!userMenuPopup || !userNameDisplay || !logoutBtn) {
         console.warn("User menu not present on this page; skipping user menu setup.");

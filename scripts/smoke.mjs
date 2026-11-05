@@ -26,6 +26,13 @@ for (const f of ['js/shared_constants.js','js/nav-loader.js','css/style.css','pa
 }
 for (const a of AI) { const r = await post('/api/ai', { action: a }); ok([401,403].includes(r.status), `api/ai ${a} unauth -> ${r.status}`); }
 { const r = await post('/api/admin', { action: 'update-user' }); ok([401,403].includes(r.status), `api/admin update-user unauth -> ${r.status}`); }
+for (const path of ['/api/integrations/status', '/api/integrations/calendar/events', '/api/integrations/calendar/calendars']) {
+  const r = await fetch(BASE + path); ok([401,403].includes(r.status), `${path} unauth GET -> ${r.status}`);
+}
+for (const path of ['/api/integrations/nylas/auth-url', '/api/integrations/nylas/disconnect', '/api/integrations/email/send']) {
+  const r = await post(path, {}); ok([401,403].includes(r.status), `${path} unauth POST -> ${r.status}`);
+}
+{ const r = await fetch(BASE + '/api/integrations/nylas/webhook'); ok(r.ok, `nylas webhook handshake -> ${r.status}`); }
 if (process.env.SMOKE_TOKEN) {
   const r = await post('/api/ai', { action: 'global-search', searchTerm: 'a' }, process.env.SMOKE_TOKEN);
   ok(r.ok, `api/ai global-search authed -> ${r.status}`);

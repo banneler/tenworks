@@ -6,7 +6,7 @@ inventory, talent, and a CRM side (deals, accounts, contacts, campaigns, sequenc
 Production: https://tenworks.vercel.app
 
 Showcase (no login): https://tenworks.vercel.app/sales.html — `sales.html` next to the app.
-Nylas calendar and email sync are not live. They were never ported. The showcase lists them under “On the board.”
+Nylas calendar and email are ported and ready to connect. With no grant, Command Center and Settings show a connect state. The shop schedule is still Schedule.
 
 ## Architecture
 - **Frontend:** static HTML pages at the repo root, one ES-module script per page in `js/`,
@@ -32,6 +32,15 @@ Nylas calendar and email sync are not live. They were never ported. The showcase
 | `SUPABASE_SERVICE_ROLE_KEY` | service role key (admin actions only; never ship to the browser) |
 | `GEMINI_API_KEY` | Google Gemini key for the AI actions |
 | `GEMINI_MODEL` / `GEMINI_FALLBACK_MODEL` | optional model overrides (see `api/_lib/env.mjs`) |
+| `NYLAS_API_KEY` | Nylas API key (also the OAuth client secret) |
+| `NYLAS_CLIENT_ID` | Nylas application client id |
+| `NYLAS_REDIRECT_URI` | Optional. Default is `{origin}/api/integrations/nylas/callback`. Production: `https://tenworks.vercel.app/api/integrations/nylas/callback` |
+| `NYLAS_WEBHOOK_SECRET` | Optional. Verifies `POST /api/integrations/nylas/webhook`. Unsigned webhooks are accepted when this is unset |
+| `NYLAS_API_URI` | Optional. Default `https://api.us.nylas.com` |
+| `NYLAS_STATE_SECRET` | Optional HMAC for the OAuth `state` parameter. Falls back to `NYLAS_API_KEY`, then the Supabase service role key |
+| `APP_ORIGIN` | Optional public origin used when sending the browser back after OAuth |
+
+Apply `supabase/migrations/20261105120000_nylas_integrations.sql` before connecting an account. Admin → System Settings can turn email and calendar off. The flag starts on so the connect screen is visible with no grant.
 
 ## Local development
 ```bash

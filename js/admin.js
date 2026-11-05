@@ -25,6 +25,7 @@ let state = {
     analyticsData: {},
     dealStages: [],
     activityTypes: [],
+    orgSettings: { id: 1, email_calendar_enabled: true },
     charts: {},
     scriptLogs: [],
     currentView: 'user-management',
@@ -49,9 +50,10 @@ const loadAllDataForView = async () => {
 };
 
 async function loadSettingsData() {
-    const [{ data: stages, error: stagesError }, { data: types, error: typesError }] = await Promise.all([
+    const [{ data: stages, error: stagesError }, { data: types, error: typesError }, orgResult] = await Promise.all([
         supabase.from('deal_stages').select('*').order('sort_order'),
-        supabase.from('activity_types').select('*').order('type_name')
+        supabase.from('activity_types').select('*').order('type_name'),
+        supabase.from('org_settings').select('id,email_calendar_enabled').eq('id', 1).maybeSingle()
     ]);
 
     if (stagesError || typesError) {
@@ -61,7 +63,41 @@ async function loadSettingsData() {
 
     state.dealStages = stages || [];
     state.activityTypes = types || [];
+    state.orgSettings = orgResult?.error
+        ? { id: 1, email_calendar_enabled: false, unavailable: true }
+        : (orgResult?.data || { id: 1, email_calendar_enabled: true });
     renderSettingsPage();
+}
+
+function integrationsHint(enabled, unavailable) {
+    if (unavailable) return 'Calendar tables are not on this database yet.';
+    return enabled
+        ? 'On — people can connect Google or Outlook. Send and calendar use that account.'
+        : 'Off — email opens the mail client, and the calendar card stays hidden.';
+}
+
+async function handleIntegrationsToggle(e) {
+    const enabled = Boolean(e.target.checked);
+    const previous = Boolean(state.orgSettings?.email_calendar_enabled);
+    const hint = document.getElementById('email-calendar-enabled-hint');
+    if (hint) hint.textContent = 'Saving…';
+    const { data, error } = await supabase
+        .from('org_settings')
+        .upsert({
+            id: 1,
+            email_calendar_enabled: enabled,
+            updated_by: state.currentUser?.id || null,
+        }, { onConflict: 'id' })
+        .select('id,email_calendar_enabled')
+        .maybeSingle();
+    if (error) {
+        e.target.checked = previous;
+        showToast('Could not update integrations setting: ' + error.message, 'error');
+        if (hint) hint.textContent = integrationsHint(previous, false);
+        return;
+    }
+    state.orgSettings = data || { id: 1, email_calendar_enabled: enabled };
+    if (hint) hint.textContent = integrationsHint(enabled, false);
 }
 
 function renderSettingsPage() {
@@ -76,6 +112,16 @@ function renderSettingsPage() {
             <button class="btn-danger btn-sm delete-setting-btn" data-type="deal_stage">&times;</button>
         </li>
     `).join('');
+
+    const toggle = document.getElementById('email-calendar-enabled-toggle');
+    const hint = document.getElementById('email-calendar-enabled-hint');
+    const unavailable = Boolean(state.orgSettings?.unavailable);
+    const enabled = Boolean(state.orgSettings?.email_calendar_enabled);
+    if (toggle) {
+        toggle.checked = enabled && !unavailable;
+        toggle.disabled = unavailable;
+    }
+    if (hint) hint.textContent = integrationsHint(enabled, unavailable);
 
     activityTypesList.innerHTML = state.activityTypes.map(type => `
         <li data-id="${type.id}" class="settings-list-item">
@@ -688,6 +734,7 @@ function setupPageEventListeners() {
     
     document.getElementById('add-deal-stage-btn')?.addEventListener('click', (e) => { e.preventDefault(); handleAddSetting('deal_stage'); });
     document.getElementById('add-activity-type-btn')?.addEventListener('click', (e) => { e.preventDefault(); handleAddSetting('activity_type'); });
+    document.getElementById('email-calendar-enabled-toggle')?.addEventListener('change', handleIntegrationsToggle);
     document.getElementById('settings-view')?.addEventListener('click', e => {
         if (e.target.matches('.delete-setting-btn')) {
             handleDeleteSetting(e); 
