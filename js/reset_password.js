@@ -1,8 +1,9 @@
 // js/reset_password.js
 // No need to import modal functions here, as this page directly contains the form.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, hideGlobalLoader } from './shared_constants.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    hideGlobalLoader();
     console.log("reset_password.js script started parsing.");
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

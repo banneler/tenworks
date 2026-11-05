@@ -742,7 +742,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 .from('user_quotas')
                 .select('is_manager')
                 .eq('user_id', state.currentUser.id)
-                .single();
+                .maybeSingle();
 
             if (error && error.code !== 'PGRST116') { //PGRST116 means no row found, which is fine.
                 console.error("Critical error fetching user manager status:", error);

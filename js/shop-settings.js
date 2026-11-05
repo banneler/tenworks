@@ -444,7 +444,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         state.currentUser = session.user;
 
         runWhenNavReady(() => {
-            setupUserMenuAndAuth(supabase);
+            setupUserMenuAndAuth(supabase, state);
             loadSVGs();
             setupGlobalSearch(supabase, state.currentUser);
             setupModalListeners();

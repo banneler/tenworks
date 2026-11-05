@@ -297,7 +297,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         runWhenNavReady(() => {
-            setupUserMenuAndAuth(supabase);
+            setupUserMenuAndAuth(supabase, state);
             loadSVGs();
             setupGlobalSearch(supabase, state.currentUser);
             setupModalListeners();

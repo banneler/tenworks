@@ -154,7 +154,7 @@ export async function initializeAppState(supabase) {
         .from('user_quotas')
         .select('full_name')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
     if (quotaError && quotaError.code !== 'PGRST116') console.error("Error fetching current user's name:", quotaError);
     appState.effectiveUserFullName = currentUserQuota?.full_name || 'User';
@@ -756,7 +756,7 @@ export async function setupUserMenuAndAuth(supabase, state) {
         .from('user_quotas')
         .select('full_name, monthly_quota')
         .eq('user_id', state.currentUser.id)
-        .single();
+        .maybeSingle();
 
     if (userError && userError.code !== 'PGRST116') {
         console.error('Error fetching user data:', userError);
@@ -766,7 +766,7 @@ export async function setupUserMenuAndAuth(supabase, state) {
     
     if (!userData || !userData.full_name) {
         const modalBodyHtml = `
-            <p>Welcome to Constellation! Please enter your details to get started.</p>
+            <p>Welcome to TenWorks! Please enter your details to get started.</p>
             <div>
                 <label for="modal-full-name">Full Name</label>
                 <input type="text" id="modal-full-name" required>
@@ -988,7 +988,7 @@ export async function checkAndSetNotifications(supabase) {
             .select('created_at')
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
         
         const notificationDot = document.getElementById(`${page.name}-notification`);
         if (notificationDot && latestItem) {

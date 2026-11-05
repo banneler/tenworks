@@ -5,10 +5,13 @@ import {
     showModal,
     hideModal,
     setupModalListeners,
-    loadSVGs
+    loadSVGs,
+    hideGlobalLoader
 } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // The login page has no data to load; never leave the global loader covering the form.
+    hideGlobalLoader();
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     await loadSVGs();
     setupModalListeners();
