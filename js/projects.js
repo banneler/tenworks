@@ -191,7 +191,7 @@ async function loadProjectDetails(projectId) {
         supabase.from('project_contacts').select('role, contacts(id, first_name, last_name, email, phone)').eq('project_id', projectId),
         supabase.from('project_notes').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
         supabase.storage.from('project_files').list(`${projectId}`),
-        supabase.from('project_bom').select('*, inventory_items(sku, name, category, uom, cost_per_unit)').eq('project_id', projectId),
+        supabase.from('project_bom').select('*, inventory_items(sku, name, category, uom, cost_per_unit, qty_on_hand)').eq('project_id', projectId),
         supabase.from('project_change_orders').select('*').eq('project_id', projectId).order('created_at', { ascending: true })
     ]);
 
@@ -353,9 +353,13 @@ function renderDetailView() {
     const totalEst = state.tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
     const totalAct = state.tasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
     const progress = totalEst > 0 ? Math.round((totalAct / totalEst) * 100) : 0;
+    const formatHours = (n) => {
+        const rounded = Math.round((Number(n) || 0) * 10) / 10;
+        return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    };
 
-    document.getElementById('kpi-est').textContent = totalEst;
-    document.getElementById('kpi-act').textContent = totalAct;
+    document.getElementById('kpi-est').textContent = formatHours(totalEst);
+    document.getElementById('kpi-act').textContent = formatHours(totalAct);
     document.getElementById('kpi-progress').textContent = `${progress}%`;
 
     const laborCost = totalAct * DEFAULT_LABOR_RATE;
@@ -369,7 +373,7 @@ function renderDetailView() {
     const laborEl = document.getElementById('job-cost-labor');
     const materialEl = document.getElementById('job-cost-material');
     const totalEl = document.getElementById('job-cost-total');
-    if (laborEl) laborEl.textContent = `Labor (${totalAct} hrs × $${DEFAULT_LABOR_RATE}/hr): ${formatCurrency(laborCost)}`;
+    if (laborEl) laborEl.textContent = `Labor (${formatHours(totalAct)} hrs × $${DEFAULT_LABOR_RATE}/hr): ${formatCurrency(laborCost)}`;
     if (materialEl) materialEl.textContent = `Material (BOM): ${formatCurrency(materialCost)}`;
     if (totalEl) totalEl.textContent = `Total cost: ${formatCurrency(totalCost)}`;
 
