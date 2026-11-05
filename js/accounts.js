@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatMonthYearShort, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, formatCurrency, runWhenNavReady, getDealStageColorClass, getDealCardContent, getKanbanDealCardContent, getStageDisplayName, getDealValue, getElementsPillHtml, DEAL_ELEMENTS_LIST, showToast, hideGlobalLoader, invokeApi } from './shared_constants.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, formatDate, formatMonthYear, formatMonthYearShort, parseCsvRow, themes, setupModalListeners, showModal, hideModal, updateActiveNavLink, setupUserMenuAndAuth, loadSVGs, setupGlobalSearch, checkAndSetNotifications, initializeAppState, getState, formatCurrency, runWhenNavReady, getDealStageColorClass, getDealCardContent, getKanbanDealCardContent, getStageDisplayName, isWonStage, getDealValue, getElementsPillHtml, DEAL_ELEMENTS_LIST, showToast, hideGlobalLoader, invokeApi } from './shared_constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -248,7 +248,7 @@ const renderAccountList = () => {
     try {
         accountsWithOpenDealsIds = new Set(
             state.deals
-            .filter(deal => deal.stage && deal.stage !== 'Closed Won' && deal.stage !== 'Closed Lost')
+            .filter(deal => deal.stage && !isWonStage(deal.stage) && deal.stage !== 'Closed Lost')
             .map(deal => deal.account_id)
             .filter(id => id)
         );

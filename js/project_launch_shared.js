@@ -24,10 +24,23 @@ export async function openSharedProjectLaunchModal({
         return false;
     }
 
-    const dealOptions = deals.map((d) => {
+    const stageRank = (stage) => {
+        const s = String(stage || '').toLowerCase();
+        if (s === 'closed won' || s === 'sold' || s === 'won') return 0;
+        if (s.includes('closed lost') || s === 'lost') return 2;
+        return 1; // open / other — after Sold
+    };
+    const sortedDeals = [...deals].sort((a, b) => {
+        const r = stageRank(a.stage) - stageRank(b.stage);
+        if (r !== 0) return r;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    const dealOptions = sortedDeals.map((d) => {
         const name = d.deal_name || d.name || 'Unnamed';
-        const amt = d.amount || 0;
-        return `<option value="${d.id}" data-name="${name}" data-amt="${amt}">${name} (${formatCurrency(amt)})</option>`;
+        const amt = Number(d.value ?? d.amount) || 0;
+        const stageDisp = (d.stage === 'Closed Won' || String(d.stage||'').toLowerCase()==='closed won') ? 'Sold' : (d.stage || '');
+        const stageLabel = stageDisp ? ` · ${stageDisp}` : '';
+        return `<option value="${d.id}" data-name="${name}" data-amt="${amt}">${name} (${formatCurrency(amt)}${stageLabel})</option>`;
     }).join('');
 
     const templateOptions = (templates || []).map(t => `<option value="${t.id}">${t.name}</option>`).join('');

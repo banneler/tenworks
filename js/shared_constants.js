@@ -436,9 +436,17 @@ export function getElementsPillHtml(dealId, elementsString) {
     }).join('')}</div>`;
 }
 
-/** Display name for stage (e.g. "Closed Won" → "Sold"). */
+/** Display name for stage (legacy Salesforce "Closed Won" → "Sold"). */
 export function getStageDisplayName(stageName) {
-    return stageName === 'Closed Won' ? 'Sold' : (stageName || '');
+    const s = String(stageName || '');
+    if (s === 'Closed Won' || s.toLowerCase() === 'closed won') return 'Sold';
+    return s;
+}
+
+/** True for Sold / legacy Closed Won (DB may still hold either during transition). */
+export function isWonStage(stageName) {
+    const s = String(stageName || '').toLowerCase().trim();
+    return s === 'sold' || s === 'closed won' || s === 'won';
 }
 
 export function getDealStageColorClass(stageName) {

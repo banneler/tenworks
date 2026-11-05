@@ -53,12 +53,15 @@ async function loadInventory() {
     if (error) console.error(error);
     state.inventory = data || [];
 
-    const { data: bomRows } = await supabase.from('project_bom').select('inventory_item_id, qty_allocated');
+    const { data: bomRows } = await supabase.from('project_bom').select('inventory_item_id, qty_allocated, qty_required, status');
     state.allocatedByItem = {};
     state.totalAllocated = 0;
     (bomRows || []).forEach(row => {
+        if (row.status === 'Pulled') return; // already deducted from on-hand
         const id = row.inventory_item_id;
-        const qty = Number(row.qty_allocated) || 0;
+        const allocated = Number(row.qty_allocated) || 0;
+        const required = Number(row.qty_required) || 0;
+        const qty = allocated > 0 ? allocated : required; // fall back to required when allocate never set
         state.allocatedByItem[id] = (state.allocatedByItem[id] || 0) + qty;
         state.totalAllocated += qty;
     });

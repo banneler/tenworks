@@ -14,7 +14,8 @@ let state = {
     assignments: [],
     projects: [],
     team: [],
-    availability: []
+    availability: [],
+    bom: []
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -159,11 +160,12 @@ async function loadData() {
         const todayStr = dayjs().format('YYYY-MM-DD');
         console.log("Fetching tasks for today:", todayStr);
         
-        const [assignRes, tasksRes, projRes, availRes] = await Promise.all([
+        const [assignRes, tasksRes, projRes, availRes, bomRes] = await Promise.all([
             supabase.from('task_assignments').select('*'), // Fetch all to calculate weekly load
             supabase.from('project_tasks').select('*'),
             supabase.from('projects').select('*'),
-            supabase.from('talent_availability').select('*')
+            supabase.from('talent_availability').select('*'),
+            supabase.from('project_bom').select('*, inventory_items(id, name, sku, uom, qty_on_hand)')
         ]);
 
         if (assignRes.error) { console.error("Assign Error:", assignRes.error); throw assignRes.error; }
@@ -175,6 +177,8 @@ async function loadData() {
         state.tasks = tasksRes.data || [];
         state.projects = projRes.data || [];
         state.availability = availRes.data || [];
+        state.bom = bomRes?.data || [];
+        if (bomRes?.error) console.error('BOM Error:', bomRes.error);
 
         // DEMO OVERRIDE: if the logged-in user is not in shop_talent and we are in laborer mode,
         // first try to pick someone with an assignment today so demo always shows real work.
@@ -246,6 +250,56 @@ function getAssignmentBookedHours(assignment) {
     return 0;
 }
 
+function getPendingBomForProject(projectId) {
+    if (!projectId) return [];
+    return (state.bom || []).filter(b => String(b.project_id) === String(projectId) && b.status !== 'Pulled');
+}
+
+function renderMaterialsStrip(projectId) {
+    const lines = getPendingBomForProject(projectId);
+    if (!lines.length) {
+        return `<div class="mobile-materials-strip" style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-color);"><div style="font-size:0.75rem;color:var(--text-dim);">Materials: none pending</div></div>`;
+    }
+    const rows = lines.map(b => {
+        const inv = b.inventory_items || {};
+        const name = inv.name || 'Item';
+        const sku = inv.sku || '';
+        const req = Number(b.qty_required) || 0;
+        const uom = inv.uom || 'ea';
+        const status = b.status || 'Pending';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;">
+            <div style="min-width:0;">
+                <div style="font-size:0.85rem;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+                <div style="font-size:0.7rem;color:var(--text-dim);">${sku} · ${req} ${uom} · ${status}</div>
+            </div>
+            <button class="mobile-btn mobile-btn-secondary" style="padding:4px 8px;font-size:0.75rem;flex-shrink:0;" onclick="window.markBomPulled(${b.id})">Mark Pulled</button>
+        </div>`;
+    }).join('');
+    return `<div class="mobile-materials-strip" style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-color);">
+        <div style="font-size:0.75rem;color:var(--primary-gold);font-weight:600;letter-spacing:0.04em;">MATERIALS</div>
+        ${rows}
+    </div>`;
+}
+
+window.markBomPulled = async (bomId) => {
+    const row = (state.bom || []).find(b => String(b.id) === String(bomId));
+    if (!row) { alert('BOM line not found.'); return; }
+    if (row.status === 'Pulled') return;
+    const inv = row.inventory_items || {};
+    const qty = Number(row.qty_allocated) > 0 ? Number(row.qty_allocated) : (Number(row.qty_required) || 0);
+    const itemId = row.inventory_item_id;
+    if (!confirm(`Mark ${inv.name || 'item'} pulled and deduct ${qty} from stock?`)) return;
+    const { data: invNow, error: invErr } = await supabase.from('inventory_items').select('qty_on_hand').eq('id', itemId).single();
+    if (invErr) { alert('Inventory read failed: ' + invErr.message); return; }
+    const newQty = (Number(invNow?.qty_on_hand) || 0) - qty;
+    if (newQty < 0 && !confirm(`Warning: stock will go negative (${newQty}). Proceed?`)) return;
+    const { error: upInv } = await supabase.from('inventory_items').update({ qty_on_hand: newQty }).eq('id', itemId);
+    if (upInv) { alert('Stock update failed: ' + upInv.message); return; }
+    const { error: upBom } = await supabase.from('project_bom').update({ status: 'Pulled' }).eq('id', bomId);
+    if (upBom) { alert('BOM update failed: ' + upBom.message); return; }
+    await loadData();
+};
+
 // --- LABORER VIEW ---
 function renderLaborerView() {
     const list = document.getElementById('laborer-tasks-list');
@@ -282,6 +336,7 @@ function renderLaborerView() {
                     ${task.status === 'Pending' ? `<button class="mobile-btn mobile-btn-primary" onclick="window.updateTaskStatus(${task.id}, 'In Progress')">Start</button>` : ''}
                     ${task.status === 'In Progress' ? `<button class="mobile-btn mobile-btn-success" onclick="window.updateTaskStatus(${task.id}, 'Completed')">Complete</button>` : ''}
                 </div>
+                ${renderMaterialsStrip(project?.id)}
             </div>
         `;
     }).join('');
@@ -319,6 +374,7 @@ function renderLeaderView() {
                         <button class="mobile-btn mobile-btn-secondary" onclick="window.openReassignModal(${a.id}, ${task.id})">Reassign</button>
                         <button class="mobile-btn mobile-btn-primary" onclick="window.openLeaderUpdateModal(${task.id})">Update</button>
                     </div>
+                    ${renderMaterialsStrip(project?.id)}
                 </div>
             `;
         }).join('');

@@ -255,10 +255,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 6. RENDER MATRIX (HORIZONTAL TIME BLOCKS)
     // ------------------------------------------------------------------------
     function renderMatrix() {
-        let visibleTalent = state.talent;
+        // Hide Internal duplicate roster rows in the matrix (safer than merging IDs).
+        let visibleTalent = state.talent.filter(t => String(t.resource_type || '').toLowerCase() !== 'internal');
         if (state.filterTradeId) {
             const skilledTalentIds = state.skills.filter(s => s.trade_id === state.filterTradeId).map(s => s.talent_id);
-            visibleTalent = state.talent.filter(t => skilledTalentIds.includes(t.id));
+            visibleTalent = visibleTalent.filter(t => skilledTalentIds.includes(t.id));
         }
 
         const endViewDate = state.viewDate.add(state.daysToShow - 1, 'day');
@@ -285,8 +286,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             // But we want "Load vs Capacity" for the header
             // Let's sum up individual capacities
             const visibleIds = visibleTalent.map(t => t.id);
-            const ptoCount = state.availability.filter(a => a.date === dateStr && a.status === 'PTO' && visibleIds.includes(a.talent_id)).length;
-            const totalCapacityHours = (visibleTalent.length - ptoCount) * 8;
+            const ptoIds = new Set(state.availability.filter(a => a.date === dateStr && a.status === 'PTO' && visibleIds.includes(a.talent_id)).map(a => a.talent_id));
+            // Day capacity = Σ(hours_per_week)/5 for visible people not on PTO (not ×8 flat).
+            const totalCapacityHours = Math.round(visibleTalent.reduce((sum, t) => {
+                if (ptoIds.has(t.id)) return sum;
+                const hpw = Number(t.hours_per_week);
+                return sum + ((Number.isFinite(hpw) && hpw > 0 ? hpw : 40) / 5);
+            }, 0));
             
             // Filter bookings to ONLY visible people
             const visibleBookings = state.assignments.filter(a => a.assigned_date === dateStr && visibleIds.includes(a.talent_id));

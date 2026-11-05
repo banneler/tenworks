@@ -3,7 +3,7 @@ import {
     SUPABASE_ANON_KEY,
     formatDate,
     formatCurrencyK,
-    getStageDisplayName,
+    getStageDisplayName, isWonStage,
     setupModalListeners,
     showModal,
     hideModal,
@@ -393,7 +393,7 @@ function renderAnalyticsDashboard() {
         const userIncluded = usersForAnalytics.some(u => u.user_id === d.user_id);
         if (!d.close_month) return false;
         const closedDate = new Date(d.close_month + '-02');
-        return userIncluded && userMatch && d.stage === 'Closed Won' && closedDate >= startDate && closedDate <= endDate;
+        return userIncluded && userMatch && isWonStage(d.stage) && closedDate >= startDate && closedDate <= endDate;
     });
 
     const isIndividualView = (userId === 'all' && chartView === 'individual');

@@ -489,7 +489,7 @@ function renderBOM() {
                 </td>
                 <td><span class="project-bom-category-pill">${inv.category}</span></td>
                 <td>${item.qty_required} ${inv.uom}</td>
-                <td>${item.qty_allocated} ${inv.uom}</td>
+                <td>${(item.status !== 'Pulled' && !(Number(item.qty_allocated) > 0) ? item.qty_required : item.qty_allocated) || 0} ${inv.uom}</td>
                 <td>
                     <select class="form-control bom-status-select" data-bom-id="${item.id}" data-old-status="${item.status}" data-item-id="${item.inventory_item_id}" data-qty="${item.qty_allocated || item.qty_required}" style="padding: 4px 8px; font-size: 0.8rem; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-bright); border-radius: 4px; width: 100px;">
                         <option value="Pending" ${item.status === 'Pending' ? 'selected' : ''}>Pending</option>
@@ -534,10 +534,31 @@ function renderBOM() {
             const { error } = await supabase.from('project_bom').update({ status: newStatus }).eq('id', bomId);
             if (error) {
                 showToast('Failed to update BOM status.', 'error');
-            } else {
-                showToast(`BOM item marked as ${newStatus}.`, 'success');
-                loadProjectDetails(state.currentProject.id);
+                return;
             }
+            showToast(`BOM item marked as ${newStatus}.`, 'success');
+
+            // Ordered → optional Create PO for shortage (required − on hand)
+            if (newStatus === 'Ordered' && oldStatus !== 'Ordered') {
+                const bomRow = state.bom.find(b => String(b.id) === String(bomId));
+                const req = Number(bomRow?.qty_required) || qty;
+                const { data: invNow } = await supabase.from('inventory_items').select('qty_on_hand, name, sku').eq('id', itemId).single();
+                const onHand = Number(invNow?.qty_on_hand) || 0;
+                const shortage = Math.max(0, req - onHand);
+                if (shortage > 0 && confirm(`Create purchase order for shortage of ${shortage} (${invNow?.sku || 'item'})?\nRequired ${req}, on hand ${onHand}.`)) {
+                    const { error: poErr } = await supabase.from('purchase_orders').insert({
+                        inventory_item_id: itemId,
+                        qty_ordered: shortage,
+                        qty_received: 0,
+                        status: 'ordered',
+                        notes: `From BOM #${bomId} · ${state.currentProject?.name || 'project'}`
+                    });
+                    if (poErr) showToast('PO create failed: ' + poErr.message, 'error');
+                    else showToast(`PO created for ${shortage}.`, 'success');
+                }
+            }
+
+            loadProjectDetails(state.currentProject.id);
         });
     });
 }
@@ -1039,11 +1060,12 @@ async function openAddBOMModal() {
 
             if(!itemId) { showToast("Select an item.", 'error'); return; }
 
+            const qtyNum = parseFloat(qty) || 0;
             await supabase.from('project_bom').insert({
                 project_id: state.currentProject.id,
                 inventory_item_id: itemId,
-                qty_required: qty,
-                qty_allocated: 0, // Default to 0 allocated for now
+                qty_required: qtyNum,
+                qty_allocated: qtyNum, // Reserve required qty on add
                 status: status
             });
             hideModal();

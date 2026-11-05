@@ -7,6 +7,7 @@ import {
     formatCurrencyK,
     formatCurrency,
     getStageDisplayName,
+    isWonStage,
     getDealStageColorClass,
     getDealValue,
     getElementsPillHtml,
@@ -231,7 +232,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function renderDealsByElementChart() {
         if (!dealsByProductCanvas || !productChartEmptyMessage) return;
-        const openDeals = getFilteredDeals().filter(deal => deal.stage !== 'Closed Won' && deal.stage !== 'Closed Lost');
+        const openDeals = getFilteredDeals().filter(deal => !isWonStage(deal.stage) && deal.stage !== 'Closed Lost');
         const countByElement = {};
         openDeals.forEach(deal => {
             if (!deal.elements || !deal.elements.trim()) {
@@ -282,7 +283,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getFunnelDeals() {
         const futureDeals = getFutureDeals();
         return futureDeals.filter(deal => {
-            if (deal.stage === 'Closed Won') return false;
+            if (isWonStage(deal.stage)) return false;
             if (deal.stage === 'Closed Lost' && !state.showClosedLost) return false;
             return true;
         });
@@ -395,7 +396,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderDealsByStageChart() {
         if (!dealsByStageCanvas || !stageChartEmptyMessage) return;
 
-        const openDeals = getFilteredDeals().filter(deal => deal.stage !== 'Closed Won' && deal.stage !== 'Closed Lost'); 
+        const openDeals = getFilteredDeals().filter(deal => !isWonStage(deal.stage) && deal.stage !== 'Closed Lost'); 
 
         if (openDeals.length === 0) {
             dealsByStageCanvas.classList.add('hidden');
@@ -440,7 +441,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderDealsByTimeChart() {
         if (!dealsByTimeCanvas || !timeChartEmptyMessage) return;
         
-        const openDeals = getFilteredDeals().filter(d => d.stage !== 'Closed Won' && d.stage !== 'Closed Lost' && d.close_month);
+        const openDeals = getFilteredDeals().filter(d => !isWonStage(d.stage) && d.stage !== 'Closed Lost' && d.close_month);
 
         if (openDeals.length === 0) {
             dealsByTimeCanvas.classList.add('hidden');
@@ -498,6 +499,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             deal[field] = updateVal;
             if (field === 'account_id') deal.account_name = updateVal ? state.accounts.find((a) => a.id === updateVal)?.name || 'N/A' : 'N/A';
+            if (field === 'stage' && isWonStage(updateVal)) {
+                showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success');
+            }
             renderDealsPage();
         }
     }
@@ -639,7 +643,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <td class="deal-cell-notes align-middle min-w-[16rem] w-full p-0"><div class="deal-notes-cell-inner deal-cell-editable text-[0.8rem]" contenteditable="true" data-deal-id="${deal.id}" data-field="notes" data-placeholder="Job Details">${esc((deal.notes || '').replace(/\n/g, ' '))}</div></td>
                 <td class="deal-cell-actions">
                     ${deal.stage === 'Closed Lost' ? ''
-                : deal.stage === 'Closed Won'
+                : isWonStage(deal.stage)
                     ? `<a href="projects.html?launch_deal_id=${deal.id}" class="deal-action-icon" title="Launch Project"><i class="fas fa-play"></i></a>`
                     : `<a href="proposals.html?deal_id=${deal.id}" class="deal-action-icon" title="Proposal"><i class="fas fa-file-contract"></i></a>`
             }
@@ -721,6 +725,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 trigger.className = `deal-card-stage-trigger ${getDealStageColorClass(newStage)}`;
                 wrap.classList.remove('open');
                 document.removeEventListener('click', closeFan);
+                if (isWonStage(newStage)) {
+                    showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success');
+                }
                 const column = card.closest('.kanban-column');
                 if (column && column.dataset.stage !== newStage) {
                     renderKanbanBoard();
@@ -939,7 +946,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const dealCloseDate = deal.close_month ? new Date(deal.close_month + '-02') : null;
             const isCurrentMonth = dealCloseDate && dealCloseDate.getMonth() === currentMonth && dealCloseDate.getFullYear() === currentYear;
             if (isCurrentMonth) {
-                if (deal.stage === 'Closed Won') closedWon += getDealValue(deal);
+                if (isWonStage(deal.stage)) closedWon += getDealValue(deal);
                 else {
                     bestCase += getDealValue(deal);
                     if (deal.is_committed) currentCommit += getDealValue(deal);
@@ -952,7 +959,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         let closedWonCount = 0;
         state.deals.forEach(d => {
-            if (d.stage !== 'Closed Won') return;
+            if (!isWonStage(d.stage)) return;
             const dealCloseDate = d.close_month ? new Date(d.close_month + '-02') : null;
             if (dealCloseDate && dealCloseDate.getMonth() === currentMonth && dealCloseDate.getFullYear() === currentYear) closedWonCount++;
         });
@@ -998,7 +1005,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function handleEditDeal(dealId) {
         const deal = state.deals.find(d => d.id === dealId);
         if (!deal) return;
-        if (deal.stage === 'Closed Won') return;
+        if (isWonStage(deal.stage)) return;
         const stageOptions = state.dealStages.sort((a, b) => a.sort_order - b.sort_order).map(s => `<option value="${s.stage_name}" ${deal.stage === s.stage_name ? 'selected' : ''}>${getStageDisplayName(s.stage_name)}</option>`).join('');
         const accountOptions = state.accounts.sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(acc => `<option value="${acc.id}" ${deal.account_id === acc.id ? 'selected' : ''}>${(acc.name || '').replace(/</g, '&lt;')}</option>`).join('');
         const elementsHtml = getElementsCheckboxesHtml(deal.elements);
