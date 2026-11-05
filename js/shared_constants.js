@@ -345,7 +345,7 @@ export async function setupTheme(supabase, user) {
         .from('user_preferences')
         .select('theme')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
     let currentTheme = 'dark';
     if (error && error.code !== 'PGRST116') {
