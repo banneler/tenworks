@@ -1,4 +1,5 @@
 // File: extract-contact-info (in Supabase Dashboard)
+import { env } from '../env.mjs';
 // Define CORS headers to allow your app to call this function
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
