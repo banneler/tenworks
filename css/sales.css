@@ -250,6 +250,133 @@ a:hover { color: var(--ink); }
     border-radius: 1.35rem;
 }
 
+.proposal-deck {
+    width: min(100%, 520px);
+}
+
+.deck {
+    background: var(--white);
+    border: 1px solid rgba(31, 35, 41, 0.2);
+    outline: none;
+}
+
+.deck:focus-visible {
+    outline: 2px solid var(--copper);
+    outline-offset: 3px;
+}
+
+.deck-viewport {
+    overflow: hidden;
+    touch-action: pan-y;
+    background: var(--paper-2);
+}
+
+.deck-track {
+    display: flex;
+    transition: transform 0.35s ease;
+}
+
+.deck-slide {
+    flex: 0 0 100%;
+    min-width: 0;
+}
+
+.proposal-deck .deck-slide img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 0;
+    background: var(--paper-2);
+}
+
+.deck-controls {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem 0.45rem;
+    background: var(--white);
+    border-top: 1px solid var(--line);
+}
+
+.deck-btn {
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(31, 35, 41, 0.32);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Poppins", "Montserrat", sans-serif;
+    font-size: 1.45rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.deck-btn:hover { background: var(--ticket); }
+
+.deck-dots {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+}
+
+.deck-dots button {
+    flex: 1 1 0;
+    max-width: 44px;
+    height: 44px;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+.deck-dots button span {
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin: 0 auto;
+    border-radius: 999px;
+    background: rgba(31, 35, 41, 0.28);
+}
+
+.deck-dots button[aria-current="true"] span {
+    width: 18px;
+    background: var(--copper);
+}
+
+.deck-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.deck { position: relative; }
+
+.proposal-deck figcaption {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+}
+
+.pdf-link {
+    display: inline-block;
+    margin-top: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .deck-track { transition: none; }
+}
+
 .pair {
     display: grid;
     grid-template-columns: 280px 1fr;
