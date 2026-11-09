@@ -150,7 +150,8 @@ function blankPricingRow() {
         unit: '',
         hours: '',
         rate: '',
-        task_name: ''
+        task_name: '',
+        trade_id: null
     };
 }
 
@@ -165,11 +166,18 @@ function rowLineTotal(row) {
 }
 
 let inventoryCatalog = [];
+let shopTrades = [];
 
 async function loadInventoryCatalog() {
     const { data } = await supabase.from('inventory_items').select('id, sku, name, uom, cost_per_unit').order('name');
     inventoryCatalog = data || [];
     return inventoryCatalog;
+}
+
+async function loadShopTrades() {
+    const { data } = await supabase.from('shop_trades').select('id, name, default_hourly_rate').order('name');
+    shopTrades = data || [];
+    return shopTrades;
 }
 
 function searchInventory(query) {
@@ -226,8 +234,12 @@ function renderPricingLocations() {
             const linked = !labor && r.inventory_item_id
                 ? `<div class="text-xs text-[var(--primary-blue)] mt-1">Linked ${escapeHtml(r.sku || 'item')} <button type="button" class="pricing-unlink underline" data-loc-id="${loc.id}" data-row="${i}">clear</button></div>`
                 : '';
+            const tradeChoices = [`<option value="">Choose a trade…</option>`].concat(shopTrades.map(trade =>
+                `<option value="${escapeAttr(trade.id)}" ${String(trade.id) === String(r.trade_id || '') ? 'selected' : ''}>${escapeHtml(trade.name || 'Trade')}</option>`
+            )).join('');
             const picker = labor
-                ? `<input type="text" class="pricing-task mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(r.task_name || '')}" placeholder="Trade / task name (optional)">`
+                ? `<select class="pricing-trade mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}">${tradeChoices}</select>
+                   <input type="text" class="pricing-task mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(r.task_name || '')}" placeholder="Task name (optional)">`
                 : `<input type="text" class="pricing-search mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" placeholder="Search inventory by SKU or name" autocomplete="off">
                    <div class="pricing-matches" data-loc-id="${loc.id}" data-row="${i}"></div>
                    ${linked}
@@ -291,6 +303,22 @@ function renderPricingLocations() {
         el.addEventListener('input', () => {
             const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
             if (row) row.description = el.value;
+        });
+    });
+    container.querySelectorAll('.pricing-trade').forEach(el => {
+        el.addEventListener('change', () => {
+            const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+            if (!row) return;
+            const trade = shopTrades.find(item => String(item.id) === String(el.value));
+            row.trade_id = el.value || null;
+            if (trade) {
+                if (!String(row.task_name || '').trim()) row.task_name = trade.name || '';
+                if (trade.default_hourly_rate != null && trade.default_hourly_rate !== '') {
+                    row.rate = trade.default_hourly_rate;
+                    row.amount = trade.default_hourly_rate;
+                }
+            }
+            renderPricingLocations();
         });
     });
     container.querySelectorAll('.pricing-task').forEach(el => {
@@ -695,7 +723,8 @@ function setPayload(data) {
         unit: r.unit ?? '',
         hours: r.hours ?? '',
         rate: r.rate ?? '',
-        task_name: r.task_name ?? ''
+        task_name: r.task_name ?? '',
+        trade_id: r.trade_id ?? null
     });
     if (Array.isArray(data.locations) && data.locations.length) {
         state.locations = data.locations.map(l => ({ id: l.id || crypto.randomUUID(), name: l.name || '', rows: (l.rows && l.rows.length) ? l.rows.map(norm) : [blankPricingRow()] }));
@@ -1488,6 +1517,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.currentUser = user;
         await setupUserMenuAndAuth(supabase, { currentUser: user });
         await loadInventoryCatalog();
+        await loadShopTrades();
         await setupGlobalSearch(supabase, user);
 
         const params = new URLSearchParams(window.location.search);
