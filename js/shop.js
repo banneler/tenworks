@@ -83,12 +83,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         return 0;
     }
 
+    // A portal update is a saved client summary. Ignore a timestamp that predates the
+    // project (the column default from when the field was added, e.g. Feb 22).
+    function portalUpdatedAt(project) {
+        if (!String(project?.client_summary || '').trim()) return null;
+        const stamp = project.client_summary_updated_at;
+        if (!stamp) return null;
+        const updated = dayjs(stamp);
+        if (!updated.isValid()) return null;
+        if (project.created_at) {
+            const created = dayjs(project.created_at);
+            if (created.isValid() && updated.isBefore(created.subtract(1, 'day'))) return null;
+        }
+        return updated;
+    }
+
     function renderMetrics() {
         const activeProjects = state.projects.filter(p => p.status !== 'Completed');
         const overdueProjects = activeProjects.filter(p => p.end_date && dayjs(p.end_date).isBefore(dayjs(), 'day'));
         
         const oneWeekAgo = dayjs().subtract(7, 'day');
-        const staleProjects = activeProjects.filter(p => !p.client_summary_updated_at || dayjs(p.client_summary_updated_at).isBefore(oneWeekAgo));
+        const staleProjects = activeProjects.filter(p => {
+            const updated = portalUpdatedAt(p);
+            return !updated || updated.isBefore(oneWeekAgo);
+        });
 
         document.getElementById('metric-active-projects').textContent = activeProjects.length;
         document.getElementById('metric-overdue').textContent = overdueProjects.length;
@@ -241,18 +259,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const oneWeekAgo = dayjs().subtract(7, 'day');
         const staleProjects = state.projects
-            .filter(p => p.status !== 'Completed' && (!p.client_summary_updated_at || dayjs(p.client_summary_updated_at).isBefore(oneWeekAgo)))
+            .filter(p => {
+                if (p.status === 'Completed') return false;
+                const updated = portalUpdatedAt(p);
+                return !updated || updated.isBefore(oneWeekAgo);
+            })
             .sort((a, b) => {
-                const dateA = a.client_summary_updated_at ? new Date(a.client_summary_updated_at) : new Date(0);
-                const dateB = b.client_summary_updated_at ? new Date(b.client_summary_updated_at) : new Date(0);
-                return dateA - dateB;
+                const dateA = portalUpdatedAt(a);
+                const dateB = portalUpdatedAt(b);
+                return (dateA ? dateA.valueOf() : 0) - (dateB ? dateB.valueOf() : 0);
             });
 
         if (staleProjects.length > 0) {
             staleProjects.forEach(project => {
-                const lastUpdated = project.client_summary_updated_at 
-                    ? dayjs(project.client_summary_updated_at).format('MMM D') 
-                    : 'Never';
+                const updated = portalUpdatedAt(project);
+                const lastUpdated = updated ? updated.format('MMM D') : 'Never';
                 
                 const item = document.createElement("div");
                 item.className = `task-item`;

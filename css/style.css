@@ -2884,6 +2884,22 @@ th.sortable.desc span::after {
 #deals-table .deal-cell-stage .deal-card-stage-fan {
     left: 50%;
 }
+/* The stage fan hangs below the cell. Let it paint outside the row. */
+#deals .section-card:has(.deal-card-stage-fan-wrap.open),
+#deals .deals-table-container:has(.deal-card-stage-fan-wrap.open),
+body:not(.theme-green) #deals-table:has(.deal-card-stage-fan-wrap.open),
+#deals-table tr:has(.deal-card-stage-fan-wrap.open),
+#deals-table td.deal-cell-stage:has(.deal-card-stage-fan-wrap.open) {
+    overflow: visible;
+}
+#deals .section-card:has(.deal-card-stage-fan-wrap.open) {
+    position: relative;
+    z-index: 40;
+}
+#deals-table tr:has(.deal-card-stage-fan-wrap.open) {
+    position: relative;
+    z-index: 30;
+}
 
 #deals .deal-cell-details { min-width: 14rem; vertical-align: middle; }
 #deals .deal-details-stack { display: flex; flex-direction: column; gap: 0.15rem; }

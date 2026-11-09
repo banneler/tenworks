@@ -503,7 +503,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success');
             }
             renderDealsPage();
+            if (field === 'stage' || field === 'value') refreshDealCharts();
         }
+    }
+
+    function refreshDealCharts() {
+        renderDealsByStageChart();
+        renderDealsByTimeChart();
+        renderDealsByElementChart();
     }
 
     function enterSelectMode(cell) {
@@ -728,6 +735,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (isWonStage(newStage)) {
                     showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success');
                 }
+                refreshDealCharts();
                 const column = card.closest('.kanban-column');
                 if (column && column.dataset.stage !== newStage) {
                     renderKanbanBoard();
@@ -890,7 +898,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             input.remove();
             if (error) { showToast('Error saving', 'error'); render(); return; }
             if (field === 'value') deal.value = value; else if (field === 'name') deal.name = value; else if (field === 'account') deal.account_id = value; else deal.close_month = value;
-            if (field === 'value') el.textContent = formatCurrency(value) + '/mo';
+            if (field === 'value') el.textContent = formatCurrency(value);
             else if (field === 'name') { const safe = (value || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); el.textContent = value.length > 28 ? value.substring(0, 28) + '...' : value; el.title = value; }
             else if (field === 'account') { const acc = state.accounts.find(a => a.id === value); el.textContent = acc ? acc.name : '—'; }
             else el.textContent = value ? formatMonthYearShort(value) : '—';
@@ -1071,7 +1079,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const deal = state.deals.find(d => d.id === dealId);
                 if (deal && deal.stage !== newStage) {
                     deal.stage = newStage; 
-                    render(); 
+                    render();
+                    refreshDealCharts();
                     const { error } = await supabase.from('deals_tw').update({ stage: newStage }).eq('id', dealId);
                     if (error) {
                         showToast('Could not update deal stage. Please try again.', 'error');
@@ -1259,7 +1268,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem('deals_view_mode', view);
         listViewBtn.classList.toggle('active', view === 'list');
         boardViewBtn.classList.toggle('active', view === 'board');
-        render();
+        renderAll();
     };
 
     // --- App Initialization ---

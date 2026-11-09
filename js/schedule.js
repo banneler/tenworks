@@ -4,6 +4,7 @@ import {
     formatCurrency, 
     showModal, 
     hideModal, 
+    setupModalListeners,
     setupUserMenuAndAuth, 
     loadSVGs, 
     setupGlobalSearch,
@@ -24,6 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 1. INITIALIZATION & AUTHENTICATION
     // ------------------------------------------------------------------------
     await loadSVGs();
+    setupModalListeners();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -56,6 +58,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         showCompleted: false,
         sortBy: 'start_date',
         filterOverdue: false,
+        focusProjectId: null,
         talent: [],
         assignments: [],
         timelineStartDate: dayjs().subtract(5, 'day').startOf('day'),
@@ -246,7 +249,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    function switchView(view) {
+    function switchView(view, options = {}) {
+        if (!options.keepFocus) state.focusProjectId = null;
         state.currentView = view;
         
         // Reset all buttons
@@ -292,7 +296,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             state.timelineStartDate = dayjs(startAnchor).subtract(leadDays, 'day').startOf('day');
         }
 
-        switchView('project');
+        const hasProject = state.projects.some(p => String(p.id) === projectIdStr);
+        state.focusProjectId = hasProject ? projectIdStr : null;
+        switchView('project', { keepFocus: true });
 
         setTimeout(() => {
             const row = document.getElementById(`project-row-${projectIdStr}`);
@@ -321,7 +327,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     function updateViewHelp() {
         if (!viewHelpEl) return;
         if (state.currentView === 'project') {
-            viewHelpEl.textContent = 'Project Timelines: click a project name to manage CRDD and steps. Drag bars to shift task dates. Click any task bar to edit and assign a machine.';
+            const focused = state.focusProjectId
+                ? state.projects.find(p => String(p.id) === String(state.focusProjectId))
+                : null;
+            viewHelpEl.textContent = focused
+                ? `Showing ${focused.name}. Use the view buttons to return to the full grid.`
+                : 'Project Timelines: click a project name to manage CRDD and steps. Drag bars to shift task dates. Click any task bar to edit and assign a machine.';
             return;
         }
         if (state.currentView === 'machine') {
@@ -441,6 +452,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             );
 
             rows = state.projects.filter(p => {
+                if (state.focusProjectId) return String(p.id) === String(state.focusProjectId);
                 if (state.showCompleted) return true;
                 if (p.status === 'Completed') return false;
                 if (state.filterOverdue) return overdueProjectIds.has(p.id) || atRiskTaskProjectIds.has(p.id);
@@ -1023,7 +1035,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <button id="delete-task-btn" class="schedule-delete-btn">Delete Task</button>
                 <button id="save-task-btn" class="btn-primary">Save Changes</button>
             </div>
-        `, null, false, '<div></div>');
+        `, null, false, '<button type="button" id="modal-cancel-btn" class="btn-secondary">Cancel</button>');
 
         setTimeout(() => {
             const startInput = document.getElementById('edit-start');
