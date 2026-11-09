@@ -41,6 +41,8 @@ let state = {
     files: [],
     notes: [],
     bom: [],
+    taskAssignments: [],
+    shopTalent: [],
     changeOrders: [],
     currentUser: null,
     hideZeroValue: true,
@@ -205,6 +207,21 @@ async function loadProjectDetails(projectId) {
     ]);
 
     state.tasks = tasksRes.data || [];
+    state.taskAssignments = [];
+    state.shopTalent = [];
+    const taskIds = state.tasks.map(t => t.id).filter(id => id != null);
+    if (taskIds.length) {
+        const { data: assignmentRows } = await supabase.from('task_assignments').select('task_id, talent_id, hours').in('task_id', taskIds);
+        state.taskAssignments = assignmentRows || [];
+    }
+    const talentIds = [...new Set([
+        ...state.taskAssignments.map(a => a.talent_id),
+        ...state.tasks.map(t => t.assigned_talent_id)
+    ].filter(id => id != null))];
+    if (talentIds.length) {
+        const { data: talentRows } = await supabase.from('shop_talent').select('id, name').in('id', talentIds);
+        state.shopTalent = talentRows || [];
+    }
     state.contacts = contactsRes.data || [];
     state.notes = notesRes.data || [];
     state.files = (filesRes.data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
@@ -410,6 +427,7 @@ function renderDetailView() {
     document.getElementById('btn-add-change-order').onclick = () => openAddChangeOrderModal();
 
     renderTeam();
+    renderAssignedCrew();
     renderMiniGantt();
     renderTaskList();
     renderFiles();
@@ -425,7 +443,7 @@ function renderTaskList() {
         const tr = document.createElement('tr');
         const actualVal = t.actual_hours != null && t.actual_hours !== '' ? Number(t.actual_hours) : 0;
         tr.innerHTML = `
-            <td class="project-task-name">${t.name}</td>
+            <td class="project-task-name">${escHtml(t.name)}${assigneeNamesForTask(t).length ? `<span class="project-task-assignee">${escHtml(assigneeNamesForTask(t).join(', '))}</span>` : ''}</td>
             <td>${t.estimated_hours ?? '-'}</td>
             <td>
                 <div style="display: flex; align-items: center; gap: 5px;">
@@ -594,6 +612,76 @@ function renderBOM() {
     });
 }
 
+function escHtml(value) {
+    return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function talentNameById(id) {
+    if (id == null) return '';
+    return state.shopTalent.find(p => String(p.id) === String(id))?.name || '';
+}
+
+function assigneeNamesForTask(task) {
+    const names = new Set();
+    for (const row of state.taskAssignments || []) {
+        if (String(row.task_id) !== String(task.id)) continue;
+        const name = talentNameById(row.talent_id);
+        if (name) names.add(name);
+    }
+    const primary = talentNameById(task.assigned_talent_id);
+    if (primary) names.add(primary);
+    return [...names];
+}
+
+function tradeNameById(id) {
+    return state.trades.find(t => String(t.id) === String(id))?.name || '';
+}
+
+function assignedCrewRows() {
+    const byId = new Map();
+    const ensure = (id) => {
+        const key = String(id);
+        if (!byId.has(key)) byId.set(key, { name: talentNameById(id), trades: new Set(), hours: 0 });
+        return byId.get(key);
+    };
+    for (const task of state.tasks || []) {
+        const trade = tradeNameById(task.trade_id);
+        const rows = (state.taskAssignments || []).filter(a => String(a.task_id) === String(task.id));
+        if (rows.length) {
+            for (const row of rows) {
+                const person = ensure(row.talent_id);
+                if (trade) person.trades.add(trade);
+                const hours = Number(row.hours);
+                if (Number.isFinite(hours) && hours > 0) person.hours += hours;
+            }
+        } else if (task.assigned_talent_id) {
+            const person = ensure(task.assigned_talent_id);
+            if (trade) person.trades.add(trade);
+            const estimated = Number(task.estimated_hours);
+            if (Number.isFinite(estimated) && estimated > 0) person.hours += estimated;
+        }
+    }
+    return [...byId.values()].filter(p => p.name).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderAssignedCrew() {
+    const crewEl = document.getElementById('assigned-crew-list');
+    if (!crewEl) return;
+    const crew = assignedCrewRows();
+    crewEl.innerHTML = crew.map(person => {
+        const trades = [...person.trades].join(', ') || '—';
+        const hours = Number.isInteger(person.hours) ? String(person.hours) : String(Math.round(person.hours * 10) / 10);
+        return `
+            <div class="project-team-card">
+                <div>
+                    <div class="project-team-contact-link">${escHtml(person.name)}</div>
+                    <div class="project-team-role">${escHtml(trades)}</div>
+                </div>
+                <div class="project-team-meta">${escHtml(hours)}h</div>
+            </div>`;
+    }).join('') || '<div class="project-team-empty">No shop staff assigned yet.</div>';
+}
+
 function renderTeam() {
     const teamEl = document.getElementById('team-list');
     teamEl.innerHTML = state.contacts.map(c => {
@@ -749,12 +837,15 @@ function renderMiniGantt() {
         }
 
         const percent = t.estimated_hours ? ((t.actual_hours || 0) / t.estimated_hours) : 0;
-        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)'; 
+        const burnColor = percent > 1 ? '#ff4444' : 'rgba(255,255,255,0.8)';
+        const assigneeLabel = assigneeNamesForTask(t).join(', ');
+        const barLabel = assigneeLabel ? `${t.name} · ${assigneeLabel}` : t.name;
         
         bar.innerHTML = `
-            <span class="gantt-task-info">${t.name}</span>
+            <span class="gantt-task-info">${escHtml(barLabel)}</span>
             <div class="burn-line" style="width: ${Math.min(percent * 100, 100)}%; background: ${burnColor}; box-shadow: 0 0 5px ${burnColor}; pointer-events:none;"></div>
         `;
+        bar.title = barLabel;
 
         body.appendChild(bar);
     });
