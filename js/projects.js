@@ -184,7 +184,10 @@ async function loadProjectDetails(projectId) {
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
     state.currentProject = project;
     state.currentProjectAccountName = '';
-    if (project?.deal_id) {
+    if (project?.account_id) {
+        const { data: account } = await supabase.from('accounts').select('name').eq('id', project.account_id).maybeSingle();
+        state.currentProjectAccountName = account?.name || '';
+    } else if (project?.deal_id) {
         const { data: deal } = await supabase.from('deals_tw').select('account_id').eq('id', project.deal_id).maybeSingle();
         if (deal?.account_id) {
             const { data: account } = await supabase.from('accounts').select('name').eq('id', deal.account_id).maybeSingle();
@@ -910,6 +913,7 @@ function setupEventListeners() {
     setupModalListeners();
     document.getElementById('project-search').addEventListener('input', renderProjectList);
     document.getElementById('btn-launch-project').addEventListener('click', openLaunchProjectModal);
+    document.getElementById('btn-new-project').addEventListener('click', openNewProjectModal);
     const doProjectsRefresh = async () => {
         const btn = document.getElementById('btn-refresh-projects');
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
@@ -1324,6 +1328,120 @@ window.deleteChangeOrder = async (id) => {
         if (state.currentProject) loadProjectDetails(state.currentProject.id);
     });
 };
+
+// --- NEW PROJECT (no deal) ---
+async function openNewProjectModal() {
+    const [{ data: accounts }, { data: templates }, { data: templateTasks }] = await Promise.all([
+        supabase.from('accounts').select('id, name').order('name'),
+        supabase.from('project_templates').select('id, name').order('name'),
+        supabase.from('project_template_tasks').select('template_id, trade_id, name, estimated_hours, sort_order').order('sort_order')
+    ]);
+    const accountOptions = (accounts || []).map(account =>
+        `<option value="${account.id}">${String(account.name || '').replace(/</g, '&lt;')}</option>`
+    ).join('');
+    const templateOptions = (templates || []).map(template =>
+        `<option value="${template.id}">${String(template.name || '').replace(/</g, '&lt;')}</option>`
+    ).join('');
+    const today = dayjs().format('YYYY-MM-DD');
+
+    showModal('New Project', `
+        <div class="form-group">
+            <label>Account (optional)</label>
+            <select id="new-project-account" class="form-control"><option value="">No account</option>${accountOptions}</select>
+        </div>
+        <div class="form-group">
+            <label>Project name</label>
+            <input type="text" id="new-project-name" class="form-control">
+        </div>
+        <div class="form-group">
+            <label>Value</label>
+            <input type="number" id="new-project-value" class="form-control" min="0" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+            <label>Template</label>
+            <select id="new-project-template" class="form-control">
+                ${templateOptions || '<option value="">No templates yet</option>'}
+                <option value="blank">Blank project (no tasks)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Start date</label>
+            <input type="date" id="new-project-start" class="form-control" value="${today}">
+        </div>
+    `, async () => {
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+        const release = () => {
+            if (!confirmBtn) return;
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Create';
+        };
+        const name = document.getElementById('new-project-name')?.value.trim();
+        if (!name) { showToast('Project name is required.', 'error'); return false; }
+        if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Creating…'; }
+
+        const accountId = document.getElementById('new-project-account')?.value || '';
+        const templateId = document.getElementById('new-project-template')?.value || 'blank';
+        const startValue = document.getElementById('new-project-start')?.value || today;
+        const value = parseFloat(document.getElementById('new-project-value')?.value) || 0;
+        const tasks = templateId && templateId !== 'blank'
+            ? (templateTasks || []).filter(task => String(task.template_id) === String(templateId)).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+            : [];
+
+        let cursor = dayjs(startValue);
+        let endDate = startValue;
+        const scheduled = tasks.map(task => {
+            const end = addBusinessDays(cursor, 5);
+            const row = { ...task, start: cursor.format('YYYY-MM-DD'), end: end.format('YYYY-MM-DD') };
+            endDate = row.end;
+            cursor = addBusinessDays(end, 1);
+            return row;
+        });
+
+        const payload = {
+            name,
+            start_date: startValue,
+            end_date: endDate,
+            project_value: value,
+            status: 'Pre-Production',
+            client_summary: null,
+            client_summary_updated_at: null
+        };
+        if (accountId) payload.account_id = Number(accountId);
+
+        const { data: projectRows, error } = await supabase.from('projects').insert([payload]).select();
+        if (error) { release(); showToast(error.message, 'error'); return false; }
+        const projectId = projectRows?.[0]?.id;
+        if (!projectId) { release(); showToast('Project creation failed: missing inserted id.', 'error'); return false; }
+        try { sessionStorage.setItem('tw-show-project', String(projectId)); } catch (_) {}
+
+        let prevTaskId = null;
+        for (const task of scheduled) {
+            const { data: taskData } = await supabase.from('project_tasks').insert({
+                project_id: projectId,
+                trade_id: task.trade_id || null,
+                name: task.name,
+                start_date: task.start,
+                end_date: task.end,
+                estimated_hours: task.estimated_hours || 0,
+                dependency_task_id: prevTaskId
+            }).select().single();
+            if (taskData?.id) prevTaskId = taskData.id;
+        }
+
+        if (accountId) {
+            const { data: accountContacts } = await supabase.from('contacts').select('id').eq('account_id', accountId);
+            if (accountContacts?.length) {
+                await supabase.from('project_contacts').insert(
+                    accountContacts.map(contact => ({ project_id: projectId, contact_id: contact.id, role: 'Client' }))
+                );
+            }
+        }
+
+        await loadProjectsList();
+        await loadProjectDetails(projectId);
+        showToast('Project created.', 'success');
+    }, true, `<button type="button" id="modal-confirm-btn" class="btn-primary">Create</button><button type="button" id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
+}
 
 // --- LAUNCH MODAL ---
 async function openLaunchProjectModal(preSelectDealId) {
