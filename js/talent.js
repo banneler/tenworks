@@ -396,8 +396,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         const task = assign.project_tasks;
                         const tradeColor = getTradeColor(task.trade_id);
                         
-                        // Calculate width based on hours (Cap at 8)
-                        const hours = Math.min(task.estimated_hours || 8, 8);
+                        const hours = getAssignmentBookedHours(assign);
                         const widthPercent = (hours / 8) * 100;
 
                         const chip = document.createElement('div');
