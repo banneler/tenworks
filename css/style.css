@@ -5914,6 +5914,23 @@ body.theme-green .marketing-indicator {
     padding: 0 1rem;
 }
 
+.toast-sticky {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.toast-dismiss {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1.15rem;
+    line-height: 1;
+    padding: 0 0.15rem;
+}
+
 .toast {
     padding: 0.625rem 1rem;
     font-weight: 600;

@@ -155,7 +155,9 @@
                     </section>
                     <section class="mt-2">
                         <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-dollar-sign text-[var(--primary-blue)]"></i> Proposed Pricing</h3>
+                        <p class="text-xs text-white/50 mb-3">Search inventory to link a material, or leave a line as free text. Labor lines use hours and a rate. Saving writes the total onto the linked deal, and Launch Project imports linked materials, labor, and milestones.</p>
                         <div id="pricing-locations" class="space-y-4"></div>
+                        <p id="pricing-grand-total" class="text-sm text-white/80 mt-3"></p>
                         <button type="button" id="btn-add-location" class="mt-3 flex items-center gap-2 py-2 px-4 border border-dashed border-white/30 text-white/70 hover:border-[var(--primary-blue)] hover:text-[var(--primary-blue)] text-sm transition">
                             <i class="fas fa-plus"></i> Add Location
                         </button>
@@ -198,7 +200,7 @@
                     </div>
                     <section id="section-project-timeline" class="pt-8 pb-12 mt-6">
                         <h3 class="flex items-center gap-2 text-sm font-semibold text-white mb-2"><i class="fas fa-clock text-[var(--primary-blue)]"></i> Project Timeline</h3>
-                        <p class="text-xs text-white/50 mb-4">Add milestones here (task name, start, end). You can also load from a project; later, projects can import from this proposal.</p>
+                        <p class="text-xs text-white/50 mb-4">Add milestones here (task name, start, end). Launch Project imports these dates onto the new project.</p>
                         <div id="timeline-milestones" class="space-y-2"></div>
                     </section>
                 </div>
