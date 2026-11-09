@@ -743,10 +743,10 @@ async function initializePage() {
     try {
     setupModalListeners();
     await loadSVGs();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { hideGlobalLoader(); window.location.href = "index.html"; return; }
-    state.currentUser = session.user;
-    if (state.currentUser.user_metadata?.is_admin !== true) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { hideGlobalLoader(); window.location.href = "index.html"; return; }
+    state.currentUser = user;
+    if (state.currentUser.app_metadata?.is_admin !== true) {
         hideGlobalLoader();
         showModal(
             "Access Denied",

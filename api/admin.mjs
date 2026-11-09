@@ -1,5 +1,5 @@
 // POST /api/admin { action: 'update-user', target_user_id, full_name, monthly_quota, exclude_from_reporting }
-// Admin marker = auth user_metadata.is_admin === true (same check js/admin.js uses).
+// Admin marker = auth app_metadata.is_admin. exclude_from_reporting is written there too.
 import { createClient } from '@supabase/supabase-js';
 import { CORS, json } from './_lib/http.mjs';
 import { requireUser } from './_lib/auth.mjs';
@@ -9,7 +9,7 @@ export function OPTIONS() { return new Response('ok', { headers: CORS }); }
 export async function POST(req) {
   const auth = await requireUser(req);
   if (auth.response) return auth.response;
-  if (auth.user.user_metadata?.is_admin !== true) return json({ error: 'Forbidden: admin only' }, 403);
+  if (auth.user.app_metadata?.is_admin !== true) return json({ error: 'Forbidden: admin only' }, 403);
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return json({ error: 'Server misconfigured: service role missing' }, 500);
   let b; try { b = await req.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
   const action = b.action || 'update-user';
@@ -20,10 +20,14 @@ export async function POST(req) {
   try {
     const { data: got, error: gErr } = await admin.auth.admin.getUserById(target_user_id);
     if (gErr) throw gErr;
-    const meta = { ...(got.user.user_metadata || {}) };
-    if (typeof exclude_from_reporting === 'boolean') meta.exclude_from_reporting = exclude_from_reporting;
-    if (full_name !== undefined) meta.full_name = full_name;
-    const { error: uErr } = await admin.auth.admin.updateUserById(target_user_id, { user_metadata: meta });
+    const userMeta = { ...(got.user.user_metadata || {}) };
+    const appMeta = { ...(got.user.app_metadata || {}) };
+    if (full_name !== undefined) userMeta.full_name = full_name;
+    if (typeof exclude_from_reporting === 'boolean') appMeta.exclude_from_reporting = exclude_from_reporting;
+    const { error: uErr } = await admin.auth.admin.updateUserById(target_user_id, {
+      user_metadata: userMeta,
+      app_metadata: appMeta
+    });
     if (uErr) throw uErr;
     const row = { user_id: target_user_id };
     if (full_name !== undefined) row.full_name = full_name;

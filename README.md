@@ -14,7 +14,7 @@ Nylas calendar and email are ported and ready to connect. With no grant, Command
 - **Navigation:** `js/nav-loader.js` injects `partials/nav-erp.html` or `partials/nav-crm.html`
   into `#nav-container`, then sets `window.__navReady` and dispatches `navReady`.
 - **Data:** Supabase (Postgres + Auth + RLS). The browser uses the public anon key from
-  `js/shared_constants.js`. Admins are marked by `user_metadata.is_admin`.
+  `js/shared_constants.js`. Admins are marked by `app_metadata.is_admin`.
 - **Serverless API (Vercel functions):**
   - `api/ai.mjs` is `POST /api/ai {action, ...}` and dispatches to `api/_lib/handlers/*.mjs`
     (global-search, daily briefing, account briefing, social posts, sequence steps, and others).
