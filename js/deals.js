@@ -323,14 +323,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         return btn;
     }
 
-    function getCloseMonthRange() {
-        const now = new Date();
-        const months = [];
+    function monthKeyFromDate(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function getCloseMonthRange(now = new Date()) {
+        const keys = new Set();
         for (let i = -12; i <= 12; i++) {
-            const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-            months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+            keys.add(monthKeyFromDate(new Date(now.getFullYear(), now.getMonth() + i, 1)));
         }
-        return months;
+        (state.deals || []).forEach(deal => {
+            const raw = String(deal.close_month || '').slice(0, 7);
+            if (/^\d{4}-\d{2}$/.test(raw)) keys.add(raw);
+        });
+        return [...keys].sort();
+    }
+
+    function closeMonthIndex(months, offset, now = new Date()) {
+        const todayIndex = months.indexOf(monthKeyFromDate(now));
+        const base = todayIndex >= 0 ? todayIndex : 0;
+        return Math.max(0, Math.min(base + offset, months.length - 1));
     }
 
     function populateDealsFilters() {
@@ -349,13 +361,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             const months = getCloseMonthRange();
             months.forEach(m => filterCloseMonthPills.appendChild(createFilterPill(m, formatMonthYear(m), state.filterCloseMonth === m)));
             if (filterCloseMonthScroll) {
+                const target = months[closeMonthIndex(months, state.closeMonthOffset || 0)] || '';
                 requestAnimationFrame(() => {
-                    const pills = filterCloseMonthPills.querySelectorAll('.deals-filter-pill[data-value]');
-                    const firstMonthPill = Array.from(pills).find(p => p.dataset.value);
-                    const step = firstMonthPill ? firstMonthPill.offsetWidth + 4 : 80;
-                    const baseIndex = 11;
-                    const targetIndex = Math.max(0, Math.min(baseIndex + state.closeMonthOffset, months.length - 3));
-                    filterCloseMonthScroll.scrollLeft = targetIndex * step;
+                    const pill = target
+                        ? filterCloseMonthPills.querySelector(`.deals-filter-pill[data-value="${target}"]`)
+                        : null;
+                    if (!pill) return;
+                    const left = pill.getBoundingClientRect().left - filterCloseMonthScroll.getBoundingClientRect().left + filterCloseMonthScroll.scrollLeft;
+                    filterCloseMonthScroll.scrollLeft = Math.max(0, left);
                 });
             }
         }
@@ -1197,8 +1210,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
         });
 
-        if (closeMonthPrevBtn) closeMonthPrevBtn.addEventListener('click', () => { state.closeMonthOffset = Math.max(-12, (state.closeMonthOffset || 0) - 1); populateDealsFilters(); });
-        if (closeMonthNextBtn) closeMonthNextBtn.addEventListener('click', () => { state.closeMonthOffset = Math.min(12, (state.closeMonthOffset || 0) + 1); populateDealsFilters(); });
+        if (closeMonthPrevBtn) closeMonthPrevBtn.addEventListener('click', () => {
+            const months = getCloseMonthRange();
+            const todayIndex = Math.max(0, months.indexOf(monthKeyFromDate(new Date())));
+            state.closeMonthOffset = Math.max(-todayIndex, (state.closeMonthOffset || 0) - 1);
+            populateDealsFilters();
+        });
+        if (closeMonthNextBtn) closeMonthNextBtn.addEventListener('click', () => {
+            const months = getCloseMonthRange();
+            const todayIndex = Math.max(0, months.indexOf(monthKeyFromDate(new Date())));
+            state.closeMonthOffset = Math.min(Math.max(0, months.length - 1 - todayIndex), (state.closeMonthOffset || 0) + 1);
+            populateDealsFilters();
+        });
 
         if (dealsFiltersResetBtn) {
             dealsFiltersResetBtn.addEventListener('click', () => {
