@@ -181,8 +181,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     async function refreshData() {
-        hideAccountDetails(true); 
-        await loadInitialData(); 
+        const keepId = state.selectedAccountId;
+        const panelOpen = document.getElementById('account-details')?.classList.contains('active');
+        await loadInitialData();
+        if (keepId == null || !state.accounts.some(a => String(a.id) === String(keepId))) {
+            hideAccountDetails(true);
+            return;
+        }
+        state.selectedAccountId = keepId;
+        renderAccountList();
+        if (panelOpen) {
+            document.getElementById('account-details')?.classList.add('active');
+            document.getElementById('account-details-scrim')?.classList.add('visible');
+            document.getElementById('account-details-scrim')?.setAttribute('aria-hidden', 'false');
+        }
+        await loadDetailsForSelectedAccount();
     }
 
         
@@ -857,7 +870,7 @@ const renderAccountList = () => {
             else if (field === 'name') deal.name = value;
             else if (field === 'account') deal.account_id = value;
             else deal.close_month = value;
-            if (field === 'value') el.textContent = formatCurrency(value) + '/mo';
+            if (field === 'value') el.textContent = formatCurrency(value);
             else if (field === 'name') { const safe = (value || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); el.textContent = value.length > 28 ? value.substring(0, 28) + '...' : value; el.title = value; }
             else if (field === 'account') { const acc = state.accounts.find(a => a.id === value); el.textContent = acc ? acc.name : '—'; }
             else el.textContent = value ? formatMonthYearShort(value) : '—';
@@ -1690,7 +1703,7 @@ const renderAccountList = () => {
                                     <button type="button" id="new-deal-save-btn" class="btn-primary btn-sm ml-auto"><i class="fas fa-check mr-1"></i> Save</button>
                                     <button type="button" id="new-deal-cancel-btn" class="btn-secondary btn-sm">Cancel</button>
                                 </div>
-                                <div class="deal-card-value">$ <input type="number" id="new-deal-value" min="0" value="0" step="0.01" class="deal-card-inline-input w-24 text-center"> /mo</div>
+                                <div class="deal-card-value">$ <input type="number" id="new-deal-value" min="0" value="0" step="0.01" class="deal-card-inline-input w-24 text-center"></div>
                                 <div class="deal-card-name"><input type="text" id="new-deal-name" placeholder="Deal name" class="deal-card-inline-input w-full"></div>
                                 <div class="deal-card-account">${(accountName || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
                                 <div class="deal-card-elements" id="new-deal-elements">${getElementsPillHtml("new", "")}</div>

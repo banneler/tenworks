@@ -425,6 +425,13 @@ export function getDealValue(deal) {
     return (deal && (deal.value != null ? deal.value : deal.mrc)) || 0;
 }
 
+/** One-off project values stay plain currency. /mo is only for a legacy monthly amount with no project value. */
+export function formatDealAmount(deal) {
+    const amount = formatCurrency(getDealValue(deal));
+    const monthlyOnly = deal && deal.mrc != null && (deal.value == null || deal.value === '');
+    return monthlyOnly ? `${amount}/mo` : amount;
+}
+
 /** Elements list for deal card pills (kanban-style). */
 export const DEAL_ELEMENTS_LIST = ['Steel', 'Aluminum', 'Glass', 'Powdercoat', 'Paint', 'Structural', 'Wood'];
 
@@ -535,7 +542,7 @@ export function getDealCardContent(deal, options = {}) {
             </div>
             <button type="button" class="btn-icon btn-icon-sm edit-deal-btn" data-deal-id="${dealId}" title="Edit Deal"><i class="fas fa-pen"></i></button>
         </div>
-        <div class="deal-card-value">$${deal.mrc != null ? Number(deal.mrc) : 0}/mo</div>
+        <div class="deal-card-value">${formatDealAmount(deal)}</div>
         <div class="deal-card-name" title="${safeName}">${truncate(safeName, 30)}</div>
         <div class="deal-card-products">${getProductPillHtml(dealId, deal.products)}</div>
         <div class="deal-card-footer">
@@ -575,7 +582,7 @@ export function getKanbanDealCardContent(deal, options = {}) {
             <span class="deal-card-stage" data-deal-id="${dealId}">${getStageDisplayName(deal.stage) || 'Stage'}</span>
             <a href="proposals.html?deal_id=${dealId}" class="deal-card-proposal-icon" title="Proposal"><i class="fas fa-file-contract"></i></a>
         </div>
-        <div class="deal-card-value deal-card-editable" data-deal-id="${dealId}" data-field="value" title="Click to edit">${formatCurrency(getDealValue(deal))}/mo</div>
+        <div class="deal-card-value deal-card-editable" data-deal-id="${dealId}" data-field="value" title="Click to edit">${formatDealAmount(deal)}</div>
         <div class="deal-card-name deal-card-editable" data-deal-id="${dealId}" data-field="name" title="${safeName}">${truncate(safeName)}</div>
         <div class="deal-card-account deal-card-editable" data-deal-id="${dealId}" data-field="account" title="Click to edit">${accountName}</div>
         <div class="deal-card-elements">${getElementsPillHtml(dealId, deal.elements)}</div>

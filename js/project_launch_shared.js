@@ -94,8 +94,19 @@ export async function openSharedProjectLaunchModal({
             <div id="dynamic-phase-rows"></div>
         </div>
     `, async (modalBody) => {
+        const confirmBtn = document.getElementById('modal-confirm-btn');
+        const releaseConfirm = () => {
+            if (!confirmBtn) return;
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirm';
+        };
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Launching…';
+        }
         const dealSelect = document.getElementById('launch-deal');
         if (!dealSelect?.value) {
+            releaseConfirm();
             showToast('Please select a deal.', 'error');
             return false;
         }
@@ -113,15 +124,19 @@ export async function openSharedProjectLaunchModal({
             start_date: startDate,
             end_date: endDate,
             project_value: projectValue,
-            status: 'Pre-Production'
+            status: 'Pre-Production',
+            client_summary: null,
+            client_summary_updated_at: null
         }]).select();
         
         if (projectError) {
+            releaseConfirm();
             showToast(projectError.message, 'error');
             return false;
         }
         const projectId = projectRows?.[0]?.id;
         if (!projectId) {
+            releaseConfirm();
             showToast('Project creation failed: missing inserted id.', 'error');
             return false;
         }

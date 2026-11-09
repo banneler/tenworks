@@ -4,6 +4,7 @@ import {
     formatCurrency, 
     showModal, 
     hideModal, 
+    setupModalListeners,
     showToast,
     showActionSuccess,
     setupUserMenuAndAuth, 
@@ -180,6 +181,14 @@ async function loadProjectsList() {
 async function loadProjectDetails(projectId) {
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
     state.currentProject = project;
+    state.currentProjectAccountName = '';
+    if (project?.deal_id) {
+        const { data: deal } = await supabase.from('deals_tw').select('account_id').eq('id', project.deal_id).maybeSingle();
+        if (deal?.account_id) {
+            const { data: account } = await supabase.from('accounts').select('name').eq('id', deal.account_id).maybeSingle();
+            state.currentProjectAccountName = account?.name || '';
+        }
+    }
     state.linkedProposal = null;
     if (project?.proposal_id) {
         const { data: prop } = await supabase.from('proposals_tw').select('id, title, updated_at').eq('id', project.proposal_id).maybeSingle();
@@ -299,6 +308,15 @@ function renderDetailView() {
     if (shareStatusBtn) shareStatusBtn.style.display = 'inline-flex';
 
     document.getElementById('detail-name').value = p.name || '';
+    const accountEl = document.getElementById('detail-account');
+    if (accountEl) {
+        const accountName = state.currentProjectAccountName || '';
+        const safeAccount = accountName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        accountEl.style.display = accountName ? 'block' : 'none';
+        accountEl.innerHTML = accountName
+            ? `<div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px;">Account</div><div style="color:var(--text-bright); font-size:0.95rem;">${safeAccount}</div>`
+            : '';
+    }
     const statusSel = document.getElementById('detail-status');
     // Keep legacy/other statuses (e.g. Onboarding, Fabrication, Internal) selectable so
     // saving a project never silently blanks or rewrites its status.
@@ -481,8 +499,17 @@ function renderBOM() {
     tbody.innerHTML = state.bom.map(item => {
         const inv = item.inventory_items || { name: 'Unknown Item', sku: '???', category: 'Misc', uom: 'ea', qty_on_hand: 0 };
         
-        const isShortage = item.status !== 'Pulled' && (inv.qty_on_hand || 0) < item.qty_required;
-        const shortageWarning = isShortage ? `<div style="color: var(--danger-red); font-size: 0.75rem; margin-top: 2px;"><i class="fas fa-exclamation-triangle"></i> Shortage (On Hand: ${inv.qty_on_hand || 0})</div>` : '';
+        const requiredQty = Number(item.qty_required) || 0;
+        const onHandQty = Number(inv.qty_on_hand) || 0;
+        const storedAlloc = Number(item.qty_allocated);
+        const claimedQty = Number.isFinite(storedAlloc) && storedAlloc > 0 ? storedAlloc : requiredQty;
+        const allocatedQty = item.status === 'Pulled' ? claimedQty : Math.min(claimedQty, onHandQty);
+        const shortQty = item.status !== 'Pulled' ? Math.max(0, requiredQty - onHandQty) : 0;
+        const isShortage = shortQty > 0;
+        const shortageWarning = isShortage ? `<div style="color: var(--danger-red); font-size: 0.75rem; margin-top: 2px;"><i class="fas fa-exclamation-triangle"></i> Shortage (On Hand: ${onHandQty} ${inv.uom})</div>` : '';
+        const allocatedCell = shortQty > 0
+            ? `${allocatedQty} ${inv.uom}<div style="color: var(--danger-red); font-size: 0.75rem;">Short ${shortQty} ${inv.uom}</div>`
+            : `${allocatedQty} ${inv.uom}`;
 
         return `
             <tr>
@@ -492,10 +519,10 @@ function renderBOM() {
                     ${shortageWarning}
                 </td>
                 <td><span class="project-bom-category-pill">${inv.category}</span></td>
-                <td>${item.qty_required} ${inv.uom}</td>
-                <td>${(item.status !== 'Pulled' && !(Number(item.qty_allocated) > 0) ? item.qty_required : item.qty_allocated) || 0} ${inv.uom}</td>
+                <td>${requiredQty} ${inv.uom}</td>
+                <td>${allocatedCell}</td>
                 <td>
-                    <select class="form-control bom-status-select" data-bom-id="${item.id}" data-old-status="${item.status}" data-item-id="${item.inventory_item_id}" data-qty="${item.qty_allocated || item.qty_required}" style="padding: 4px 8px; font-size: 0.8rem; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-bright); border-radius: 4px; width: 100px;">
+                    <select class="form-control bom-status-select" data-bom-id="${item.id}" data-old-status="${item.status}" data-item-id="${item.inventory_item_id}" data-qty="${allocatedQty}" style="padding: 4px 8px; font-size: 0.8rem; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-bright); border-radius: 4px; width: 100px;">
                         <option value="Pending" ${item.status === 'Pending' ? 'selected' : ''}>Pending</option>
                         <option value="Ordered" ${item.status === 'Ordered' ? 'selected' : ''}>Ordered</option>
                         <option value="Pulled" ${item.status === 'Pulled' ? 'selected' : ''}>Pulled</option>
@@ -780,6 +807,7 @@ function renderLogs() {
 // --- 3. EVENT LISTENERS ---
 
 function setupEventListeners() {
+    setupModalListeners();
     document.getElementById('project-search').addEventListener('input', renderProjectList);
     document.getElementById('btn-launch-project').addEventListener('click', openLaunchProjectModal);
     const doProjectsRefresh = async () => {
@@ -1027,7 +1055,11 @@ async function openAddBOMModal() {
     const { data: items } = await supabase.from('inventory_items').select('*').order('name');
     const safeItems = items || [];
 
-    const options = safeItems.map(i => `<option value="${i.id}">${i.sku} - ${i.name} (${i.qty_on_hand} in stock)</option>`).join('');
+    const options = safeItems.map(i => {
+        const unit = i.uom || 'ea';
+        const onHand = Number(i.qty_on_hand) || 0;
+        return `<option value="${i.id}">${i.sku} - ${i.name} (${onHand} ${unit} in stock)</option>`;
+    }).join('');
 
     showModal('Add Material to BOM', `
         <div class="project-modal-field">
@@ -1065,11 +1097,13 @@ async function openAddBOMModal() {
             if(!itemId) { showToast("Select an item.", 'error'); return; }
 
             const qtyNum = parseFloat(qty) || 0;
+            const picked = safeItems.find(i => String(i.id) === String(itemId));
+            const onHand = Number(picked?.qty_on_hand) || 0;
             await supabase.from('project_bom').insert({
                 project_id: state.currentProject.id,
                 inventory_item_id: itemId,
                 qty_required: qtyNum,
-                qty_allocated: qtyNum, // Reserve required qty on add
+                qty_allocated: Math.min(qtyNum, onHand),
                 status: status
             });
             hideModal();
@@ -1120,40 +1154,33 @@ function openAddTaskModal() {
                 ${dependencyOptions}
             </select>
         </div>
-        <button id="btn-save-task" class="btn-primary project-modal-submit" style="margin-top: 15px;">Add Task</button>
-    `, async () => {});
+    `, async () => {
+        const name = document.getElementById('new-task-name').value.trim();
+        const tradeId = document.getElementById('new-task-trade').value;
+        const estHrs = parseFloat(document.getElementById('new-task-est').value) || 0;
+        const start = document.getElementById('new-task-start').value;
+        const end = document.getElementById('new-task-end').value;
+        const depId = document.getElementById('new-task-dependency').value || null;
 
-    setTimeout(() => {
-        const saveBtn = document.getElementById('btn-save-task');
-        if(saveBtn) saveBtn.onclick = async () => {
-            const name = document.getElementById('new-task-name').value.trim();
-            const tradeId = document.getElementById('new-task-trade').value;
-            const estHrs = parseFloat(document.getElementById('new-task-est').value) || 0;
-            const start = document.getElementById('new-task-start').value;
-            const end = document.getElementById('new-task-end').value;
-            const depId = document.getElementById('new-task-dependency').value || null;
+        if(!name) { showToast("Enter a task name.", 'error'); return false; }
 
-            if(!name) { showToast("Enter a task name.", 'error'); return; }
+        const { error } = await supabase.from('project_tasks').insert({
+            project_id: state.currentProject.id,
+            name: name,
+            trade_id: tradeId,
+            estimated_hours: estHrs,
+            start_date: start || null,
+            end_date: end || null,
+            status: 'Pending',
+            dependency_task_id: depId
+        });
 
-            const { error } = await supabase.from('project_tasks').insert({
-                project_id: state.currentProject.id,
-                name: name,
-                trade_id: tradeId,
-                estimated_hours: estHrs,
-                start_date: start || null,
-                end_date: end || null,
-                status: 'Pending',
-                dependency_task_id: depId
-            });
-
-            if (error) {
-                showToast('Error adding task: ' + error.message, 'error');
-            } else {
-                hideModal();
-                loadProjectDetails(state.currentProject.id);
-            }
+        if (error) {
+            showToast('Error adding task: ' + error.message, 'error');
+            return false;
         }
-    }, 100);
+        loadProjectDetails(state.currentProject.id);
+    }, true, `<button type="button" id="modal-confirm-btn" class="btn-primary">Add Task</button><button type="button" id="modal-cancel-btn" class="btn-secondary">Cancel</button>`);
 }
 
 function openAddChangeOrderModal() {
