@@ -1,4 +1,4 @@
-// POST /api/admin { action: 'update-user', target_user_id, full_name, monthly_quota, is_manager, exclude_from_reporting }
+// POST /api/admin { action: 'update-user', target_user_id, full_name, monthly_quota, exclude_from_reporting }
 // Admin marker = auth user_metadata.is_admin === true (same check js/admin.js uses).
 import { createClient } from '@supabase/supabase-js';
 import { CORS, json } from './_lib/http.mjs';
@@ -14,14 +14,13 @@ export async function POST(req) {
   let b; try { b = await req.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
   const action = b.action || 'update-user';
   if (action !== 'update-user') return json({ error: `Unknown action: ${action}` }, 400);
-  const { target_user_id, full_name, monthly_quota, is_manager, exclude_from_reporting } = b;
+  const { target_user_id, full_name, monthly_quota, exclude_from_reporting } = b;
   if (!target_user_id) return json({ error: 'target_user_id is required' }, 400);
   const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   try {
     const { data: got, error: gErr } = await admin.auth.admin.getUserById(target_user_id);
     if (gErr) throw gErr;
     const meta = { ...(got.user.user_metadata || {}) };
-    if (typeof is_manager === 'boolean') meta.is_manager = is_manager;
     if (typeof exclude_from_reporting === 'boolean') meta.exclude_from_reporting = exclude_from_reporting;
     if (full_name !== undefined) meta.full_name = full_name;
     const { error: uErr } = await admin.auth.admin.updateUserById(target_user_id, { user_metadata: meta });

@@ -115,10 +115,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             // FIXED: Switched "deals" to "deals_tw"
             const [accountsRes, dealsRes, activitiesRes, contactsRes, dealStagesRes] = await Promise.all([
-                supabase.from("accounts").select("*").eq("user_id", globalState.effectiveUserId),
-                supabase.from("deals_tw").select("id, account_id, stage").eq("user_id", globalState.effectiveUserId),
-                supabase.from("activities").select("id, account_id, contact_id, date").eq("user_id", globalState.effectiveUserId),
-                supabase.from("contacts").select("id, account_id, reports_to").eq("user_id", globalState.effectiveUserId),
+                supabase.from("accounts").select("*"),
+                supabase.from("deals_tw").select("id, account_id, stage"),
+                supabase.from("activities").select("id, account_id, contact_id, date"),
+                supabase.from("contacts").select("id, account_id, reports_to"),
                 supabase.from("deal_stages").select("*").order('sort_order')
             ]);
 

@@ -11,8 +11,8 @@
 -- Tagged [tw-demo-pack], SKU DEMO-*, shop_talent.role = tw-demo-pack.
 -- Re-run is safe: tagged rows are removed first. Wichita Biomed, Centennial,
 -- and every untagged row stay. Roles and quotas are not touched.
--- Deals are copied onto every real login because deals_tw SELECT is
--- auth.uid() = user_id (a manager does not see another owner's cards).
+-- Deals are visible to every signed-in user. The demo pack still copies
+-- deal rows onto each real login so a fresh account has the sample board.
 -- Projects, BOM, inventory, tasks, and assignments are shop-wide and are
 -- created once, linked to banneler@gpcom.com when that user exists.
 --

@@ -284,13 +284,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 sequenceStepsRes,
                 activityTypesRes
             ] = await Promise.all([
-                supabase.from('contacts').select('*').eq('user_id', globalState.effectiveUserId),
-                supabase.from('accounts').select('*').eq('user_id', globalState.effectiveUserId),
-                supabase.from('activities').select('*').eq('user_id', globalState.effectiveUserId),
-                supabase.from('contact_sequences').select('*').eq('user_id', globalState.effectiveUserId),
-                supabase.from('sequences').select('*').eq('user_id', globalState.effectiveUserId),
-                supabase.from('deals_tw').select('*').eq('user_id', globalState.effectiveUserId),
-                supabase.from('tasks').select('*').eq('user_id', globalState.effectiveUserId),
+                supabase.from('contacts').select('*'),
+                supabase.from('accounts').select('*'),
+                supabase.from('activities').select('*'),
+                supabase.from('contact_sequences').select('*'),
+                supabase.from('sequences').select('*'),
+                supabase.from('deals_tw').select('*'),
+                supabase.from('tasks').select('*'),
                 supabase.from('sequence_steps').select('*'),
                 supabase.from('activity_types').select('*')
             ]);

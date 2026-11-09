@@ -17,7 +17,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let state = {
         currentUser: null,
-        isManager: false,
         task_assignments: [],
         project_tasks: [],
         projects: [],
@@ -146,20 +145,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
         const todayStr = startOfToday.toISOString().split('T')[0];
-        
-        // Try to match current user to shop_talent by name
-        const currentUserFullName = state.currentUser?.user_metadata?.full_name || '';
-        const matchingTalent = state.shop_talent.find(t => t.name.toLowerCase() === currentUserFullName.toLowerCase());
-        
-        let todayAssignments = [];
-        if (matchingTalent) {
-            todayAssignments = state.task_assignments.filter(a => a.talent_id === matchingTalent.id && a.assigned_date === todayStr);
-        } else {
-            // Fallback: show all for today if user is manager, or none if not matched
-            if (state.isManager) {
-                todayAssignments = state.task_assignments.filter(a => a.assigned_date === todayStr);
-            }
-        }
+        const todayAssignments = state.task_assignments.filter(a => a.assigned_date === todayStr);
 
         if (todayAssignments.length > 0) {
             todayAssignments.forEach(assignment => {
@@ -175,7 +161,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 item.innerHTML = `
                     <div class="task-due">${getAssignmentBookedHours(assignment)}h</div>
                     <div class="task-content">
-                        <div class="task-linked"><a href="projects.html?id=${task.project_id}" class="contact-name-link">${projectName}</a> ${state.isManager ? `(${talentName})` : ''}</div>
+                        <div class="task-linked"><a href="projects.html?id=${task.project_id}" class="contact-name-link">${projectName}</a>${talentName ? ` (${talentName})` : ''}</div>
                         <div class="task-description">${task.name} <span style="color:var(--text-dim); font-size:0.8rem;">- ${task.status || 'Pending'}</span></div>
                     </div>
                     <div class="task-actions">
@@ -312,13 +298,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
         state.currentUser = session.user;
-        
-        try {
-            // Temporary fallback if user_profiles doesn't exist
-            state.isManager = true; 
-        } catch (e) {
-            console.warn("Could not fetch user profile role:", e);
-        }
 
         runWhenNavReady(() => {
             setupUserMenuAndAuth(supabase, state);

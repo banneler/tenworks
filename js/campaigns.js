@@ -967,9 +967,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!container) return;
         destroyCampaignTomSelects();
 
-        const visibleTemplates = state.emailTemplates.filter(t =>
-            !t.is_cloned || t.user_id === getState().effectiveUserId
-        );
+        const visibleTemplates = state.emailTemplates;
         const myTemplates = visibleTemplates.filter(t => t.user_id === getState().effectiveUserId).sort((a, b) => a.name.localeCompare(b.name));
         const sharedTemplates = visibleTemplates.filter(t => t.user_id !== getState().effectiveUserId).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1318,9 +1316,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function renderTemplateManager() {
-        const visibleTemplates = state.emailTemplates.filter(template =>
-            !template.is_cloned || template.user_id === getState().effectiveUserId
-        );
+        const visibleTemplates = state.emailTemplates;
 
         let templateListHtml = visibleTemplates.map(template => {
             const templateId = template.id;
@@ -1584,10 +1580,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                  { data: emailTemplates, error: templatesError },
                  { data: userQuotas, error: userQuotasError }
             ] = await Promise.all([
-                supabase.from("campaigns").select("*").eq("user_id", getState().effectiveUserId),
-                supabase.from("contacts").select("*").eq("user_id", getState().effectiveUserId),
-                supabase.from("accounts").select("*").eq("user_id", getState().effectiveUserId),
-                supabase.from("activities").select("*").eq("user_id", getState().effectiveUserId),
+                supabase.from("campaigns").select("*"),
+                supabase.from("contacts").select("*"),
+                supabase.from("accounts").select("*"),
+                supabase.from("activities").select("*"),
                 supabase.from("email_templates").select("*"),
                 supabase.from("user_quotas").select("user_id, full_name")
             ]);

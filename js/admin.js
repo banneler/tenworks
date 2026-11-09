@@ -346,7 +346,6 @@ function renderUserTable() {
                 <td><input type="text" class="form-control user-name-input" value="${user.full_name || ''}"></td>
                 <td>${user.email || 'N/A'}</td>
                 <td>${user.last_login ? formatDate(user.last_login) : 'Never'}</td>
-                <td><input type="checkbox" class="is-manager-checkbox" ${user.is_manager ? 'checked' : ''} ${isSelf ? 'disabled' : ''}></td>
                 <td><input type="checkbox" class="exclude-reporting-checkbox" ${user.exclude_from_reporting ? 'checked' : ''}></td>
                 <td class="action-buttons">${deactivateBtn}<button class="btn-primary btn-sm save-user-btn">Save</button></td>
             </tr>`;
@@ -562,7 +561,6 @@ async function handleSaveUser(e) {
     
     // --- FIX IS HERE ---
     // We now use row.querySelector to find the checkboxes *inside this specific row*.
-    const isManagerStatus = row.querySelector('.is-manager-checkbox').checked;
     const excludeReportingStatus = row.querySelector('.exclude-reporting-checkbox').checked;
     // --- END FIX ---
 
@@ -576,7 +574,6 @@ async function handleSaveUser(e) {
             body: {
                 target_user_id: userId,
                 full_name: fullName,
-                is_manager: isManagerStatus,
                 exclude_from_reporting: excludeReportingStatus
             }
         });

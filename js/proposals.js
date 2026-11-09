@@ -1464,7 +1464,7 @@ async function refreshLoadSelect() {
     const current = sel.value;
     let options = '<option value="">— Load proposal —</option>';
     try {
-        const { data } = await supabase.from('proposals_tw').select('id, title, client_name, updated_at').eq('user_id', state.currentUser.id).order('updated_at', { ascending: false }).limit(50);
+        const { data } = await supabase.from('proposals_tw').select('id, title, client_name, updated_at, user_id').order('updated_at', { ascending: false }).limit(50);
         if (data?.length) options += data.map(p => `<option value="${p.id}">${escapeAttr((p.title || p.client_name || 'Untitled') + ' · ' + (p.updated_at ? new Date(p.updated_at).toLocaleDateString() : ''))}</option>`).join('');
     } catch (_) {}
     const local = localStorage.getItem('tw_proposal_draft');
