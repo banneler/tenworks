@@ -649,6 +649,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <td class="deal-cell-editable deal-cell-number align-middle text-center font-bold text-[var(--primary-blue)] w-28" data-deal-id="${deal.id}" data-field="value">${formatCurrency(getDealValue(deal))}</td>
                 <td class="deal-cell-notes align-middle min-w-[16rem] w-full p-0"><div class="deal-notes-cell-inner deal-cell-editable text-[0.8rem]" contenteditable="true" data-deal-id="${deal.id}" data-field="notes" data-placeholder="Job Details">${esc((deal.notes || '').replace(/\n/g, ' '))}</div></td>
                 <td class="deal-cell-actions">
+                    ${isWonStage(deal.stage) ? '' : `<button type="button" class="btn-icon btn-icon-sm edit-deal-btn" data-deal-id="${deal.id}" title="Edit Deal"><i class="fas fa-pen"></i></button>`}
                     ${deal.stage === 'Closed Lost' ? ''
                 : isWonStage(deal.stage)
                     ? `<a href="projects.html?launch_deal_id=${deal.id}" class="deal-action-icon" title="Launch Project"><i class="fas fa-play"></i></a>`
@@ -1010,10 +1011,71 @@ document.addEventListener("DOMContentLoaded", async () => {
         return Array.from(checked).map(el => el.value).join(', ');
     }
 
-    function handleEditDeal(dealId) {
+    function dealContactsFieldHtml() {
+        return `<label>Contacts (optional):</label><div id="modal-deal-contacts" class="modal-elements-group"><p style="color:var(--text-medium);margin:0;">Choose an account to see its contacts.</p></div>`;
+    }
+
+    function selectedDealContactIds() {
+        return Array.from(document.querySelectorAll('.modal-deal-contact:checked')).map(el => el.value).filter(Boolean);
+    }
+
+    async function renderDealContactPicker(accountId, selectedIds) {
+        const box = document.getElementById('modal-deal-contacts');
+        if (!box) return;
+        const selected = new Set((selectedIds || []).map(id => String(id)));
+        if (!accountId) {
+            box.innerHTML = '<p style="color:var(--text-medium);margin:0;">Choose an account to see its contacts.</p>';
+            return;
+        }
+        const { data, error } = await supabase.from('contacts').select('id, first_name, last_name, title').eq('account_id', accountId).order('last_name');
+        if (error) {
+            box.innerHTML = `<p style="color:var(--danger-red);margin:0;">${escapeNotesForHtml(error.message)}</p>`;
+            return;
+        }
+        if (!data?.length) {
+            box.innerHTML = '<p style="color:var(--text-medium);margin:0;">No contacts on this account. The deal can still be saved.</p>';
+            return;
+        }
+        box.innerHTML = data.map(contact => {
+            const name = [contact.first_name, contact.last_name].filter(Boolean).join(' ') || 'Contact';
+            const title = contact.title ? ` · ${contact.title}` : '';
+            const checked = selected.has(String(contact.id)) ? ' checked' : '';
+            return `<label class="modal-element-label"><input type="checkbox" class="modal-deal-contact" value="${escapeNotesForHtml(String(contact.id))}"${checked}> ${escapeNotesForHtml(name + title)}</label>`;
+        }).join('');
+    }
+
+    async function watchDealAccountForContacts(selectedIds) {
+        const accEl = document.getElementById('modal-deal-account');
+        if (!accEl) return;
+        const accountId = () => (accEl.tomselect ? accEl.tomselect.getValue() : accEl.value);
+        let ready = false;
+        accEl.addEventListener('change', () => {
+            if (!ready) return;
+            renderDealContactPicker(accountId(), selectedDealContactIds());
+        });
+        await renderDealContactPicker(accountId(), selectedIds || []);
+        ready = true;
+    }
+
+    async function saveDealContacts(dealId) {
+        const ids = selectedDealContactIds();
+        const { error: clearError } = await supabase.from('deal_contacts').delete().eq('deal_id', dealId);
+        if (clearError) return clearError;
+        if (!ids.length) return null;
+        const { error } = await supabase.from('deal_contacts').insert(ids.map(id => ({
+            deal_id: dealId,
+            contact_id: id,
+            role: 'Client'
+        })));
+        return error;
+    }
+
+    async function handleEditDeal(dealId) {
         const deal = state.deals.find(d => d.id === dealId);
         if (!deal) return;
         if (isWonStage(deal.stage)) return;
+        const { data: linkRows } = await supabase.from('deal_contacts').select('contact_id').eq('deal_id', deal.id);
+        const linkedContactIds = (linkRows || []).map(row => row.contact_id);
         const stageOptions = state.dealStages.sort((a, b) => a.sort_order - b.sort_order).map(s => `<option value="${s.stage_name}" ${deal.stage === s.stage_name ? 'selected' : ''}>${getStageDisplayName(s.stage_name)}</option>`).join('');
         const accountOptions = state.accounts.sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(acc => `<option value="${acc.id}" ${deal.account_id === acc.id ? 'selected' : ''}>${(acc.name || '').replace(/</g, '&lt;')}</option>`).join('');
         const elementsHtml = getElementsCheckboxesHtml(deal.elements);
@@ -1021,6 +1083,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         showModal("Edit Deal", `
             <label>Deal Name:</label><input type="text" id="modal-deal-name" value="${(deal.name || '').replace(/"/g, '&quot;')}" required>
             <label>Account:</label><select id="modal-deal-account" required>${accountOptions}</select>
+            ${dealContactsFieldHtml()}
             <label>Stage:</label><select id="modal-deal-stage" required>${stageOptions}</select>
             <label>Project Value:</label><input type="number" id="modal-deal-value" min="0" value="${getDealValue(deal)}">
             <label>Close Month:</label><input type="month" id="modal-deal-close-month" value="${deal.close_month || ''}">
@@ -1041,12 +1104,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (!updatedDeal.name) return showToast('Deal name is required.', 'error');
             const { error } = await supabase.from("deals_tw").update(updatedDeal).eq("id", deal.id);
             if (error) { showToast("Error updating deal: " + error.message, 'error'); return false; }
+            const contactError = await saveDealContacts(deal.id);
+            if (contactError) { showToast("Deal saved, but contacts were not: " + contactError.message, 'error'); return false; }
             await loadAllData(); hideModal();
         });
         const modalAcc = document.getElementById("modal-deal-account");
         const modalStage = document.getElementById("modal-deal-stage");
         if (modalAcc && typeof window.TomSelect !== "undefined") try { initTomSelect(modalAcc, tomSelectNoSearchOpts()); } catch (e) {}
         if (modalStage && typeof window.TomSelect !== "undefined") try { initTomSelect(modalStage, tomSelectNoSearchOpts()); } catch (e) {}
+        watchDealAccountForContacts(linkedContactIds);
     }
 
     // Drag and Drop Logic
@@ -1219,6 +1285,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showModal('New Deal', `
                     <label>Deal Name:</label><input type="text" id="modal-deal-name" required>
                     <label>Account:</label><select id="modal-deal-account" required><option value="">-- Select Account --</option>${accountOptions}</select>
+                    ${dealContactsFieldHtml()}
                     <label>Stage:</label><select id="modal-deal-stage" required><option value="">-- Select --</option>${stageOptions}</select>
                     <label>Project Value:</label><input type="number" id="modal-deal-value" min="0" value="0">
                     <label>Close Month:</label><input type="month" id="modal-deal-close-month">
@@ -1248,8 +1315,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                         notes: notes || null,
                         is_committed: false
                     };
-                    const { error } = await supabase.from('deals_tw').insert(payload);
+                    const { data: created, error } = await supabase.from('deals_tw').insert(payload).select('id').single();
                     if (error) { showToast('Error creating deal: ' + error.message, 'error'); return false; }
+                    const contactError = await saveDealContacts(created.id);
+                    if (contactError) { showToast('Deal created, but contacts were not: ' + contactError.message, 'error'); return false; }
                     await loadAllData();
                     hideModal();
                     showToast('Deal created.', 'success');
@@ -1259,6 +1328,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const newStage = document.getElementById("modal-deal-stage");
                 if (newAcc && typeof window.TomSelect !== "undefined") try { initTomSelect(newAcc, tomSelectNoSearchOpts()); } catch (e) {}
                 if (newStage && typeof window.TomSelect !== "undefined") try { initTomSelect(newStage, tomSelectNoSearchOpts()); } catch (e) {}
+                watchDealAccountForContacts([]);
             });
         }
     }

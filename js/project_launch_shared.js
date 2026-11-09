@@ -204,13 +204,20 @@ export async function openSharedProjectLaunchModal({
             if (key && id) insertedNames.set(key, id);
         };
 
-        const { data: dealRow } = await supabase.from('deals_tw').select('account_id').eq('id', dealId).single();
-        if (dealRow?.account_id) {
-            const { data: accountContacts } = await supabase.from('contacts').select('id').eq('account_id', dealRow.account_id);
-            if (accountContacts?.length) {
-                await supabase.from('project_contacts').insert(
-                    accountContacts.map((c) => ({ project_id: projectId, contact_id: c.id, role: 'Client' }))
-                );
+        const pickedRes = await supabase.from('deal_contacts').select('contact_id, role').eq('deal_id', dealId);
+        if (!pickedRes.error && pickedRes.data?.length) {
+            await supabase.from('project_contacts').insert(
+                pickedRes.data.map((c) => ({ project_id: projectId, contact_id: c.contact_id, role: c.role || 'Client' }))
+            );
+        } else {
+            const { data: dealRow } = await supabase.from('deals_tw').select('account_id').eq('id', dealId).single();
+            if (dealRow?.account_id) {
+                const { data: accountContacts } = await supabase.from('contacts').select('id').eq('account_id', dealRow.account_id);
+                if (accountContacts?.length) {
+                    await supabase.from('project_contacts').insert(
+                        accountContacts.map((c) => ({ project_id: projectId, contact_id: c.id, role: 'Client' }))
+                    );
+                }
             }
         }
 
