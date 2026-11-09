@@ -328,7 +328,7 @@ function renderLaborerView() {
                 <div class="mobile-card-title">${task.name}</div>
                 <div class="mobile-card-subtitle">${project ? project.name : 'Unknown Project'}</div>
                 <div class="mobile-card-meta">
-                    <span>Allocated: ${a.hours}h</span>
+                    <span>Allocated: ${getAssignmentBookedHours(a)}h</span>
                     <span style="color: ${task.status === 'Completed' ? 'var(--success-green)' : 'var(--text-bright)'}">${task.status || 'Pending'}</span>
                 </div>
                 <div class="mobile-card-actions">
@@ -387,11 +387,7 @@ function renderLeaderView() {
     teamList.innerHTML = state.team.map(t => {
         const personAssignments = todayAssignmentsTeam.filter(a => idsMatch(a.talent_id, t.id));
         
-        // Ensure we parse hours correctly, treating null/undefined as 0
-        const totalHours = personAssignments.reduce((sum, a) => {
-            const h = parseFloat(a.hours);
-            return sum + (isNaN(h) ? 0 : h);
-        }, 0);
+        const totalHours = personAssignments.reduce((sum, a) => sum + getAssignmentBookedHours(a), 0);
         
         let statusLine = '<span style="color:var(--text-dim);">Idle</span>';
         let detailLine = '<span style="color:var(--text-dim);">No assignments today</span>';

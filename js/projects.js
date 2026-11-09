@@ -639,6 +639,14 @@ function tradeNameById(id) {
     return state.trades.find(t => String(t.id) === String(id))?.name || '';
 }
 
+function bookedAssignmentHours(row, task) {
+    const explicit = Number(row?.hours);
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const est = Number(task?.estimated_hours);
+    const normalized = Number.isFinite(est) && est > 0 ? est : 8;
+    return Math.min(normalized, 8);
+}
+
 function assignedCrewRows() {
     const byId = new Map();
     const ensure = (id) => {
@@ -653,8 +661,7 @@ function assignedCrewRows() {
             for (const row of rows) {
                 const person = ensure(row.talent_id);
                 if (trade) person.trades.add(trade);
-                const hours = Number(row.hours);
-                if (Number.isFinite(hours) && hours > 0) person.hours += hours;
+                person.hours += bookedAssignmentHours(row, task);
             }
         } else if (task.assigned_talent_id) {
             const person = ensure(task.assigned_talent_id);

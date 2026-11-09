@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const item = document.createElement("div");
                 item.className = `task-item`;
                 item.innerHTML = `
-                    <div class="task-due">${assignment.hours}h</div>
+                    <div class="task-due">${getAssignmentBookedHours(assignment)}h</div>
                     <div class="task-content">
                         <div class="task-linked"><a href="projects.html?id=${task.project_id}" class="contact-name-link">${projectName}</a> ${state.isManager ? `(${talentName})` : ''}</div>
                         <div class="task-description">${task.name} <span style="color:var(--text-dim); font-size:0.8rem;">- ${task.status || 'Pending'}</span></div>
