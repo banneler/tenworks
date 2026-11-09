@@ -119,10 +119,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             { data: accounts, error: accountsError },
             { data: contacts, error: contactsError }
         ] = await Promise.all([
-            supabase.from("cognito_alerts").select("*").eq("user_id", state.currentUser.id),
-            supabase.from("cognito_discovery_tw").select("*").eq("user_id", state.currentUser.id).order('created_at', { ascending: false }),
-            supabase.from("accounts").select("*").eq("user_id", state.currentUser.id),
-            supabase.from("contacts").select("*").eq("user_id", state.currentUser.id)
+            supabase.from("cognito_alerts").select("*"),
+            supabase.from("cognito_discovery_tw").select("*").order('created_at', { ascending: false }),
+            supabase.from("accounts").select("*"),
+            supabase.from("contacts").select("*")
         ]);
         
         if (alertsError) console.error("Error fetching alerts:", alertsError);

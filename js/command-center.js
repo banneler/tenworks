@@ -40,7 +40,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let state = {
         currentUser: null,
-        isManager: false, // Initialize the isManager flag
         contacts: [],
         accounts: [],
         sequences: [],
@@ -111,18 +110,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const userSpecificTables = ["contacts", "accounts", "sequences", "activities", "contact_sequences", "deals_tw", "tasks", "cognito_alerts"];
         const publicTables = ["sequence_steps"];
 
-        // --- THIS IS THE KEY CHANGE ---
-        let userPromises;
-        if (state.isManager) {
-            // If user is a manager, fetch data for all users. RLS should handle permissions.
-            console.log("Manager detected, fetching all user data.");
-            userPromises = userSpecificTables.map(table => supabase.from(table).select("*"));
-        } else {
-            // If not a manager, only fetch data for the current user.
-            console.log("Standard user detected, fetching only own data.");
-            userPromises = userSpecificTables.map(table => supabase.from(table).select("*").eq("user_id", state.currentUser.id));
-        }
-        // --- END CHANGE ---
+        const userPromises = userSpecificTables.map(table => supabase.from(table).select("*"));
 
         const publicPromises = publicTables.map(table => supabase.from(table).select("*"));
         const allPromises = [...userPromises, ...publicPromises];
@@ -295,7 +283,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const salesSequenceTasks = [];
         const upcomingSalesTasks = [];
-        const isManager = state.isManager === true;
 
         for (const cs of state.contact_sequences) {
             if (cs.status !== 'Active' || !cs.current_step_number) continue;
@@ -304,7 +291,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 s => s.sequence_id === cs.sequence_id && s.step_number === cs.current_step_number
             );
 
-            if (currentStep && ((isManager && (currentStep.assigned_to === 'Sales Manager' || cs.user_id === state.currentUser.id)) || (!isManager && (currentStep.assigned_to === 'Sales' || !currentStep.assigned_to)))) {
+            if (currentStep) {
                 const contact = state.contacts.find(c => c.id === cs.contact_id);
                 const sequence = state.sequences.find(s => s.id === cs.sequence_id);
                 if (contact && sequence) {
@@ -328,7 +315,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         upcomingSalesTasks.sort((a, b) => new Date(a.next_step_due_date) - new Date(b.next_step_due_date));
 
         // --- 1. My Tasks (list) ---
-        const pendingTasks = state.tasks.filter(task => task.user_id === state.currentUser.id && task.status === 'Pending').sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+        const pendingTasks = state.tasks.filter(task => task.status === 'Pending').sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
         if (pendingTasks.length > 0) {
             pendingTasks.forEach(task => {
                 const taskDueDate = task.due_date ? new Date(task.due_date) : null;
@@ -429,7 +416,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // --- 3. Recent Activities (stacked list, no Salesforce) ---
         const sortedActivities = state.activities
-            .filter(act => isManager || act.user_id === state.currentUser.id)
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .slice(0, 20);
         if (sortedActivities.length === 0) {
@@ -744,26 +730,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (session) {
             state.currentUser = session.user;
 
-            // This is the sequential fix: check permissions first.
-            const { data: userProfile, error } = await supabase
-                .from('user_quotas')
-                .select('is_manager')
-                .eq('user_id', state.currentUser.id)
-                .maybeSingle();
-
-            if (error && error.code !== 'PGRST116') { //PGRST116 means no row found, which is fine.
-                console.error("Critical error fetching user manager status:", error);
-                showErrorModal("Could not verify user permissions. Please refresh the page.");
-                return;
-            }
-            state.isManager = userProfile?.is_manager === true;
-
-            // Now that state.isManager is set, proceed with the rest of the setup.
             await setupUserMenuAndAuth(supabase, state);
             await setupGlobalSearch(supabase, state.currentUser);
             await checkAndSetNotifications(supabase);
-            
-            // The `loadAllData` function will now use the correct `state.isManager` flag.
             await loadAllData();
             const nylasCalendar = mountNylasCalendar(supabase, { showModal, showToast });
             await nylasCalendar.refresh();

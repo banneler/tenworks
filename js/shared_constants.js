@@ -89,10 +89,8 @@ if (document.body) {
 // --- NEW: GLOBAL STATE MANAGEMENT ---
 const appState = {
     currentUser: null,          // The actual logged-in user object
-    effectiveUserId: null,      // The ID of the user whose data is being viewed
-    effectiveUserFullName: null,// The name of the user being viewed
-    isManager: false,           // Is the logged-in user a manager?
-    managedUsers: []            // Array of users the manager can view as
+    effectiveUserId: null,      // The signed-in user. Inserts still record this as user_id.
+    effectiveUserFullName: null // The signed-in user's name
 };
 
 /**
@@ -103,17 +101,12 @@ export function getState() {
 }
 
 /**
- * Sets the effective user for impersonation view.
- * @param {string} userId - The UUID of the user to view as.
- * @param {string} fullName - The full name of the user to view as.
+ * Kept so older pages can refresh after a profile change.
+ * Viewing as another user is no longer supported.
  */
 export function setEffectiveUser(userId, fullName) {
     appState.effectiveUserId = userId;
     appState.effectiveUserFullName = fullName;
-    console.log(`Viewing as: ${fullName} (${userId})`);
-    
-    // This is the key part for triggering a UI refresh.
-    // We dispatch a custom event that other parts of the app can listen for.
     window.dispatchEvent(new CustomEvent('effectiveUserChanged'));
 }
 
@@ -160,74 +153,13 @@ export async function initializeAppState(supabase) {
     if (quotaError && quotaError.code !== 'PGRST116') console.error("Error fetching current user's name:", quotaError);
     appState.effectiveUserFullName = currentUserQuota?.full_name || 'User';
 
-    // Check for manager status using the metadata
-    appState.isManager = user.user_metadata?.is_manager === true;
-
-    if (appState.isManager) {
-        // If they are a manager, fetch all users from user_quotas for the dropdown
-        const { data: allUsers, error } = await supabase
-            .from('user_quotas')
-            .select('user_id, full_name')
-            .neq('user_id', user.id) // Don't include the manager in their own list
-            .order('full_name'); 
-
-        if (error) {
-            console.error("Error fetching managed users from user_quotas:", error);
-        } else {
-            // Map directly to the format our dropdown function expects
-            appState.managedUsers = allUsers.map(u => ({
-                id: u.user_id,
-                full_name: u.full_name
-            }));
-        }
-    }
-    
     return appState;
 }
 
-/**
- * Renders the impersonation dropdown in the user menu if the user is a manager.
- */
-function renderImpersonationDropdown() {
-    if (!appState.isManager || appState.managedUsers.length === 0) {
-        return;
-    }
-
+function renderDemoMobileToggle() {
     const userMenuPopup = document.getElementById('user-menu-popup');
     if (!userMenuPopup) return;
 
-    // 1. Create the container
-    const container = document.createElement('div');
-    container.className = 'impersonation-container';
-
-    // 2. Create the "My View" option
-    const currentUserOption = {
-        id: appState.currentUser.id,
-        full_name: appState.effectiveUserFullName.includes('(Viewing As)') 
-            ? 'My View' // If we're already viewing as someone, just show "My View"
-            : appState.effectiveUserFullName 
-    };
-    
-    const allUsers = [currentUserOption, ...appState.managedUsers];
-    
-    // 3. Create the options HTML
-    const optionsHtml = allUsers.map(user => {
-        const selected = (user.id === appState.effectiveUserId) ? 'selected' : '';
-        return `<option value="${user.id}" data-full-name="${user.full_name}" ${selected}>${user.full_name}</option>`;
-    }).join('');
-
-    // 4. Set the inner HTML for the dropdown
-    container.innerHTML = `
-        <label for="impersonation-select">View As:</label>
-        <select id="impersonation-select">
-            ${optionsHtml}
-        </select>
-    `;
-    
-    // 5. Add it to the top of the popup
-    userMenuPopup.prepend(container);
-
-    // 5b. Add Demo Mobile View Toggle
     const isMobilePage = window.location.pathname.includes('mobile.html');
     if (isMobilePage) {
         const demoContainer = document.createElement('div');
@@ -251,65 +183,6 @@ function renderImpersonationDropdown() {
             demoSelect.addEventListener('change', (e) => {
                 localStorage.setItem('demo_mobile_role', e.target.value);
                 window.location.reload();
-            });
-        }
-    }
-
-    // 6. Add the event listener and optionally init TomSelect
-    const impersonationSelect = document.getElementById('impersonation-select');
-    if (impersonationSelect) {
-        impersonationSelect.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-        if (typeof window.TomSelect !== "undefined") {
-            try {
-                const ts = new window.TomSelect(impersonationSelect, {
-                    create: false,
-                    render: { dropdown: () => { const d = document.createElement("div"); d.className = "ts-dropdown tom-select-no-search"; return d; } }
-                });
-                ts.on("change", (userId) => {
-                    const opt = impersonationSelect.querySelector(`option[value="${userId}"]`);
-                    const fullName = opt ? opt.dataset.fullName : "";
-                    setEffectiveUser(userId, fullName);
-                    const userNameDisplay = document.getElementById("user-name-display");
-                    if (userNameDisplay) {
-                        if (userId === appState.currentUser.id) {
-                            userNameDisplay.textContent = fullName;
-                        } else {
-                            userNameDisplay.textContent = `${fullName} (Viewing As)`;
-                        }
-                    }
-                });
-            } catch (e) {
-                impersonationSelect.addEventListener('change', (e) => {
-                    const selectedOption = e.target.options[e.target.selectedIndex];
-                    const userId = selectedOption.value;
-                    const fullName = selectedOption.dataset.fullName;
-                    setEffectiveUser(userId, fullName);
-                    const userNameDisplay = document.getElementById("user-name-display");
-                    if (userNameDisplay) {
-                        if (userId === appState.currentUser.id) {
-                            userNameDisplay.textContent = fullName;
-                        } else {
-                            userNameDisplay.textContent = `${fullName} (Viewing As)`;
-                        }
-                    }
-                });
-            }
-        } else {
-            impersonationSelect.addEventListener('change', (e) => {
-                const selectedOption = e.target.options[e.target.selectedIndex];
-                const userId = selectedOption.value;
-                const fullName = selectedOption.dataset.fullName;
-                setEffectiveUser(userId, fullName);
-                const userNameDisplay = document.getElementById("user-name-display");
-                if (userNameDisplay) {
-                    if (userId === appState.currentUser.id) {
-                        userNameDisplay.textContent = fullName;
-                    } else {
-                        userNameDisplay.textContent = `${fullName} (Viewing As)`;
-                    }
-                }
             });
         }
     }
@@ -894,7 +767,7 @@ export async function setupUserMenuAndAuth(supabase, state, _retried = false) {
     } else {
         userNameDisplay.textContent = userData.full_name || 'User';
         await setupTheme(supabase, state.currentUser);
-        renderImpersonationDropdown();
+        renderDemoMobileToggle();
         attachUserMenuListeners();
     }
 

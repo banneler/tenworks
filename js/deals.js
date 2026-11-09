@@ -37,10 +37,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         dealStages: [],
         dealsSortBy: "name",
         dealsSortDir: "asc",
-        dealsViewMode: 'all',
         currentView: 'list',
         showClosedLost: false,
-        currentUserQuota: 0,
         allUsersQuotas: [],
         dealsByStageChart: null,
         dealsByTimeChart: null,
@@ -105,35 +103,20 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        const isManager = state.currentUser.user_metadata?.is_manager === true;
-        const isTeamView = state.dealsViewMode === 'all' && isManager;
-
-        // Deals table: public.deals_tw
         const dealsQuery = supabase.from("deals_tw").select("*");
         const accountsQuery = supabase.from("accounts").select("*");
         const dealStagesQuery = supabase.from("deal_stages").select("stage_name, sort_order").order('sort_order');
-        
-        if (!isTeamView) {
-            dealsQuery.eq("user_id", state.currentUser.id);
-            accountsQuery.eq("user_id", state.currentUser.id);
-        }
+        const allQuotasQuery = supabase.from("user_quotas").select("monthly_quota");
 
-        const currentUserQuotaQuery = supabase.from("user_quotas").select("monthly_quota").eq("user_id", state.currentUser.id);
-        let allQuotasQuery = isManager ? supabase.from("user_quotas").select("monthly_quota") : Promise.resolve({ data: [], error: null });
-
-        const promises = [dealsQuery, accountsQuery, currentUserQuotaQuery, dealStagesQuery, allQuotasQuery];
-        const allTableNames = ["deals", "accounts", "currentUserQuota", "dealStages", "allUsersQuotas"];
+        const promises = [dealsQuery, accountsQuery, dealStagesQuery, allQuotasQuery];
+        const allTableNames = ["deals", "accounts", "dealStages", "allUsersQuotas"];
         
         try {
             const results = await Promise.allSettled(promises);
             results.forEach((result, index) => {
                 const tableName = allTableNames[index];
                 if (result.status === "fulfilled" && !result.value.error) {
-                    if (tableName === "currentUserQuota") {
-                        state.currentUserQuota = result.value.data?.[0]?.monthly_quota || 0;
-                    } else {
-                        state[tableName] = result.value.data || [];
-                    }
+                    state[tableName] = result.value.data || [];
                 } else {
                     console.error(`Error fetching ${tableName}:`, result.status === 'fulfilled' ? result.value.error?.message : result.reason);
                 }
@@ -431,10 +414,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const labels = sortedStages.map(([stage]) => stage);
         const data = sortedStages.map(([, val]) => val);
         
-        const isManager = state.currentUser.user_metadata?.is_manager === true;
-        const isMyTeamView = state.dealsViewMode === 'all' && isManager;
-        const effectiveMonthlyQuota = isMyTeamView ? state.allUsersQuotas.reduce((sum, quota) => sum + (quota.monthly_quota || 0), 0) : state.currentUserQuota;
-        
         if (state.dealsByStageChart) state.dealsByStageChart.destroy();
         state.dealsByStageChart = new Chart(dealsByStageCanvas, {
             type: 'bar',
@@ -475,10 +454,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             else if (monthDiff > 2) { funnel['90+ Days'] += getDealValue(deal); }
         });
         const labels = Object.keys(funnel), data = Object.values(funnel);
-        const isManager = state.currentUser.user_metadata?.is_manager === true;
-        const isMyTeamView = state.dealsViewMode === 'all' && isManager;
-        const effectiveMonthlyQuota = isMyTeamView ? state.allUsersQuotas.reduce((sum, quota) => sum + (quota.monthly_quota || 0), 0) : state.currentUserQuota;
-        
+
         if (state.dealsByTimeChart) state.dealsByTimeChart.destroy();
         state.dealsByTimeChart = new Chart(dealsByTimeCanvas, {
             type: 'bar',
@@ -943,23 +919,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const renderDealsMetrics = () => {
         if (!metricCurrentCommit) return;
-        const isManager = state.currentUser.user_metadata?.is_manager === true;
-        const isMyTeamView = state.dealsViewMode === 'all' && isManager;
         if (metricCurrentCommitTitle && metricBestCaseTitle) {
-            metricCurrentCommitTitle.textContent = isMyTeamView ? "Team Committed Work" : "My Committed Work";
-            metricBestCaseTitle.textContent = isMyTeamView ? "Team Likely Work" : "My Likely Work";
+            metricCurrentCommitTitle.textContent = "Committed Work";
+            metricBestCaseTitle.textContent = "Likely Work";
         }
-        const effectiveMonthlyQuota = isMyTeamView ? state.allUsersQuotas.reduce((sum, quota) => sum + (quota.monthly_quota || 0), 0) : state.currentUserQuota;
+        const effectiveMonthlyQuota = (state.allUsersQuotas || []).reduce((sum, quota) => sum + (Number(quota.monthly_quota) || 0), 0);
         if (commitTotalQuota && bestCaseTotalQuota) {
-            if (isMyTeamView) {
-                commitTotalQuota.textContent = formatCurrency(effectiveMonthlyQuota);
-                bestCaseTotalQuota.textContent = formatCurrency(effectiveMonthlyQuota);
-                commitTotalQuota.classList.remove('hidden');
-                bestCaseTotalQuota.classList.remove('hidden');
-            } else {
-                commitTotalQuota.classList.add('hidden');
-                bestCaseTotalQuota.classList.add('hidden');
-            }
+            commitTotalQuota.textContent = formatCurrency(effectiveMonthlyQuota);
+            bestCaseTotalQuota.textContent = formatCurrency(effectiveMonthlyQuota);
+            commitTotalQuota.classList.remove('hidden');
+            bestCaseTotalQuota.classList.remove('hidden');
         }
         const currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
         let currentCommit = 0, bestCase = 0, closedWon = 0;

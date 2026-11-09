@@ -73,7 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Add "accounts" to the tables being fetched
         const userSpecificTables = ["sequences", "contacts", "accounts", "contact_sequences", "sequence_steps", "activities"];
         const promises = userSpecificTables.map((table) =>
-            supabase.from(table).select("*").eq("user_id", getState().effectiveUserId)
+            supabase.from(table).select("*")
         );
         
         try {
