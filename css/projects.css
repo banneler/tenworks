@@ -227,6 +227,20 @@
     box-shadow: 0 5px 15px rgba(0,0,0,0.5);
 }
 
+.project-people-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.project-task-assignee {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-medium);
+}
+
 .gantt-task-info {
     position: relative;
     z-index: 20; 

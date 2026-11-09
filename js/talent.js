@@ -502,22 +502,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         const hasSkill = state.skills.some(s => s.talent_id === person.id && s.trade_id === draggingTask.trade_id);
         if (!hasSkill && !confirm(`${person.name} is not tagged for this trade. Assign anyway?`)) return;
 
-        // Prompt for explicit hours
+        // Prompt for explicit hours. Default is a string so OK on the untouched value returns "8", not a blank.
         let explicitHours = null;
-        const defaultHours = draggingTask.estimated_hours ? Math.min(draggingTask.estimated_hours, 8) : 8;
+        const estimated = Number(draggingTask.estimated_hours);
+        const defaultHours = String(Number.isFinite(estimated) && estimated > 0 ? Math.min(estimated, 8) : 8);
         const hoursInput = prompt(`How many hours will ${person.name} work on this task on ${dayjs(dateStr).format('MMM D')}?`, defaultHours);
-        
+
         if (hoursInput === null) {
-            // User cancelled the prompt
             draggingPayload = null;
             return;
         }
 
-        explicitHours = parseFloat(hoursInput);
-        if (isNaN(explicitHours) || explicitHours < 0) {
-            alert("Invalid hours entered. Defaulting to estimated/standard hours.");
-            explicitHours = null; // Let the system fallback
+        const hoursText = String(hoursInput).trim();
+        const parsedHours = /^\d+(\.\d+)?$/.test(hoursText) ? Number(hoursText) : NaN;
+        if (!Number.isFinite(parsedHours) || parsedHours <= 0) {
+            alert('Invalid hours entered. Enter a number greater than 0.');
+            draggingPayload = null;
+            return;
         }
+        explicitHours = parsedHours;
 
         // --- OPTIMISTIC UI UPDATE START ---
         // 1. Create a fake assignment object mimicking DB structure
