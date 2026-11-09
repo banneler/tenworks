@@ -8,6 +8,7 @@ import {
     SUPABASE_URL,
     SUPABASE_ANON_KEY,
     formatCurrency,
+    showToast,
     setupUserMenuAndAuth,
     loadSVGs,
     setupGlobalSearch,
@@ -138,9 +139,50 @@ function escapeAttr(s) {
     return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function blankPricingRow() {
+    return {
+        kind: 'item',
+        description: '',
+        qty: 1,
+        amount: '',
+        inventory_item_id: null,
+        sku: '',
+        unit: '',
+        hours: '',
+        rate: '',
+        task_name: ''
+    };
+}
+
+function rowLineTotal(row) {
+    if (!row) return 0;
+    if (row.kind === 'labor') {
+        const hours = Number(row.hours !== '' && row.hours != null ? row.hours : row.qty) || 0;
+        const rate = Number(row.rate !== '' && row.rate != null ? row.rate : row.amount) || 0;
+        return hours * rate;
+    }
+    return (Number(row.qty) || 0) * (Number(row.amount) || 0);
+}
+
+let inventoryCatalog = [];
+
+async function loadInventoryCatalog() {
+    const { data } = await supabase.from('inventory_items').select('id, sku, name, uom, cost_per_unit').order('name');
+    inventoryCatalog = data || [];
+    return inventoryCatalog;
+}
+
+function searchInventory(query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return [];
+    return inventoryCatalog.filter(item =>
+        (item.sku || '').toLowerCase().includes(q) || (item.name || '').toLowerCase().includes(q)
+    ).slice(0, 8);
+}
+
 function addLocationBlock(name = '') {
     const id = crypto.randomUUID();
-    state.locations.push({ id, name, rows: [{ description: '', qty: 1, amount: '' }] });
+    state.locations.push({ id, name, rows: [blankPricingRow()] });
     renderPricingLocations();
     return id;
 }
@@ -148,7 +190,7 @@ function addLocationBlock(name = '') {
 function addPricingRow(locationId) {
     const loc = state.locations.find(l => l.id === locationId);
     if (!loc) return;
-    loc.rows.push({ description: '', qty: 1, amount: '' });
+    loc.rows.push(blankPricingRow());
     renderPricingLocations();
 }
 
@@ -156,13 +198,17 @@ function removePricingRow(locationId, rowIndex) {
     const loc = state.locations.find(l => l.id === locationId);
     if (!loc || !loc.rows[rowIndex]) return;
     loc.rows.splice(rowIndex, 1);
-    if (loc.rows.length === 0) loc.rows.push({ description: '', qty: 1, amount: '' });
+    if (loc.rows.length === 0) loc.rows.push(blankPricingRow());
     renderPricingLocations();
 }
 
 function removeLocationBlock(locationId) {
     state.locations = state.locations.filter(l => l.id !== locationId);
     renderPricingLocations();
+}
+
+function pricingRow(loc, row) {
+    return state.locations.find(l => l.id === loc)?.rows?.[row];
 }
 
 function renderPricingLocations() {
@@ -173,17 +219,32 @@ function renderPricingLocations() {
         const block = document.createElement('div');
         block.className = 'bg-black/20 border border-white/20 p-4';
         block.dataset.locationId = loc.id;
-        const qtyVal = (r) => (r.qty !== undefined && r.qty !== '') ? r.qty : 1;
-        let rowsHtml = loc.rows.map((r, i) => {
-            const unit = parseFloat(r.amount) || 0;
-            const q = parseInt(qtyVal(r), 10) || 0;
-            const lineTotal = formatCurrency(unit * q);
+        const rowsHtml = loc.rows.map((r, i) => {
+            const labor = r.kind === 'labor';
+            const qtyShown = labor ? (r.hours !== '' && r.hours != null ? r.hours : (r.qty ?? '')) : ((r.qty !== undefined && r.qty !== '') ? r.qty : 1);
+            const priceShown = labor ? (r.rate !== '' && r.rate != null ? r.rate : (r.amount ?? '')) : (r.amount ?? '');
+            const linked = !labor && r.inventory_item_id
+                ? `<div class="text-xs text-[var(--primary-blue)] mt-1">Linked ${escapeHtml(r.sku || 'item')} <button type="button" class="pricing-unlink underline" data-loc-id="${loc.id}" data-row="${i}">clear</button></div>`
+                : '';
+            const picker = labor
+                ? `<input type="text" class="pricing-task mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(r.task_name || '')}" placeholder="Trade / task name (optional)">`
+                : `<input type="text" class="pricing-search mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" placeholder="Search inventory by SKU or name" autocomplete="off">
+                   <div class="pricing-matches" data-loc-id="${loc.id}" data-row="${i}"></div>
+                   ${linked}
+                   <input type="text" class="pricing-unit mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(r.unit || '')}" placeholder="Unit">`;
             return `
             <tr class="pricing-row" data-loc-id="${loc.id}" data-row="${i}">
-                <td class="pr-2 py-1"><input type="text" class="pricing-desc w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(r.description)}" placeholder="Description"></td>
-                <td class="pr-2 py-1 w-16"><input type="number" class="pricing-qty w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm text-center" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(String(qtyVal(r)))}" placeholder="1" min="1" step="1"></td>
-                <td class="pr-2 py-1 w-28"><input type="number" class="pricing-amt w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(r.amount)}" placeholder="0" step="0.01"></td>
-                <td class="py-1 w-24 text-right text-white/80 text-sm line-total">${lineTotal}</td>
+                <td class="pr-2 py-1">
+                    <select class="pricing-kind bg-black/30 border border-white/20 text-white py-1 px-2 text-xs" data-loc-id="${loc.id}" data-row="${i}">
+                        <option value="item" ${labor ? '' : 'selected'}>Item</option>
+                        <option value="labor" ${labor ? 'selected' : ''}>Labor</option>
+                    </select>
+                    ${picker}
+                    <input type="text" class="pricing-desc mt-1 w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(r.description)}" placeholder="${labor ? 'Labor description' : 'Description (free text is fine)'}">
+                </td>
+                <td class="pr-2 py-1 w-20"><input type="number" class="pricing-qty w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm text-center" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(String(qtyShown))}" placeholder="${labor ? 'Hours' : '1'}" min="0" step="${labor ? '0.5' : '1'}"></td>
+                <td class="pr-2 py-1 w-28"><input type="number" class="pricing-amt w-full bg-black/30 border border-white/20 text-white py-1.5 px-2 text-sm" data-loc-id="${loc.id}" data-row="${i}" value="${escapeAttr(priceShown)}" placeholder="${labor ? 'Rate' : 'Sell price'}" step="0.01"></td>
+                <td class="py-1 w-24 text-right text-white/80 text-sm line-total">${formatCurrency(rowLineTotal(r))}</td>
                 <td class="py-1 w-8"><button type="button" class="remove-row text-white/50 hover:text-red-400" data-loc-id="${loc.id}" data-row="${i}" aria-label="Remove"><i class="fas fa-times"></i></button></td>
             </tr>`;
         }).join('');
@@ -193,40 +254,107 @@ function renderPricingLocations() {
                 <button type="button" class="remove-location text-white/50 hover:text-red-500 text-sm" data-loc-id="${loc.id}" aria-label="Remove location"><i class="fas fa-trash"></i></button>
             </div>
             <table class="w-full text-sm">
-                <thead><tr><th class="text-left text-white/60 text-xs py-1">Description</th><th class="text-center text-white/60 text-xs py-1 w-16">Qty</th><th class="text-right text-white/60 text-xs py-1 w-28">Unit price</th><th class="text-right text-white/60 text-xs py-1 w-24">Line total</th><th class="w-8"></th></tr></thead>
+                <thead><tr><th class="text-left text-white/60 text-xs py-1">Description</th><th class="text-center text-white/60 text-xs py-1 w-20">Qty / hrs</th><th class="text-right text-white/60 text-xs py-1 w-28">Price / rate</th><th class="text-right text-white/60 text-xs py-1 w-24">Line total</th><th class="w-8"></th></tr></thead>
                 <tbody>${rowsHtml}</tbody>
             </table>
             <button type="button" class="add-row mt-2 text-sm text-white/70 hover:text-[var(--primary-blue)]" data-loc-id="${loc.id}"><i class="fas fa-plus mr-1"></i> Add row</button>`;
         container.appendChild(block);
     });
-    function refreshLineTotal(locId, rowIndex) {
-        const loc = state.locations.find(l => l.id === locId);
-        if (!loc?.rows?.[rowIndex]) return;
-        const r = loc.rows[rowIndex];
-        const unit = parseFloat(r.amount) || 0;
-        const q = parseInt(r.qty, 10) || 0;
-        const lineEl = container.querySelector(`tr.pricing-row[data-loc-id="${locId}"][data-row="${rowIndex}"] .line-total`);
-        if (lineEl) lineEl.textContent = formatCurrency(unit * q);
+    function refreshGrandTotal() {
+        const totalEl = document.getElementById('pricing-grand-total');
+        if (!totalEl) return;
+        const total = state.locations.reduce((sum, loc) => sum + (loc.rows || []).reduce((s, row) => s + rowLineTotal(row), 0), 0);
+        totalEl.textContent = `Proposal total: ${formatCurrency(total)}`;
     }
+    refreshGrandTotal();
+    function refreshLineTotal(locId, rowIndex) {
+        const row = pricingRow(locId, rowIndex);
+        const lineEl = container.querySelector(`tr.pricing-row[data-loc-id="${locId}"][data-row="${rowIndex}"] .line-total`);
+        if (lineEl && row) lineEl.textContent = formatCurrency(rowLineTotal(row));
+        refreshGrandTotal();
+    }
+    container.querySelectorAll('.pricing-kind').forEach(el => {
+        el.addEventListener('change', () => {
+            const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+            if (!row) return;
+            row.kind = el.value === 'labor' ? 'labor' : 'item';
+            if (row.kind === 'labor') {
+                row.inventory_item_id = null;
+                row.sku = '';
+                row.hours = row.hours || row.qty || '';
+                row.rate = row.rate || row.amount || '';
+            }
+            renderPricingLocations();
+        });
+    });
     container.querySelectorAll('.pricing-desc').forEach(el => {
         el.addEventListener('input', () => {
-            const loc = state.locations.find(l => l.id === el.dataset.locId);
-            const row = parseInt(el.dataset.row, 10);
-            if (loc?.rows?.[row]) loc.rows[row].description = el.value;
+            const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+            if (row) row.description = el.value;
+        });
+    });
+    container.querySelectorAll('.pricing-task').forEach(el => {
+        el.addEventListener('input', () => {
+            const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+            if (row) row.task_name = el.value;
+        });
+    });
+    container.querySelectorAll('.pricing-unit').forEach(el => {
+        el.addEventListener('input', () => {
+            const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+            if (row) row.unit = el.value;
         });
     });
     container.querySelectorAll('.pricing-qty').forEach(el => {
         el.addEventListener('input', () => {
-            const loc = state.locations.find(l => l.id === el.dataset.locId);
-            const row = parseInt(el.dataset.row, 10);
-            if (loc?.rows?.[row]) { loc.rows[row].qty = el.value; refreshLineTotal(el.dataset.locId, row); }
+            const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+            if (!row) return;
+            if (row.kind === 'labor') { row.hours = el.value; row.qty = el.value; }
+            else row.qty = el.value;
+            refreshLineTotal(el.dataset.locId, parseInt(el.dataset.row, 10));
         });
     });
     container.querySelectorAll('.pricing-amt').forEach(el => {
         el.addEventListener('input', () => {
-            const loc = state.locations.find(l => l.id === el.dataset.locId);
-            const row = parseInt(el.dataset.row, 10);
-            if (loc?.rows?.[row]) { loc.rows[row].amount = el.value; refreshLineTotal(el.dataset.locId, row); }
+            const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+            if (!row) return;
+            if (row.kind === 'labor') { row.rate = el.value; row.amount = el.value; }
+            else row.amount = el.value;
+            refreshLineTotal(el.dataset.locId, parseInt(el.dataset.row, 10));
+        });
+    });
+    container.querySelectorAll('.pricing-search').forEach(el => {
+        el.addEventListener('input', () => {
+            const matches = el.parentElement.querySelector('.pricing-matches');
+            if (!matches) return;
+            const found = searchInventory(el.value);
+            matches.innerHTML = found.map(item => `
+                <button type="button" class="pricing-pick block w-full text-left px-2 py-1 text-xs text-white hover:bg-white/10" data-id="${escapeAttr(item.id)}">
+                    ${escapeHtml(item.sku || '')} — ${escapeHtml(item.name || '')} (${escapeHtml(item.uom || 'ea')})
+                </button>`).join('');
+            matches.querySelectorAll('.pricing-pick').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const row = pricingRow(el.dataset.locId, parseInt(el.dataset.row, 10));
+                    const item = inventoryCatalog.find(entry => String(entry.id) === String(btn.dataset.id));
+                    if (!row || !item) return;
+                    row.kind = 'item';
+                    row.inventory_item_id = item.id;
+                    row.sku = item.sku || '';
+                    row.unit = item.uom || '';
+                    row.description = item.name || '';
+                    if (item.cost_per_unit != null) row.amount = String(item.cost_per_unit);
+                    renderPricingLocations();
+                });
+            });
+        });
+    });
+    container.querySelectorAll('.pricing-unlink').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const row = pricingRow(btn.dataset.locId, parseInt(btn.dataset.row, 10));
+            if (!row) return;
+            row.inventory_item_id = null;
+            row.sku = '';
+            renderPricingLocations();
         });
     });
     container.querySelectorAll('.location-name').forEach(el => {
@@ -556,11 +684,23 @@ function setPayload(data) {
             state.elementOrder = [...state.elementOrder, ...ELEMENT_OPTIONS.map(o => o.key).filter(k => !have.has(k))];
         }
     }
-    const norm = (r) => ({ description: r.description ?? '', qty: r.qty !== undefined && r.qty !== '' ? r.qty : 1, amount: r.amount ?? '' });
+    const norm = (r) => ({
+        ...blankPricingRow(),
+        kind: r.kind === 'labor' ? 'labor' : 'item',
+        description: r.description ?? '',
+        qty: r.qty !== undefined && r.qty !== '' ? r.qty : 1,
+        amount: r.amount ?? '',
+        inventory_item_id: r.inventory_item_id ?? null,
+        sku: r.sku ?? '',
+        unit: r.unit ?? '',
+        hours: r.hours ?? '',
+        rate: r.rate ?? '',
+        task_name: r.task_name ?? ''
+    });
     if (Array.isArray(data.locations) && data.locations.length) {
-        state.locations = data.locations.map(l => ({ id: l.id || crypto.randomUUID(), name: l.name || '', rows: (l.rows && l.rows.length) ? l.rows.map(norm) : [{ description: '', qty: 1, amount: '' }] }));
+        state.locations = data.locations.map(l => ({ id: l.id || crypto.randomUUID(), name: l.name || '', rows: (l.rows && l.rows.length) ? l.rows.map(norm) : [blankPricingRow()] }));
     } else {
-        state.locations = [{ id: crypto.randomUUID(), name: '', rows: [{ description: '', qty: 1, amount: '' }] }];
+        state.locations = [{ id: crypto.randomUUID(), name: '', rows: [blankPricingRow()] }];
     }
     if (data.scope_finishes) {
         state.scopeFinishes = { narrative: data.scope_finishes.narrative ?? '', materials: Array.isArray(data.scope_finishes.materials) ? data.scope_finishes.materials.map(m => ({ name: m.name ?? '', finish: m.finish ?? '' })) : [] };
@@ -600,7 +740,7 @@ async function prefillFromDeal(dealId) {
     }
     document.getElementById('global-biz').value = clientName;
     const amount = deal.mrc ?? deal.amount ?? 0;
-    state.locations = [{ id: crypto.randomUUID(), name: deal.name || deal.deal_name || '', rows: [{ description: deal.products || 'Project services', qty: 1, amount: amount ? String(amount) : '' }] }];
+    state.locations = [{ id: crypto.randomUUID(), name: deal.name || deal.deal_name || '', rows: [{ ...blankPricingRow(), description: deal.products || 'Project services', qty: 1, amount: amount ? String(amount) : '' }] }];
     renderPricingLocations();
     updateReadiness();
 }
@@ -620,8 +760,8 @@ async function prefillFromProject(projectId) {
     const { data: tasks } = await supabase.from('project_tasks').select('name, start_date, end_date, estimated_hours').eq('project_id', projectId).order('start_date');
     const { data: bom } = await supabase.from('project_bom').select('*, inventory_items(name, sku)').eq('project_id', projectId);
     const rows = (tasks && tasks.length > 0)
-        ? tasks.map(t => ({ description: t.name || 'Task', qty: 1, amount: t.estimated_hours ? String(Math.round((t.estimated_hours || 0) * 125)) : '' }))
-        : [{ description: project.description || 'Project scope', qty: 1, amount: project.project_value ? String(project.project_value) : '' }];
+        ? tasks.map(t => ({ ...blankPricingRow(), description: t.name || 'Task', qty: 1, amount: t.estimated_hours ? String(Math.round((t.estimated_hours || 0) * 125)) : '' }))
+        : [{ ...blankPricingRow(), description: project.description || 'Project scope', qty: 1, amount: project.project_value ? String(project.project_value) : '' }];
     state.locations = [{ id: crypto.randomUUID(), name: project.name || '', rows }];
     state.projectTimeline = (tasks || []).map(t => ({
         taskName: t.name || '',
@@ -733,7 +873,7 @@ async function exportPdf(showPreview = true) {
         const rep = document.getElementById('sales-rep')?.value?.trim() || '';
         const projectStart = document.getElementById('project-start')?.value?.trim() || '';
         const projectComplete = document.getElementById('project-complete')?.value?.trim() || '';
-        const lineTotalFn = (r) => (parseFloat(r.amount) || 0) * (parseInt(r.qty, 10) || 0);
+        const lineTotalFn = rowLineTotal;
         const grandTotal = state.locations.reduce((sum, l) => sum + (l.rows || []).reduce((s, r) => s + lineTotalFn(r), 0), 0);
         const grandTotalText = formatCurrency(grandTotal);
         const fullWidth = 540;
@@ -917,11 +1057,14 @@ async function exportPdf(showPreview = true) {
                     <div style="background:#ffffff;">
                 `;
                 (loc.rows || []).forEach((r, rowIndex) => {
-                    const unit = parseFloat(r.amount) || 0;
-                    const q = parseInt(r.qty, 10) || 0;
-                    const line = unit * q;
+                    const labor = r.kind === 'labor';
+                    const desc = labor ? (r.task_name || r.description || 'Labor') : (r.description || '—');
+                    const unitLabel = !labor && r.unit ? ` (${r.unit})` : '';
+                    const unit = labor ? (Number(r.rate !== '' && r.rate != null ? r.rate : r.amount) || 0) : (Number(r.amount) || 0);
+                    const q = labor ? (Number(r.hours !== '' && r.hours != null ? r.hours : r.qty) || 0) : (Number(r.qty) || 0);
+                    const line = rowLineTotal(r);
                     const rowBg = rowIndex % 2 === 0 ? '#ffffff' : zebraLight;
-                    html += `<div style="display:flex;padding:10px 16px;border-bottom:1px solid ${tableRowBorder};color:#1F2329;background:${rowBg};"><div style="flex:1;">${escapeHtml(r.description || '—')}</div><div style="width:70px;text-align:center;">${q}</div><div style="width:100px;text-align:right;">${formatCurrency(unit)}</div><div style="width:110px;text-align:right;">${formatCurrency(line)}</div></div>`;
+                    html += `<div style="display:flex;padding:10px 16px;border-bottom:1px solid ${tableRowBorder};color:#1F2329;background:${rowBg};"><div style="flex:1;">${escapeHtml(desc + unitLabel)}</div><div style="width:70px;text-align:center;">${q}</div><div style="width:100px;text-align:right;">${formatCurrency(unit)}</div><div style="width:110px;text-align:right;">${formatCurrency(line)}</div></div>`;
                 });
                 html += `
                     </div>
@@ -1245,7 +1388,7 @@ async function saveProposal() {
             return;
         }
         try { localStorage.removeItem('tw_proposal_draft'); } catch (_) {}
-        alert('Proposal updated.');
+        showToast('Proposal updated.', 'success');
     } else {
         const { data, error } = await supabase.from('proposals_tw').insert(row).select('id').single();
         if (error) {
@@ -1254,23 +1397,35 @@ async function saveProposal() {
         }
         state.currentProposalId = data.id;
         try { localStorage.removeItem('tw_proposal_draft'); } catch (_) {}
-        alert('Proposal saved.');
+        showToast('Proposal saved.', 'success');
     }
+    await syncLinkedDealValue(payload);
     await refreshLoadSelect();
+}
+
+function proposalGrandTotal(payload) {
+    return (payload?.locations || []).reduce((sum, loc) => sum + (loc.rows || []).reduce((s, row) => s + rowLineTotal(row), 0), 0);
+}
+
+async function syncLinkedDealValue(payload) {
+    if (!state.dealId) return;
+    const value = Math.round(proposalGrandTotal(payload) * 100) / 100;
+    const { error } = await supabase.from('deals_tw').update({ value }).eq('id', state.dealId);
+    if (error) showToast('Proposal saved, but the deal value did not update: ' + error.message, 'error');
 }
 
 function saveToLocalFallback(payload, serverError = null) {
     try {
         localStorage.setItem('tw_proposal_draft', JSON.stringify({ ...payload, updated_at: new Date().toISOString() }));
     } catch (e) {
-        alert('Save failed: ' + e.message);
+        showToast('Save failed: ' + e.message, 'error');
         refreshLoadSelect();
         return;
     }
     const msg = serverError
         ? `Could not save to server (${serverError.code || 'error'}). Your proposal was saved locally as a backup.`
         : 'Saved locally.';
-    alert(msg);
+    showToast(msg, serverError ? 'error' : 'success');
     refreshLoadSelect();
 }
 
@@ -1332,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!user) { hideGlobalLoader(); window.location.href = 'index.html'; return; }
         state.currentUser = user;
         await setupUserMenuAndAuth(supabase, { currentUser: user });
+        await loadInventoryCatalog();
         await setupGlobalSearch(supabase, user);
 
         const params = new URLSearchParams(window.location.search);
@@ -1353,6 +1509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (state.locations.length === 0) {
             addLocationBlock('');
         }
+        renderProjectTimeline();
 
     updateShareStatusLinkVisibility();
 

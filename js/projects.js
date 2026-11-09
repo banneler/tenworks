@@ -241,7 +241,9 @@ function renderProjectList() {
 
     let filtered = state.projects.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search);
-        const matchesValue = !state.hideZeroValue || (p.project_value > 0);
+        let pinnedId = null;
+        try { pinnedId = sessionStorage.getItem('tw-show-project'); } catch (_) {}
+        const matchesValue = !state.hideZeroValue || Number(p.project_value) > 0 || (pinnedId && String(p.id) === String(pinnedId));
         return matchesSearch && matchesValue;
     });
     if (urlFilter === 'overdue') filtered = filtered.filter(p => state.overdueProjectIds.has(p.id));

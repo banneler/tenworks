@@ -723,7 +723,8 @@ export function setupModalListeners() {
 
 
 // --- TOAST NOTIFICATIONS (Phase 5 — Constellation-V transplant) ---
-export function showToast(message, type = 'success') {
+export function showToast(message, type = 'success', options) {
+    const sticky = !!(options && options.sticky);
     let toastContainer = document.getElementById('toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -733,15 +734,25 @@ export function showToast(message, type = 'success') {
     }
 
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    toast.className = `toast toast-${type}${sticky ? ' toast-sticky' : ''}`;
     toast.setAttribute('role', 'status');
     toast.innerHTML = `<span>${message}</span>`;
-    toastContainer.appendChild(toast);
-
-    setTimeout(() => {
+    const dismiss = () => {
         toast.classList.add('hide');
         toast.addEventListener('transitionend', () => toast.remove());
-    }, 4000);
+    };
+    if (sticky) {
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'toast-dismiss';
+        close.setAttribute('aria-label', 'Dismiss');
+        close.textContent = '×';
+        close.addEventListener('click', dismiss);
+        toast.appendChild(close);
+    } else {
+        setTimeout(dismiss, 4000);
+    }
+    toastContainer.appendChild(toast);
 }
 
 export function showActionSuccess(actionLabel, detail = '') {

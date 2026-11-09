@@ -500,7 +500,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             deal[field] = updateVal;
             if (field === 'account_id') deal.account_name = updateVal ? state.accounts.find((a) => a.id === updateVal)?.name || 'N/A' : 'N/A';
             if (field === 'stage' && isWonStage(updateVal)) {
-                showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success');
+                showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success', { sticky: true });
             }
             renderDealsPage();
             if (field === 'stage' || field === 'value') refreshDealCharts();
@@ -733,7 +733,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 wrap.classList.remove('open');
                 document.removeEventListener('click', closeFan);
                 if (isWonStage(newStage)) {
-                    showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success');
+                    showToast(`Sold — <a href="projects.html?launch_deal_id=${dealId}" style="color:inherit;text-decoration:underline;font-weight:600;">Launch Project</a>`, 'success', { sticky: true });
                 }
                 refreshDealCharts();
                 const column = card.closest('.kanban-column');
