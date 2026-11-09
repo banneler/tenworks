@@ -20,7 +20,7 @@ export async function openSharedProjectLaunchModal({
         return false;
     }
     if (!deals || deals.length === 0) {
-        showToast("No deals found in 'deals_tw' table.", 'error');
+        showToast("No deals yet. Create a deal and mark it Sold to launch a project.", 'error');
         return false;
     }
 

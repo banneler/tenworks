@@ -755,7 +755,7 @@ if (typeof window !== 'undefined') {
 export function showWelcomeTour(fullName, user) {
     const key = `tw-welcome-tour-done:${user?.id || 'anon'}`;
     try { if (localStorage.getItem(key) === '1' || user?.user_metadata?.tw_tour_done) return; } catch (e) {}
-    const first = String(fullName || '').split(' ')[0].replace(/[<>&"']/g, '');
+    const first = String(fullName || '').trim().replace(/\s+/g, ' ').replace(/[<>&"']/g, '');
     const items = [
         ['fa-industry', 'The Shop', 'shop.html', "Today's load, overdue jobs and what needs attention."],
         ['fa-calendar-alt', 'Schedule', 'schedule.html', 'Drag tasks across the shop timeline by trade or machine.'],

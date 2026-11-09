@@ -138,10 +138,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }, 3000);
             }
         }
-        if (isLoginMode) {
-             authSubmitBtn.disabled = false;
-             authSubmitBtn.textContent = "Login";
-        }
+        // Always re-enable the button (sign-up previously stayed stuck on "Signing up..." / disabled).
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.textContent = isLoginMode ? "Login" : "Sign Up";
     });
 
     resetForm.addEventListener("submit", async (e) => {
