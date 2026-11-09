@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div class="settings-list-item">
                 <div>
                     <div class="settings-list-item-title">${t.name}</div>
-                    <div class="settings-list-item-meta">$${t.default_hourly_rate}/hr</div>
+                    <div class="settings-list-item-meta">$${t.default_hourly_rate == null || t.default_hourly_rate === '' ? 0 : t.default_hourly_rate}/hr</div>
                 </div>
                 <div class="settings-actions">
                     <button class="btn-secondary btn-icon-only" onclick="window.editTrade(${t.id})" title="Edit"><i class="fas fa-pen"></i></button>
@@ -170,7 +170,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </div>
                 <div>
                     <label>Default Hourly Rate ($)</label>
-                    <input type="number" id="modal-tr-rate" class="form-control" value="${existing ? existing.default_hourly_rate : 0}">
+                    <input type="number" id="modal-tr-rate" class="form-control" min="0" step="0.01" value="${existing && existing.default_hourly_rate != null && existing.default_hourly_rate !== '' ? existing.default_hourly_rate : 0}">
                 </div>
             </div>
         `, async (modalBody) => {
