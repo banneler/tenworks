@@ -1,3 +1,7 @@
+-- APPLIED VERSION (2026-11-09 executor): set_reporting_status parameter kept as live name
+-- exclude_status (renaming fails CREATE OR REPLACE), set_user_metadata_admin lookup fixed
+-- (identity args include parameter names, so the PR's string match never found it),
+-- and deactivate_user locked to is_admin().
 -- Admin is an app_metadata claim, not something a user can set on themselves.
 -- Copies only the is_admin key (and the existing exclude_from_reporting key,
 -- so that reporting flag keeps its current value when writers move to
@@ -135,7 +139,7 @@ begin
   if to_regprocedure('public.set_reporting_status(uuid,boolean)') is not null then
     begin
       execute $fn$
-        create or replace function public.set_reporting_status(target_user_id uuid, exclude_from_reporting boolean)
+        create or replace function public.set_reporting_status(target_user_id uuid, exclude_status boolean)
         returns void
         language plpgsql
         security definer
@@ -147,7 +151,7 @@ begin
           end if;
           update auth.users
           set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
-            || jsonb_build_object('exclude_from_reporting', coalesce(exclude_from_reporting, false))
+            || jsonb_build_object('exclude_from_reporting', coalesce(exclude_status, false))
           where id = target_user_id;
         end;
         $body$;
@@ -166,7 +170,7 @@ begin
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public'
     and p.proname = 'set_user_metadata_admin'
-    and pg_get_function_identity_arguments(p.oid) = 'uuid, boolean, boolean';
+    and p.oid = to_regprocedure('public.set_user_metadata_admin(uuid,boolean,boolean)');
 
   if found then
     if argnames is null or cardinality(argnames) < 3 then
@@ -365,4 +369,37 @@ begin
     raise notice 'policy %.% still reads user metadata: using [%] check [%]',
       r.relname, r.polname, r.using_expr, r.check_expr;
   end loop;
+end $$;
+
+-- Added at apply time: deactivate_user decided admin from user-editable JWT
+-- user_metadata and was executable by anon. Gate it on public.is_admin().
+do $$
+begin
+  if to_regprocedure('public.deactivate_user(uuid)') is not null then
+    execute $fn$
+      create or replace function public.deactivate_user(target_user_id uuid)
+      returns text
+      language plpgsql
+      security definer
+      set search_path = ''
+      as $body$
+      declare
+        admin_id uuid := auth.uid();
+      begin
+        if coalesce(public.is_admin(), false) is not true then
+          raise exception 'Permission denied: You must be an admin to deactivate users.' using errcode = '42501';
+        end if;
+        if admin_id = target_user_id then
+          raise exception 'Admins cannot deactivate their own account.';
+        end if;
+        update auth.users
+        set raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || '{"deactivated": true}'::jsonb
+        where id = target_user_id;
+        return 'User successfully deactivated.';
+      end;
+      $body$;
+    $fn$;
+    execute 'revoke all on function public.deactivate_user(uuid) from public, anon';
+    execute 'grant execute on function public.deactivate_user(uuid) to authenticated';
+  end if;
 end $$;
