@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         openTalentModal(t);
     };
 
-    document.getElementById('btn-add-talent').addEventListener('click', () => openTalentModal());
+    document.getElementById('btn-add-talent')?.addEventListener('click', () => openTalentModal());
 
     function openTalentModal(existing = null) {
         const title = existing ? 'Edit Talent' : 'Add Talent';
