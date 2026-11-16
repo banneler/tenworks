@@ -39,7 +39,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         dealsSortDir: "asc",
         currentView: 'list',
         showClosedLost: false,
-        allUsersQuotas: [],
         dealsByStageChart: null,
         dealsByTimeChart: null,
         dealsByElementChart: null,
@@ -61,8 +60,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const metricClosedWon = document.getElementById("metric-closed-won");
     const metricCurrentCommitTitle = document.getElementById("metric-current-commit-title");
     const metricBestCaseTitle = document.getElementById("metric-best-case-title");
-    const commitTotalQuota = document.getElementById("commit-total-quota");
-    const bestCaseTotalQuota = document.getElementById("best-case-total-quota");
 
     // Selectors for view toggle and containers
     const listViewContainer = document.getElementById('list-view-container');
@@ -106,10 +103,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dealsQuery = supabase.from("deals_tw").select("*");
         const accountsQuery = supabase.from("accounts").select("*");
         const dealStagesQuery = supabase.from("deal_stages").select("stage_name, sort_order").order('sort_order');
-        const allQuotasQuery = supabase.from("user_quotas").select("monthly_quota");
 
-        const promises = [dealsQuery, accountsQuery, dealStagesQuery, allQuotasQuery];
-        const allTableNames = ["deals", "accounts", "dealStages", "allUsersQuotas"];
+        const promises = [dealsQuery, accountsQuery, dealStagesQuery];
+        const allTableNames = ["deals", "accounts", "dealStages"];
         
         try {
             const results = await Promise.allSettled(promises);
@@ -923,13 +919,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             metricCurrentCommitTitle.textContent = "Committed Work";
             metricBestCaseTitle.textContent = "Likely Work";
         }
-        const effectiveMonthlyQuota = (state.allUsersQuotas || []).reduce((sum, quota) => sum + (Number(quota.monthly_quota) || 0), 0);
-        if (commitTotalQuota && bestCaseTotalQuota) {
-            commitTotalQuota.textContent = formatCurrency(effectiveMonthlyQuota);
-            bestCaseTotalQuota.textContent = formatCurrency(effectiveMonthlyQuota);
-            commitTotalQuota.classList.remove('hidden');
-            bestCaseTotalQuota.classList.remove('hidden');
-        }
         const currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
         let currentCommit = 0, bestCase = 0, closedWon = 0;
         
@@ -962,11 +951,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         metricBestCase.textContent = formatCurrencyK(bestCase);
         metricFunnel.textContent = formatCurrencyK(totalFunnel);
         metricClosedWon.textContent = formatCurrencyK(closedWon);
-        
-        const commitPercentage = effectiveMonthlyQuota > 0 ? ((currentCommit / effectiveMonthlyQuota) * 100).toFixed(1) : 0;
-        const bestCasePercentage = effectiveMonthlyQuota > 0 ? ((bestCase / effectiveMonthlyQuota) * 100).toFixed(1) : 0;
-        document.getElementById("commit-quota-percent").textContent = `${commitPercentage}%`;
-        document.getElementById("best-case-quota-percent").textContent = `${bestCasePercentage}%`;
     };
 
     async function handleCommitDeal(dealId, isCommitted) {

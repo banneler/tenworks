@@ -267,7 +267,7 @@ async function loadContentData() {
 }
 
 async function loadAnalyticsData() {
-    const tablesToFetch = ['activities', 'contact_sequences', 'campaigns', 'tasks', 'deals_tw'];
+    const tablesToFetch = ['activities', 'contact_sequences', 'tasks', 'deals_tw'];
     
     const { data: users, error: userError } = await supabase.from('admin_users_view').select('*');
     if(userError) {
@@ -430,7 +430,6 @@ function renderAnalyticsDashboard() {
     
     const activities = filterDataByCreationDate(state.analyticsData.activities, 'date');
     const sequences = filterDataByCreationDate(state.analyticsData.contact_sequences, 'last_completed_date');
-    const campaigns = filterDataByCreationDate(state.analyticsData.campaigns, 'completed_at');
     const tasks = filterTasks(state.analyticsData.tasks);
     const newDeals = filterDataByCreationDate(state.analyticsData.deals, 'created_at');
     const closedWonDeals = state.analyticsData.deals.filter(d => {
@@ -461,7 +460,6 @@ function renderAnalyticsDashboard() {
 
     document.getElementById('activities-metric').textContent = activities.length;
     document.getElementById('sequences-metric').textContent = sequences.length;
-    document.getElementById('campaigns-metric').textContent = campaigns.length;
     document.getElementById('tasks-metric').textContent = tasks.length;
     document.getElementById('new-deals-metric').textContent = newDeals.length;
     document.getElementById('new-deals-value-metric').textContent = formatCurrencyK(newDeals.reduce((s, d) => s + (d.mrc || 0), 0));
@@ -469,7 +467,6 @@ function renderAnalyticsDashboard() {
 
     renderChart('activities-chart', groupByUser(activities), false);
     renderChart('sequences-chart', groupByUser(sequences), false);
-    renderChart('campaigns-chart', groupByUser(campaigns), false);
     renderChart('tasks-chart', groupByUser(tasks), false);
     renderChart('new-deals-chart', groupByUser(newDeals), false);
     renderChart('new-deals-value-chart', groupByUser(newDeals, 'mrc'), true);
