@@ -1,0 +1,11 @@
+# The site is served from the repo root. Keep internal files off the public URL.
+docs/
+supabase/
+scripts/
+tests/
+proposal_templates/
+*.md
+*.code-workspace
+verify_contracts.sh
+package.json
+package-lock.json
