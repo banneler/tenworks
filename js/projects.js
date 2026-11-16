@@ -23,7 +23,7 @@ const TRADE_COLORS = {
     1: '#546E7A', 2: '#1E88E5', 3: '#D4AF37', 4: '#8D6E63', 5: '#66BB6A', 6: '#7E57C2'
 };
 
-const DEFAULT_LABOR_RATE = 75; // $/hr for job cost summary
+const DEFAULT_LABOR_RATE = 75; // last-resort $/hr when a person and trade have no cost rate
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
 const DAYS_AT_RISK = 14;
@@ -222,9 +222,15 @@ async function loadProjectDetails(projectId) {
         ...state.tasks.map(t => t.assigned_talent_id)
     ].filter(id => id != null))];
     if (talentIds.length) {
-        const { data: talentRows } = await supabase.from('shop_talent').select('id, name').in('id', talentIds);
+        const { data: talentRows } = await supabase.from('shop_talent').select('id, name, cost_rate').in('id', talentIds);
         state.shopTalent = talentRows || [];
     }
+    const [{ data: tradeRows }, { data: skillRows }] = await Promise.all([
+        supabase.from('shop_trades').select('id, default_cost_rate'),
+        supabase.from('talent_skills').select('talent_id, trade_id, is_primary')
+    ]);
+    state.costTrades = tradeRows || [];
+    state.costSkills = skillRows || [];
     state.contacts = contactsRes.data || [];
     state.notes = notesRes.data || [];
     state.files = (filesRes.data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
@@ -402,7 +408,8 @@ function renderDetailView() {
     document.getElementById('kpi-act').textContent = formatHours(totalAct);
     document.getElementById('kpi-progress').textContent = `${progress}%`;
 
-    const laborCost = totalAct * DEFAULT_LABOR_RATE;
+    const labor = laborCostFromCrew(totalAct);
+    const laborCost = labor.cost;
     const materialCost = (state.bom || []).reduce((sum, row) => {
         const inv = row.inventory_items || {};
         const qty = Number(row.qty_allocated ?? row.qty_required) || 0;
@@ -413,7 +420,7 @@ function renderDetailView() {
     const laborEl = document.getElementById('job-cost-labor');
     const materialEl = document.getElementById('job-cost-material');
     const totalEl = document.getElementById('job-cost-total');
-    if (laborEl) laborEl.textContent = `Labor (${formatHours(totalAct)} hrs × $${DEFAULT_LABOR_RATE}/hr): ${formatCurrency(laborCost)}`;
+    if (laborEl) laborEl.textContent = `Labor (${formatHours(labor.hours)} hrs × ${labor.label}): ${formatCurrency(laborCost)}`;
     if (materialEl) materialEl.textContent = `Material (BOM): ${formatCurrency(materialCost)}`;
     if (totalEl) totalEl.textContent = `Total cost: ${formatCurrency(totalCost)}`;
 
@@ -640,6 +647,39 @@ function assigneeNamesForTask(task) {
 
 function tradeNameById(id) {
     return state.trades.find(t => String(t.id) === String(id))?.name || '';
+}
+
+function costRateForTalent(talentId, task) {
+    const person = (state.shopTalent || []).find(item => String(item.id) === String(talentId));
+    const explicit = Number(person?.cost_rate);
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const skills = (state.costSkills || []).filter(skill => String(skill.talent_id) === String(talentId));
+    const primary = skills.find(skill => skill.is_primary) || skills.find(skill => task && String(skill.trade_id) === String(task.trade_id)) || skills[0];
+    const trade = primary && (state.costTrades || []).find(item => String(item.id) === String(primary.trade_id));
+    const tradeCost = Number(trade?.default_cost_rate);
+    if (Number.isFinite(tradeCost) && tradeCost > 0) return tradeCost;
+    return DEFAULT_LABOR_RATE;
+}
+
+function laborCostFromCrew(actualHours) {
+    let cost = 0;
+    let hours = 0;
+    const rates = new Set();
+    for (const task of state.tasks || []) {
+        const rows = (state.taskAssignments || []).filter(row => String(row.task_id) === String(task.id));
+        for (const row of rows) {
+            const booked = bookedAssignmentHours(row, task);
+            const rate = costRateForTalent(row.talent_id, task);
+            cost += booked * rate;
+            hours += booked;
+            rates.add(rate);
+        }
+    }
+    if (hours <= 0) {
+        return { cost: actualHours * DEFAULT_LABOR_RATE, hours: actualHours, label: `$${DEFAULT_LABOR_RATE}/hr` };
+    }
+    const label = rates.size === 1 ? `$${[...rates][0]}/hr` : 'crew rates';
+    return { cost, hours, label };
 }
 
 function bookedAssignmentHours(row, task) {

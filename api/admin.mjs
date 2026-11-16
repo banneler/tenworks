@@ -14,7 +14,7 @@ export async function POST(req) {
   let b; try { b = await req.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
   const action = b.action || 'update-user';
   if (action !== 'update-user') return json({ error: `Unknown action: ${action}` }, 400);
-  const { target_user_id, full_name, monthly_quota, exclude_from_reporting } = b;
+  const { target_user_id, full_name, monthly_quota, exclude_from_reporting, role } = b;
   if (!target_user_id) return json({ error: 'target_user_id is required' }, 400);
   const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   try {
@@ -24,6 +24,7 @@ export async function POST(req) {
     const appMeta = { ...(got.user.app_metadata || {}) };
     if (full_name !== undefined) userMeta.full_name = full_name;
     if (typeof exclude_from_reporting === 'boolean') appMeta.exclude_from_reporting = exclude_from_reporting;
+    if (role === 'admin' || role === 'ops' || role === 'crew') appMeta.role = role;
     const { error: uErr } = await admin.auth.admin.updateUserById(target_user_id, {
       user_metadata: userMeta,
       app_metadata: appMeta

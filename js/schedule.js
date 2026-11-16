@@ -493,7 +493,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             rowEl.style.backgroundColor = rowBackground; 
             
             if (state.currentView === 'resource') {
-                rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role">$${rowItem.default_hourly_rate}/hr</div>`;
+                const billRate = rowItem.bill_rate != null && rowItem.bill_rate !== '' ? rowItem.bill_rate : rowItem.default_hourly_rate;
+                rowEl.innerHTML = `<div class="resource-name">${rowItem.name}</div><div class="resource-role">$${billRate ?? 0}/hr</div>`;
             } else if (state.currentView === 'machine') {
                 // Machine Sidebar
                 const statusClass = rowItem.status === 'Operational' ? 'schedule-status-operational' : 'schedule-status-down';

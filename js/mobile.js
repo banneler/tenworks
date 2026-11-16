@@ -154,7 +154,8 @@ async function loadData() {
         state.team = talent || [];
         
         const fullName = state.user?.user_metadata?.full_name || '';
-        state.talentRecord = state.team.find(t => t.name.toLowerCase() === fullName.toLowerCase());
+        state.talentRecord = state.team.find(t => t.auth_user_id && String(t.auth_user_id) === String(state.user.id))
+            || state.team.find(t => t.name.toLowerCase() === fullName.toLowerCase());
 
         // 2. Fetch Tasks & Assignments for Today
         const todayStr = dayjs().format('YYYY-MM-DD');

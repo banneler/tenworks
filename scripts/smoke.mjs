@@ -6,7 +6,7 @@
 // and auth-gated without spending AI quota.
 const BASE = (process.argv[2] || process.env.SMOKE_BASE || 'https://tenworks.vercel.app').replace(/\/$/, '');
 const PAGES = ['index','command-center','projects','proposals','schedule','shop','shop-dashboard','shop-settings',
-  'inventory','talent','deals','accounts','contacts','sequences','social_hub','cognito','admin',
+  'inventory','talent','people','deals','accounts','contacts','sequences','social_hub','cognito','admin',
   'ai-admin','mobile','status','reset-password','sales'];
 const AI = ['custom-user-social-post','extract-contact-info','generate-custom-suggestion','generate-prospect-email',
   'generate-sequence-steps','generate-social-post','get-account-briefing','get-activity-insight',

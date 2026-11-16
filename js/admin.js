@@ -346,6 +346,7 @@ function renderUserTable() {
                 <td><input type="text" class="form-control user-name-input" value="${user.full_name || ''}"></td>
                 <td>${user.email || 'N/A'}</td>
                 <td>${user.last_login ? formatDate(user.last_login) : 'Never'}</td>
+                <td><select class="form-control user-role-select">${['admin', 'ops', 'crew'].map(role => `<option value="${role}" ${(user.role || 'crew') === role ? 'selected' : ''}>${role}</option>`).join('')}</select></td>
                 <td><input type="checkbox" class="exclude-reporting-checkbox" ${user.exclude_from_reporting ? 'checked' : ''}></td>
                 <td class="action-buttons">${deactivateBtn}<button class="btn-primary btn-sm save-user-btn">Save</button></td>
             </tr>`;
@@ -571,7 +572,8 @@ async function handleSaveUser(e) {
             body: {
                 target_user_id: userId,
                 full_name: fullName,
-                exclude_from_reporting: excludeReportingStatus
+                exclude_from_reporting: excludeReportingStatus,
+                role: row.querySelector('.user-role-select')?.value || 'crew'
             }
         });
 
